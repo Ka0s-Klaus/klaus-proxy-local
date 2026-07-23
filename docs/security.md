@@ -3,16 +3,20 @@
 ## 🤔 ¿Qué hago? ¿Cómo lo hago? ¿Y para qué lo hago?
 
 ### ¿Qué hago?
+
 Documenta la postura de seguridad del repositorio: qué mecanismos automáticos protegen el código, las dependencias y el proceso de contribución.
 
 ### ¿Cómo lo hago?
+
 Mediante cuatro capas de defensa configuradas en GitHub:
+
 1. **CodeQL** — análisis estático de vulnerabilidades en el código fuente
 2. **Dependabot** — actualización automática de dependencias vulnerables
 3. **CODEOWNERS + Ruleset** — control de acceso y revisión obligatoria
 4. **SECURITY.md** — proceso de reporte responsable de vulnerabilidades
 
 ### ¿Y para qué lo hago?
+
 Un proxy que intermedia tráfico de API keys de Anthropic es un objetivo de alto valor. La seguridad no es opcional: una vulnerabilidad en las dependencias o en el código puede exponer las keys de todos los usuarios del proxy.
 
 ---
@@ -85,20 +89,20 @@ Los patches de dependencias de producción (`httpx`, `fastapi`, `uvicorn`, `anth
 
 ## 👤 CODEOWNERS y Ruleset
 
-```
+```text
 # CODEOWNERS
-* @asantacana1970
-* @Ka0s-Klaus/maintainers
-.github/workflows/ @asantacana1970
+* @asantacana1970 @Ka0s-Klaus/ka0s-owners
+.github/workflows/ @asantacana1970 @Ka0s-Klaus/ka0s-owners
 SECURITY.md @asantacana1970
 ```
 
-El **Repository Ruleset `#19607608 "Protect main"`** impone:
+El **Repository Ruleset "Protect main"** impone:
 
 | Regla | Valor |
 | --- | --- |
 | PR obligatoria | ✅ Sí |
-| Reviewers requeridos | 1 (+ CODEOWNER aprobación) |
+| Reviewers requeridos | 0 — CI checks son la barrera de calidad |
+| Bypass actors | Rol `admin` del repositorio (permite al owner mergear en flujo en solitario) |
 | Required status checks | Lint, Test (3.10), Test (3.11), Test (3.12) |
 | Force push | ❌ Prohibido |
 | Delete branch main | ❌ Prohibido |
