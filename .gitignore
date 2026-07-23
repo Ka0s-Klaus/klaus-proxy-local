@@ -216,3 +216,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# === Secrets & credenciales locales ===
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+credentials/
+
+# === K* workspace (nunca commitear) ===
+CLAUDE.md
+.claude/
