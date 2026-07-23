@@ -1,0 +1,14 @@
+# CODEOWNERS — Ka0s-Klaus/klaus-proxy-local
+#
+# Los propietarios listados aquí son requeridos como reviewers
+# en cualquier PR que modifique los archivos correspondientes.
+# Documentación: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Propietario por defecto de todo el repositorio
+* @asantacana1970
+
+# Workflows CI/CD — revisión obligatoria de cualquier cambio
+.github/workflows/ @asantacana1970
+
+# Configuración de seguridad
+SECURITY.md @asantacana1970
