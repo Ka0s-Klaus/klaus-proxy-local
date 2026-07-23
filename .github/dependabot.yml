@@ -13,7 +13,16 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     ignore:
-      - dependency-name: "*"
+      # Solo ignorar patches de herramientas de desarrollo — los patches de deps
+      # de producción (httpx, fastapi, anthropic, uvicorn) fluyen automáticamente
+      # porque pueden contener fixes de seguridad críticos (OWASP A06).
+      - dependency-name: "ruff"
+        update-types: ["version-update:semver-patch"]
+      - dependency-name: "black"
+        update-types: ["version-update:semver-patch"]
+      - dependency-name: "pytest"
+        update-types: ["version-update:semver-patch"]
+      - dependency-name: "pytest-cov"
         update-types: ["version-update:semver-patch"]
 
   - package-ecosystem: "github-actions"

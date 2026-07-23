@@ -4,11 +4,11 @@
 # en cualquier PR que modifique los archivos correspondientes.
 # Documentación: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# Propietario por defecto de todo el repositorio
-* @asantacana1970
+# Propietario por defecto — lead + equipo de owners (evita SPOF)
+* @asantacana1970 @Ka0s-Klaus/ka0s-owners
 
 # Workflows CI/CD — revisión obligatoria de cualquier cambio
-.github/workflows/ @asantacana1970
+.github/workflows/ @asantacana1970 @Ka0s-Klaus/ka0s-owners
 
 # Configuración de seguridad
 SECURITY.md @asantacana1970
