@@ -200,8 +200,27 @@ def render_dump(record: dict[str, Any]) -> str:
     return "\n".join(out)
 
 
+USAGE = (
+    "Uso: anthropic_payload_analyze.py <fichero.json> | --all [--dump]\n"
+    "\n"
+    "Analiza payloads /v1/messages capturados por el proxy de auditoría.\n"
+    "\n"
+    "Argumentos:\n"
+    "  <fichero.json>   Una o más capturas concretas a analizar.\n"
+    "  --all            Analiza todas las capturas de inferencia (captures/sent/,\n"
+    "                   con fallback al histórico plano de captures/).\n"
+    "  --dump           Además, vuelca un .decoded.md legible junto a cada captura.\n"
+    "  -h, --help       Muestra esta ayuda y sale.\n"
+)
+
+
 def main(argv: list[str]) -> int:
     args = argv[1:]
+
+    if "-h" in args or "--help" in args:
+        print(USAGE)
+        return 0
+
     dump = "--dump" in args
     args = [a for a in args if a != "--dump"]
 
@@ -214,7 +233,7 @@ def main(argv: list[str]) -> int:
     else:
         files = args
     if not files:
-        print("Uso: anthropic_payload_analyze.py <fichero.json> | --all [--dump]")
+        print(USAGE)
         return 1
 
     for f in files:
