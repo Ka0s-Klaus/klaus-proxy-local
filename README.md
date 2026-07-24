@@ -101,7 +101,7 @@ python3 src/anthropic_capture_verify.py
 ```text
 klaus-proxy-local/
 ├── src/         # addons de mitmproxy + CLIs (capture, pseudonymize, verify, analyze, cleanup)
-├── tests/       # suite pytest (123 tests) — pytest -q
+├── tests/       # suite pytest (132 tests) — pytest -q
 ├── docs/        # runbook + MANIFIESTO + MANUAL + plantilla LaunchAgent
 └── captures/    # 🔒 DATOS SENSIBLES (gitignored): original/, sent/, .pseudonym_vault.json
 ```
@@ -125,7 +125,7 @@ klaus-proxy-local/
 ## 🧪 Tests
 
 ```bash
-pytest -q          # 123 tests (capture, pseudonymize, verify, cleanup)
+pytest -q          # 132 tests (capture, pseudonymize, verify, cleanup)
 ```
 
 ---

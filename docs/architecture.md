@@ -71,7 +71,7 @@ klaus-proxy-local/
 │   ├── anthropic_payload_analyze.py        # CLI: analiza el payload
 │   ├── anthropic_artifacts_cleanup.py      # CLI: limpieza + hardening
 │   └── Klaus_proxy_local/                  # 🔴 stub del gateway (roadmap, ver abajo)
-├── tests/                                  # suite pytest espejo (123 tests)
+├── tests/                                  # suite pytest espejo (132 tests)
 ├── docs/                                   # esta documentación + runbook + MANIFIESTO + MANUAL
 ├── captures/                               # 🔒 DATOS SENSIBLES (gitignored): original/, sent/, vault
 ├── pyproject.toml                          # paquete + config de ruff/black/pytest
