@@ -119,6 +119,7 @@ klaus-proxy-local/
 | [`docs/anthropic-audit-proxy.md`](./docs/anthropic-audit-proxy.md) | Runbook completo: captura, seudonimización, verificación, arranque |
 | [`docs/MANIFIESTO_ficheros_embebidos.md`](./docs/MANIFIESTO_ficheros_embebidos.md) | Qué ficheros del repo se embeben en el payload y por qué vía |
 | [`docs/MANUAL_limpieza_hardening.md`](./docs/MANUAL_limpieza_hardening.md) | Limpieza + hardening del riesgo *data-at-rest* |
+| [`docs/plan-pruebas-control.md`](./docs/plan-pruebas-control.md) | Plan de pruebas de control: pre-flight, casos T1–T7, criterios de aceptación |
 
 ---
 
