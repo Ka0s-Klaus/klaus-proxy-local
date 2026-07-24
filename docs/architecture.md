@@ -68,10 +68,11 @@ klaus-proxy-local/
 │   ├── anthropic_payload_pseudonymize.py   # addon: forward/restore
 │   ├── anthropic_payload_capture.py        # addon: graba evidencia
 │   ├── anthropic_capture_verify.py         # CLI: verifica una captura
+│   ├── anthropic_pair_verify.py            # CLI: validador diferencial original↔sent
 │   ├── anthropic_payload_analyze.py        # CLI: analiza el payload
 │   ├── anthropic_artifacts_cleanup.py      # CLI: limpieza + hardening
 │   └── Klaus_proxy_local/                  # 🔴 stub del gateway (roadmap, ver abajo)
-├── tests/                                  # suite pytest espejo (132 tests)
+├── tests/                                  # suite pytest espejo (158 tests)
 ├── docs/                                   # esta documentación + runbook + MANIFIESTO + MANUAL
 ├── captures/                               # 🔒 DATOS SENSIBLES (gitignored): original/, sent/, vault
 ├── pyproject.toml                          # paquete + config de ruff/black/pytest

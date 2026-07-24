@@ -15,7 +15,7 @@ Este tooling vive de forma independiente en **`klaus-proxy-local`**:
 ```text
 klaus-proxy-local/
 ├── src/         # addons + CLIs (capture, pseudonymize, verify, analyze, cleanup)
-├── tests/       # suite pytest espejo (131 tests)
+├── tests/       # suite pytest espejo (157 tests)
 ├── docs/        # este doc + MANIFIESTO + MANUAL + plantilla del LaunchAgent
 └── captures/    # DATOS SENSIBLES (gitignored): original/, sent/, .pseudonym_vault.json
 ```
@@ -261,6 +261,67 @@ Verifica las **tres garantías** de la auditoría y avisa si la seudonimización
 > seudonimización presente/ausente y códigos de salida del CLI.
 > Ejecuta: `pytest tests/test_anthropic_capture_verify.py`.
 
+### 🔬 Validación diferencial por pares: `anthropic-pair-verify`
+
+El verificador de arriba compara una captura contra el **vault**. Tiene un punto
+ciego: si un identificador **nunca se seudonimizó** (p.ej. faltaba en
+`ANTHROPIC_PSEUDO_WORD_LITERALS`), tampoco entró al vault, así que **no hay valor
+que buscar** y la fuga pasa en silencio — es el fallo que produjo las fugas de
+alta sensibilidad del barrido histórico.
+
+`anthropic_pair_verify.py` cierra ese hueco **sin depender del vault**: empareja
+cada `original/<n>` con su `sent/<n>` (mismo nombre) y comprueba que **ningún dato
+sensible del original sobrevive verbatim en el sent**, derivando "lo sensible" del
+propio original + el entorno + los mismos patrones del seudonimizador.
+
+```bash
+python3 src/anthropic_pair_verify.py               # barrido de todos los pares
+python3 src/anthropic_pair_verify.py <nombre.json> # un par concreto
+python3 src/anthropic_pair_verify.py --survivors   # tabla de slugs a revisar
+```
+
+**Capas que deciden el veredicto (exit code):**
+
+| Comprobación | Qué exige | Nivel si falla |
+| --- | --- | --- |
+| 🔗 **Emparejamiento** | Variantes `original`/`sent` coherentes | ⚠️ WARN |
+| 🕵️ **Fugas en claro (HARD)** | Ningún valor sensible del original reaparece en el sent: emails, IPv4 (no loopback), rutas home/proj, usuario/identidad git, word-literals + org/repo del remote, y valores del vault | ❌ FAIL |
+| 🔑 **Secretos redactados** | Ningún secreto Tier-1 (PEM/AWS/GitHub/JWT/…) viaja **en claro** en el sent (deben ir `«REDACTED:…»`) | ❌ FAIL |
+
+- **Código de salida:** `0` sin fugas · `1` alguna fuga HARD (o WARN con
+  `--fail-on-warn`) · `2` no hay pares. Gateable en CI (formaliza el caso **T7**
+  del [plan de pruebas de control](plan-pruebas-control.md)).
+- **No re-expone valores:** las fugas HARD se reportan **enmascaradas** (`mask`),
+  agrupadas por categoría; nunca el valor completo.
+
+**Modo descubrimiento `--survivors` (informativo, NO veredicto):** emite una tabla
+global de *slugs con guion* (`org-repo`) que sobreviven de original a sent en el
+**contenido de los mensajes** y no son vocabulario conocido (excluye UUIDs, fechas,
+flags `claude-*`/`anthropic-*`, cabeceras y andamiaje de la API). Es el apoyo para
+descubrir qué identificadores añadir a `ANTHROPIC_PSEUDO_WORD_LITERALS`
+(pre-flight **P4**). Nunca afecta al exit code. Afina el umbral con `--min-count N`.
+
+| Flag | Efecto | Default |
+| --- | --- | --- |
+| `[nombre]` | Verifica un par concreto en vez de todos | — |
+| `--original-dir` / `--sent-dir` | Directorios del par | `captures/original/` · `captures/sent/` |
+| `--vault PATH` | Ruta del vault | `captures/.pseudonym_vault.json` |
+| `--verbose` | Imprime también los pares sin hallazgos | off |
+| `--fail-on-warn` | El exit code también falla con WARN (auditoría estricta) | off |
+| `--survivors` | Modo descubrimiento (tabla de slugs candidatos) | off |
+| `--min-count N` | En `--survivors`, umbral mínimo de pares por slug | `1` |
+
+> 🧪 Tests en [`tests/test_anthropic_pair_verify.py`](../tests/test_anthropic_pair_verify.py) (26):
+> emparejado y huérfanos, cada categoría HARD/SECRET con y sin fuga, `_MIN_LEAK_LEN`,
+> `message_text` (excluye system/tools/cabeceras), `collect_survivors`, códigos de
+> salida y la regresión del hallazgo (slug de otro proyecto no seudonimizado).
+> Ejecuta: `pytest tests/test_anthropic_pair_verify.py`.
+
+> 🧭 **Cuándo usar cuál:** `anthropic-capture-verify` para un chequeo rápido de la
+> última inferencia (destino + secretos + fugas de vault); `anthropic-pair-verify`
+> para el **barrido de control** independiente del vault sobre todo el histórico de
+> pares. Se complementan.
+
 ### Configuración por variables de entorno
 
 | Variable | Efecto | Default |
@@ -385,6 +446,7 @@ Cinco scripts **versionados** en `src/`, cada uno con su test espejo en
 | [`anthropic_payload_capture.py`](../src/anthropic_payload_capture.py) | Addon de **captura**: graba el par `original/`+`sent/` de cada request. | este documento |
 | [`anthropic_payload_pseudonymize.py`](../src/anthropic_payload_pseudonymize.py) | Addon de **seudonimización** bidireccional (forward/restore). | §"Seudonimización bidireccional" |
 | [`anthropic_capture_verify.py`](../src/anthropic_capture_verify.py) | **Verificador** de una captura (destino, secretos, fugas). | §"Verificación en un comando" |
+| [`anthropic_pair_verify.py`](../src/anthropic_pair_verify.py) | **Validador diferencial** por pares `original`↔`sent` (fugas independientes del vault + descubrimiento de slugs). | §"Validación diferencial por pares" |
 | [`anthropic_payload_analyze.py`](../src/anthropic_payload_analyze.py) | **Analizador**: vuelca todo lo que sale al modelo (system, tools, historial, ficheros embebidos). | [`MANIFIESTO_ficheros_embebidos.md`](MANIFIESTO_ficheros_embebidos.md) |
 | [`anthropic_artifacts_cleanup.py`](../src/anthropic_artifacts_cleanup.py) | **Limpieza + hardening** del riesgo *data-at-rest* (artefactos en claro que Claude Code deja en disco). | [`MANUAL_limpieza_hardening.md`](MANUAL_limpieza_hardening.md) |
 
@@ -399,10 +461,11 @@ se instalan con `pip install -e ".[dev]"`. Ejecuta toda la suite con `pytest`:
 | [`test_anthropic_payload_capture.py`](../tests/test_anthropic_payload_capture.py) | 27 | redacción, parseo de body, nombre de fichero, filtro de host |
 | [`test_anthropic_payload_pseudonymize.py`](../tests/test_anthropic_payload_pseudonymize.py) | 43 | round-trip forward/restore, palanca de rutas, word-literals, JSON estructural, secret-kv |
 | [`test_anthropic_capture_verify.py`](../tests/test_anthropic_capture_verify.py) | 30 | selección inferencia/telemetría, destino, redacción, fugas, códigos de salida |
+| [`test_anthropic_pair_verify.py`](../tests/test_anthropic_pair_verify.py) | 26 | emparejado/huérfanos, categorías HARD/SECRET, `message_text`, `collect_survivors`, códigos de salida, regresión del hallazgo |
 | [`test_anthropic_artifacts_cleanup.py`](../tests/test_anthropic_artifacts_cleanup.py) | 22 | dry-run, contención de rutas, symlinks protegidos, idempotencia |
 | [`test_anthropic_payload_analyze.py`](../tests/test_anthropic_payload_analyze.py) | 9 | ayuda/uso del CLI, detección de payload, summarize, render_dump, análisis de fichero |
 
 > Nota: los linters/formateadores están **fijados** en `pyproject.toml`
 > (`ruff==0.16.0`, `black==25.11.0`) para que el formato sea reproducible entre
-> local y CI. La suite completa (131 tests de auditoría + 1 placeholder del
-> paquete base = **132**) corre en el job `Test` del CI sobre Python 3.10/3.11/3.12.
+> local y CI. La suite completa (157 tests de auditoría + 1 placeholder del
+> paquete base = **158**) corre en el job `Test` del CI sobre Python 3.10/3.11/3.12.

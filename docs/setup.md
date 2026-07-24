@@ -91,7 +91,7 @@ El proxy se configura por entorno (no por `.env`). Las más habituales:
 ## 🧪 Ejecutar tests
 
 ```bash
-pytest                                        # suite completa (132 tests)
+pytest                                        # suite completa (158 tests)
 pytest --cov=src --cov-report=term-missing    # con coverage
 pytest tests/test_anthropic_capture_verify.py # un fichero concreto
 ```

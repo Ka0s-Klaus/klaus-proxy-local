@@ -73,6 +73,9 @@ claude -p "responde solo con la palabra: pong"
 
 # Verificar en un comando lo que salió del equipo:
 python3 src/anthropic_capture_verify.py
+
+# Barrido diferencial por pares original↔sent (fugas independientes del vault):
+python3 src/anthropic_pair_verify.py
 ```
 
 > El runbook completo (modelo manual con funciones `claude-proxy`/`claude` de `~/.zshrc`,
@@ -100,8 +103,8 @@ python3 src/anthropic_capture_verify.py
 
 ```text
 klaus-proxy-local/
-├── src/         # addons de mitmproxy + CLIs (capture, pseudonymize, verify, analyze, cleanup)
-├── tests/       # suite pytest (132 tests) — pytest -q
+├── src/         # addons de mitmproxy + CLIs (capture, pseudonymize, verify, pair-verify, analyze, cleanup)
+├── tests/       # suite pytest (158 tests) — pytest -q
 ├── docs/        # runbook + MANIFIESTO + MANUAL + plantilla LaunchAgent
 └── captures/    # 🔒 DATOS SENSIBLES (gitignored): original/, sent/, .pseudonym_vault.json
 ```
@@ -126,7 +129,7 @@ klaus-proxy-local/
 ## 🧪 Tests
 
 ```bash
-pytest -q          # 132 tests (capture, pseudonymize, verify, cleanup)
+pytest -q          # 158 tests (capture, pseudonymize, verify, pair-verify, analyze, cleanup)
 ```
 
 ---

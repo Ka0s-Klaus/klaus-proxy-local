@@ -59,8 +59,8 @@ Cada caso: **acción** → **criterio de aceptación** (objetivo, verificable).
 | **T3** | Secretos Tier-1 | `Read`/`Bash` que arrastre un secreto (PEM, `AKIA…`, token) | En `original/` **y** `sent/` el secreto aparece como `«REDACTED:label»`; **no** entra al vault (irreversible). |
 | **T4** | Cobertura word-literals (regresión del hallazgo) | Prompt que mencione org/repo/cliente de **otro** proyecto | Esos tokens salen seudonimizados (`org_…`); barrido de fugas → **0 fugas ALTA**. Si aparece alguno, falta en `ANTHROPIC_PSEUDO_WORD_LITERALS` (P4). |
 | **T5** | Data-at-rest | `anthropic_artifacts_cleanup.py --harden --clean --older-than-days 14` (dry-run) → `--apply` | Dry-run lista el plan; tras `--apply` los ficheros quedan `0600` y los dirs `0700`; symlinks intactos; fuera de ámbito → SKIP. |
-| **T6** | Regresión del tooling | `ruff check .` · `black --check .` · `pytest` | ruff/black limpios; **132 tests** en verde (local y CI 3.10/3.11/3.12). |
-| **T7** | Barrido agregado de fugas | Script de barrido sobre `captures/sent/` con el vault | Reporte por captura; **0 fugas de ALTA sensibilidad** en las capturas nuevas (tras P4). |
+| **T6** | Regresión del tooling | `ruff check .` · `black --check .` · `pytest` | ruff/black limpios; **158 tests** en verde (local y CI 3.10/3.11/3.12). |
+| **T7** | Barrido diferencial por pares | `python3 src/anthropic_pair_verify.py` sobre `captures/original/` ↔ `captures/sent/` | Veredicto por par; **0 pares con fugas HARD** en las capturas nuevas (exit code `0`). El `--survivors` no lista ningún slug sensible sin cubrir (tras P4). |
 
 ---
 
@@ -82,9 +82,9 @@ flowchart TD
     PF["🔧 Pre-flight P1–P5\n(word-literals ⚠️)"] --> T1["T1 smoke"]
     T1 --> T2["T2 rutas"] --> T3["T3 secretos"] --> T4["T4 word-literals"]
     T4 --> T5["T5 data-at-rest"] --> T6["T6 regresión tooling"]
-    T6 --> T7{"T7 barrido\n0 fugas ALTA?"}
+    T6 --> T7{"T7 pair-verify\n0 fugas HARD?"}
     T7 -- sí --> OK["✅ Fase superada"]
-    T7 -- no --> FIX["➕ añadir token a\nANTHROPIC_PSEUDO_WORD_LITERALS"] --> T4
+    T7 -- no --> FIX["➕ añadir token a\nANTHROPIC_PSEUDO_WORD_LITERALS\n(guía: --survivors)"] --> T4
 ```
 
 ---
