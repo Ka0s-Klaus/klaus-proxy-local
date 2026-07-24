@@ -228,3 +228,26 @@ credentials/
 # === K* workspace (nunca commitear) ===
 CLAUDE.md
 .claude/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Proxy de auditoría de payload Anthropic — DATOS SENSIBLES (NUNCA versionar)
+# El código (src/, tests/, docs/) SÍ se versiona; los datos capturados NO.
+# ─────────────────────────────────────────────────────────────────────────────
+# Evidencia capturada: prompts, system, contenido REAL de ficheros del repo auditado.
+captures/
+# Vault de seudonimización: mapa real↔seudónimo (contiene los valores REALES).
+.pseudonym_vault.json
+**/.pseudonym_vault.json
+# Venvs locales de validación
+.venv/
+.venv-audit/
+# Cliente activo de sesión / entorno
+active-project.json
+.env
+.env.*
+!.env.example
+# LaunchAgent generado (solo la plantilla .template se versiona)
+*.plist
+!docs/*.plist.template
+# Ruido de macOS
+.DS_Store

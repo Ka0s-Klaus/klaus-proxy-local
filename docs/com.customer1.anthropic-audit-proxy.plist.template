@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Plantilla del LaunchAgent que mantiene vivo el proxy mitmproxy de auditoría.
+  Sustituye los placeholders y copia a ~/Library/LaunchAgents/ (ver
+  docs/anthropic-audit-proxy.md §"Alternativa opcional — LaunchAgent"):
+    {{MITMDUMP}}   → ruta absoluta de mitmdump  (p.ej. /opt/homebrew/bin/mitmdump — `which mitmdump`)
+    {{TOOL}}       → raíz de klaus-proxy-local   (donde viven src/ y captures/)
+    {{AUDIT_REPO}} → raíz del proyecto AUDITADO  (cwd → palanca de rutas + identidad git)
+    {{HOME}}       → tu $HOME                     (p.ej. /Users/<user>)
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.customer1.anthropic-audit-proxy</string>
+
+    <!-- Los addons viven en el tooling (klaus-proxy-local); las capturas y el
+         vault se resuelven relativas a esa ubicación vía __file__ (captures/),
+         independientemente del WorkingDirectory. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{MITMDUMP}}</string>
+        <string>-s</string>
+        <string>{{TOOL}}/src/anthropic_payload_pseudonymize.py</string>
+        <string>-s</string>
+        <string>{{TOOL}}/src/anthropic_payload_capture.py</string>
+        <string>-p</string>
+        <string>8899</string>
+    </array>
+
+    <!-- CWD = proyecto AUDITADO: la palanca de rutas y la detección de identidad/
+         remote git operan sobre este directorio (project_root() = cwd). Las
+         capturas/vault NO dependen de aquí: cuelgan de {{TOOL}}/captures/. -->
+    <key>WorkingDirectory</key>
+    <string>{{AUDIT_REPO}}</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <!-- Seudonimización con frontera de palabra para códigos/IDs cortos. -->
+        <key>ANTHROPIC_PSEUDO_WORD_LITERALS</key>
+        <string>orgcode1,org_126d6bd8,orgcode3,customer1.es</string>
+    </dict>
+
+    <!-- Arranca al iniciar sesión y se reinicia si cae. -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>StandardOutPath</key>
+    <string>{{HOME}}/.claude/mitmproxy-audit.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{HOME}}/.claude/mitmproxy-audit.log</string>
+</dict>
+</plist>

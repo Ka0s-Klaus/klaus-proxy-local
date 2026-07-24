@@ -1,9 +1,12 @@
 # 🔌 Klaus Proxy Local
 
-> **Local HTTP proxy for K\* AI Workspace** — routes and manages API calls to Claude/Anthropic endpoints locally.
+> **Proxy local de auditoría y seudonimización para el workspace K\*** — intercepta,
+> audita y seudonimiza el tráfico que Claude Code envía a la API de Anthropic (y al
+> gateway LLM corporativo), sin filtrar datos sensibles.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://python.org)
+[![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
 
 ---
@@ -11,65 +14,119 @@
 ## 🤔 ¿Qué hago? ¿Cómo lo hago? ¿Y para qué lo hago?
 
 ### ¿Qué hago?
-`Klaus Proxy Local` es un proxy HTTP local que actúa como intermediario entre las herramientas del workspace K\* (Claude Code, Continue.dev, scripts de automatización) y la API de Anthropic/Claude. Expone una interfaz compatible con la API de Anthropic para que cualquier cliente pueda conectarse sin configuración adicional.
+`Klaus Proxy Local` es un **proxy local de auditoría** que se sitúa delante de Claude
+Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS hacia
+`api.anthropic.com` y hacia el gateway LLM corporativo. Sobre ese tráfico:
+
+- **Audita** el cuerpo exacto que sale del equipo (system prompt, definición de
+  herramientas, historial y **contenido de ficheros del repo**), redactando los
+  secretos de las cabeceras.
+- **Seudonimiza en vuelo** los datos sensibles del cuerpo (rutas, usuario, identidad
+  git, org/repo, emails, IPs) por seudónimos estables y **los revierte en la respuesta**
+  para que las tool calls sigan operando sobre valores reales.
+- **Verifica** que lo que salió cumple las garantías (destino correcto, secretos
+  redactados, cero fugas en claro) y **limpia** los artefactos *data-at-rest* que
+  Claude Code deja en disco.
 
 ### ¿Cómo lo hago?
-- Levanta un servidor HTTP local (puerto configurable, por defecto `8080`)
-- Recibe peticiones de cualquier cliente compatible con la API de Anthropic
-- Añade funcionalidades transversales: caché semántico, logging, rate limiting, métricas
-- Reenvía la petición al endpoint real de Anthropic o a un proveedor alternativo
+- Un proxy `mitmproxy` local (`mitmdump -p 8899`) con dos addons Python en
+  [`src/`](./src): `anthropic_payload_pseudonymize.py` (reescribe/revierte) y
+  `anthropic_payload_capture.py` (graba la evidencia).
+- Claude Code se enruta por el proxy vía `HTTPS_PROXY` + `NODE_EXTRA_CA_CERTS`, de
+  forma **fail-closed** (si el proxy no escucha, `claude` aborta y no deja salir
+  tráfico sin auditar).
+- La evidencia cae en [`captures/`](./captures) como pares espejo `original/` (datos
+  reales) vs `sent/` (lo que realmente salió, seudonimizado).
 
 ### ¿Y para qué lo hago?
-- **Reducir costes**: caché semántico evita llamadas repetidas a la API
-- **Observabilidad**: logging centralizado de todas las inferencias
-- **Flexibilidad**: cambiar de modelo o proveedor sin tocar los clientes
-- **Desarrollo local**: trabajar sin depender de la conectividad a la API de Anthropic
+- **Privacidad / compliance**: documentar y controlar la frontera de datos real hacia
+  la API — qué se envía, a qué host y qué contiene.
+- **Prevención de fugas**: seudonimizar identidades, rutas y códigos internos antes de
+  que salgan del equipo.
+- **Trazabilidad**: evidencia auditable y verificable de cada inferencia.
+
+> 🛣️ **Roadmap:** sobre esta base de interceptación se pueden añadir capacidades de
+> proxy/gateway (caché semántico, rate limiting, métricas, multi-proveedor). Hoy el
+> foco es la auditoría y la seudonimización.
 
 ---
 
 ## 🚀 Inicio rápido
 
 ```bash
-# Clonar el repositorio
+# Clonar
 git clone https://github.com/Ka0s-Klaus/klaus-proxy-local.git
 cd klaus-proxy-local
 
-# Instalar dependencias
-pip install -r requirements.txt
+# Requisitos: mitmproxy (proxy) y, para desarrollo, pytest
+brew install mitmproxy          # o: pip install -r requirements.txt
+pip install -r requirements-dev.txt   # tests
 
-# Configurar variables de entorno
-cp .env.example .env
-# Editar .env con tu ANTHROPIC_API_KEY
+# Terminal 1 — arrancar el proxy de auditoría en primer plano (logs en vivo):
+mitmdump -s src/anthropic_payload_pseudonymize.py \
+         -s src/anthropic_payload_capture.py -p 8899
 
-# Levantar el proxy
-python -m klaus_proxy
+# Terminal 2 — enrutar un claude NUEVO por el proxy:
+HTTPS_PROXY=http://127.0.0.1:8899 HTTP_PROXY=http://127.0.0.1:8899 \
+NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem \
+claude -p "responde solo con la palabra: pong"
+
+# Verificar en un comando lo que salió del equipo:
+python3 src/anthropic_capture_verify.py
 ```
 
-El proxy queda disponible en `http://localhost:8080`.
+> El runbook completo (modelo manual con funciones `claude-proxy`/`claude` de `~/.zshrc`,
+> LaunchAgent, seudonimización bidireccional) está en
+> [`docs/anthropic-audit-proxy.md`](./docs/anthropic-audit-proxy.md).
 
 ---
 
-## ⚙️ Configuración
+## ⚙️ Configuración (variables de entorno)
 
-| Variable | Descripción | Por defecto |
+| Variable | Efecto | Por defecto |
 | --- | --- | --- |
-| `ANTHROPIC_API_KEY` | API key de Anthropic | *requerida* |
-| `PROXY_PORT` | Puerto del servidor local | `8080` |
-| `PROXY_HOST` | Host de escucha | `127.0.0.1` |
-| `CACHE_ENABLED` | Activar caché semántico | `false` |
-| `LOG_LEVEL` | Nivel de logging | `INFO` |
+| `ANTHROPIC_CAPTURE_HOSTS` | Hosts a auditar (coma-separada) | `api.anthropic.com,llm.tools.cloud.customer1.es` |
+| `ANTHROPIC_CAPTURE_DIR` | Directorio base de capturas | `captures/` |
+| `ANTHROPIC_PSEUDO_ENABLE` | Interruptor de la seudonimización | `1` |
+| `ANTHROPIC_PSEUDO_WORD_LITERALS` | Literales con frontera de palabra (org/proj IDs) | — |
+| `ANTHROPIC_PSEUDO_PROJECT_ROOT` | Raíz del proyecto **auditado** (palanca de rutas + git) | `cwd` del proceso |
+| `ANTHROPIC_PSEUDO_VAULT` | Ruta del vault de seudonimización | `captures/.pseudonym_vault.json` |
+
+> Tabla completa de flags en [`docs/anthropic-audit-proxy.md`](./docs/anthropic-audit-proxy.md).
+
+---
+
+## 🗂️ Estructura
+
+```text
+klaus-proxy-local/
+├── src/         # addons de mitmproxy + CLIs (capture, pseudonymize, verify, analyze, cleanup)
+├── tests/       # suite pytest (123 tests) — pytest -q
+├── docs/        # runbook + MANIFIESTO + MANUAL + plantilla LaunchAgent
+└── captures/    # 🔒 DATOS SENSIBLES (gitignored): original/, sent/, .pseudonym_vault.json
+```
+
+> ⚠️ **`captures/` nunca se versiona.** Contiene prompts, contenido real de ficheros y
+> el vault real↔seudónimo. Está en `.gitignore` y jamás debe subir a este repositorio
+> público.
 
 ---
 
 ## 📚 Documentación
 
-La documentación completa del proyecto vive en [`docs/`](./docs/):
-
 | Documento | Descripción |
 | --- | --- |
-| _(pendiente)_ | Arquitectura del proxy |
-| _(pendiente)_ | Guía de configuración avanzada |
-| _(pendiente)_ | Integración con Continue.dev y Claude Code |
+| [`docs/anthropic-audit-proxy.md`](./docs/anthropic-audit-proxy.md) | Runbook completo: captura, seudonimización, verificación, arranque |
+| [`docs/MANIFIESTO_ficheros_embebidos.md`](./docs/MANIFIESTO_ficheros_embebidos.md) | Qué ficheros del repo se embeben en el payload y por qué vía |
+| [`docs/MANUAL_limpieza_hardening.md`](./docs/MANUAL_limpieza_hardening.md) | Limpieza + hardening del riesgo *data-at-rest* |
+
+---
+
+## 🧪 Tests
+
+```bash
+pytest -q          # 123 tests (capture, pseudonymize, verify, cleanup)
+```
 
 ---
 
@@ -81,7 +138,7 @@ La documentación completa del proyecto vive en [`docs/`](./docs/):
 
 ## 🔒 Seguridad
 
-Si encuentras una vulnerabilidad de seguridad, sigue el proceso descrito en [SECURITY.md](./SECURITY.md). **No abras una issue pública.**
+Si encuentras una vulnerabilidad de seguridad, sigue el proceso descrito en [SECURITY.md](./SECURITY.md). **No abras una issue pública.** Nunca subas el contenido de `captures/` ni el vault: son datos sensibles reales.
 
 ---
 

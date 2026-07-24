@@ -4,7 +4,7 @@
 
 ### ¿Qué hago?
 
-Documenta la postura de seguridad del repositorio: qué mecanismos automáticos protegen el código, las dependencias y el proceso de contribución.
+Documenta la postura de seguridad del repositorio: qué mecanismos automáticos protegen el código, las dependencias y el proceso de contribución — y qué datos sensibles maneja el proxy de auditoría.
 
 ### ¿Cómo lo hago?
 
@@ -17,7 +17,7 @@ Mediante cuatro capas de defensa configuradas en GitHub:
 
 ### ¿Y para qué lo hago?
 
-Un proxy que intermedia tráfico de API keys de Anthropic es un objetivo de alto valor. La seguridad no es opcional: una vulnerabilidad en las dependencias o en el código puede exponer las keys de todos los usuarios del proxy.
+El proxy intercepta el tráfico de Claude Code: ve **prompts, contenido de ficheros del repo y un vault con el mapa `real↔seudónimo`**. Ese material es de alto valor. La seguridad no es opcional: una fuga de `captures/` o del vault expondría datos reales que la seudonimización existe precisamente para proteger.
 
 ---
 
@@ -26,13 +26,14 @@ Un proxy que intermedia tráfico de API keys de Anthropic es un objetivo de alto
 ```mermaid
 flowchart TD
     subgraph Prevención["🛡️ Prevención (antes del merge)"]
-        CQL["🔍 CodeQL SAST\nPython · security-extended"]
+        CQL["🔍 CodeQL SAST\nPython · security-extended\n(tests/ excluido)"]
         LINT["✅ Lint (ruff)\nDetecta patrones inseguros"]
         COWN["👤 CODEOWNERS\nRevisión humana obligatoria"]
+        GG["🔑 GitGuardian\nEscaneo de secretos"]
     end
 
     subgraph Mantenimiento["🔄 Mantenimiento continuo"]
-        DEP["📦 Dependabot\nActualización semanal\npatches prod = automático"]
+        DEP["📦 Dependabot\nActualización semanal"]
         SCH["📅 CodeQL Schedule\nLunes 09:00 UTC"]
     end
 
@@ -41,10 +42,11 @@ flowchart TD
         SEC["📄 SECURITY.md\nPolítica de disclosure"]
     end
 
-    PR[🔀 Pull Request] --> CQL & LINT & COWN
+    PR[🔀 Pull Request] --> CQL & LINT & COWN & GG
     CQL --> MERGE[✅ Merge]
     LINT --> MERGE
     COWN --> MERGE
+    GG --> MERGE
     DEP --> MERGE
     SCH --> CQL
 ```
@@ -58,9 +60,12 @@ flowchart TD
 | Queries | `security-extended` + `security-and-quality` |
 | Trigger | push → main, PR → main, schedule semanal |
 | Schedule | Lunes 09:00 UTC |
+| Config | [`.github/codeql/codeql-config.yml`](../.github/codeql/codeql-config.yml) |
 | Resultados | Security → Code scanning alerts |
 
-Las queries `security-extended` cubren CWEs adicionales más allá del conjunto básico, incluyendo injection, path traversal y deserialización insegura — relevantes para un proxy HTTP.
+Las queries `security-extended` cubren CWEs adicionales — injection, path traversal, deserialización insegura — relevantes para un proxy que reescribe tráfico HTTP.
+
+> ℹ️ **`tests/` se excluye del análisis** (`paths-ignore`). Sus fixtures reproducen a propósito condiciones inseguras (p. ej. ficheros world-readable con `os.chmod(..., 0o644)`) para verificar que la herramienta de hardening las corrige; escanearlas genera falsos positivos sobre datos de prueba, no sobre el producto.
 
 ---
 
@@ -73,9 +78,9 @@ Las queries `security-extended` cubren CWEs adicionales más allá del conjunto 
 | **Major** | PR manual — requiere revisión |
 | **Minor** | PR manual — requiere revisión |
 | **Patch (producción)** | ✅ PR automática — fluye sin restricción |
-| **Patch (dev tools)** | ⏭️ Ignorado — ruff, black, pytest, pytest-cov |
+| **Patch (dev tools)** | ⏭️ Ignorado — `ruff`, `black` están **fijados** por reproducibilidad |
 
-Los patches de dependencias de producción (`httpx`, `fastapi`, `uvicorn`, `anthropic`) se actualizan automáticamente porque frecuentemente contienen fixes de seguridad críticos (OWASP A06 — Vulnerable and Outdated Components).
+El runtime del proxy es `mitmproxy` (en `requirements.txt`). Las dependencias `httpx`/`fastapi`/`uvicorn`/`anthropic` de `pyproject.toml` dan soporte al [gateway del roadmap](architecture.md); sus patches de seguridad interesan igualmente (OWASP A06 — *Vulnerable and Outdated Components*).
 
 ### Ecosistema github-actions
 
@@ -101,7 +106,7 @@ El **Repository Ruleset "Protect main"** impone:
 | Regla | Valor |
 | --- | --- |
 | PR obligatoria | ✅ Sí |
-| Reviewers requeridos | 0 — CI checks son la barrera de calidad |
+| Reviewers requeridos | 0 — los CI checks son la barrera de calidad |
 | Bypass actors | Rol `admin` del repositorio (permite al owner mergear en flujo en solitario) |
 | Required status checks | Lint, Test (3.10), Test (3.11), Test (3.12) |
 | Force push | ❌ Prohibido |
@@ -119,14 +124,15 @@ Ver [SECURITY.md](../SECURITY.md) para el proceso completo y tiempos de respuest
 
 ---
 
-## ⚠️ Consideraciones de seguridad para el proxy
+## ⚠️ Consideraciones de seguridad del proxy de auditoría
 
-Por su naturaleza, Klaus Proxy Local maneja información sensible:
+Por su naturaleza, Klaus Proxy Local maneja información sensible real:
 
-- **API keys de Anthropic** — nunca persistir en logs ni caché
-- **Contenido de prompts** — pueden contener datos confidenciales del usuario
-- **Solo loopback** — el servidor debe escuchar en `127.0.0.1`, nunca en `0.0.0.0`
-- **Secrets en `.env`** — nunca hardcodear, siempre variables de entorno; `.env` en `.gitignore`
+- **`captures/` y el vault nunca se versionan** — contienen prompts, contenido de ficheros en claro y el mapa `real↔seudónimo`. Están hard-gitignored y jamás deben subir al repositorio público.
+- **Secretos redactados de forma irreversible** — claves privadas PEM, tokens AWS/GitHub/Google/Slack, JWT: se sustituyen por `«REDACTED:label»` y **no** entran al vault (no se revierten).
+- **Credenciales fuera de disco** — el proxy no persiste `ANTHROPIC_AUTH_TOKEN` ni ninguna API key; las hereda del entorno el proceso `claude` enrutado.
+- **Solo loopback** — el proxy escucha en `127.0.0.1:8899`, nunca en `0.0.0.0`.
+- **Riesgo *data-at-rest*** — Claude Code deja artefactos en claro (`~/.claude`, `/private/tmp`). Se mitiga con [`anthropic_artifacts_cleanup.py`](../src/anthropic_artifacts_cleanup.py) (ver [MANUAL](MANUAL_limpieza_hardening.md)); el cifrado de disco (FileVault) es el control de fondo.
 
 ---
 
@@ -134,4 +140,5 @@ Por su naturaleza, Klaus Proxy Local maneja información sensible:
 
 - [⚙️ CI/CD Pipeline](ci-cd.md) — checks automáticos que refuerzan la seguridad
 - [🏗️ Arquitectura](architecture.md) — diseño del sistema y superficie de ataque
+- [🧹 MANUAL de limpieza/hardening](MANUAL_limpieza_hardening.md) — riesgo *data-at-rest*
 - [📄 SECURITY.md](../SECURITY.md) — política de disclosure responsable

@@ -27,6 +27,8 @@ jobs:
           languages: python
           # Queries adicionales de seguridad y calidad
           queries: +security-extended,security-and-quality
+          # Excluye fixtures de test (permisos inseguros deliberados)
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v4

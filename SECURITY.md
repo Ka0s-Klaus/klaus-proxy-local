@@ -47,9 +47,9 @@ Si descubres una vulnerabilidad de seguridad, por favor:
 
 ## 🛡️ Buenas prácticas de seguridad para usuarios
 
-- **Nunca** commitees tu `ANTHROPIC_API_KEY` ni ninguna credencial en el repositorio.
-- Usa siempre `.env` (incluido en `.gitignore`) para gestionar secretos locales.
-- El proxy solo debe escuchar en `127.0.0.1` por defecto — no exponerlo a interfaces públicas sin autenticación.
+- **Nunca** commitees el contenido de `captures/` ni el vault `.pseudonym_vault.json`: contienen prompts, ficheros en claro y el mapa `real↔seudónimo`. Están en `.gitignore` — mantenlo así.
+- **Nunca** hardcodees credenciales. El proxy no persiste API keys; el token del proveedor (`ANTHROPIC_AUTH_TOKEN`) se hereda del entorno del proceso `claude`, no de disco.
+- El proxy solo debe escuchar en `127.0.0.1` — no exponerlo a interfaces públicas.
 - Mantén las dependencias actualizadas: `pip install --upgrade -r requirements.txt`.
 
 ---

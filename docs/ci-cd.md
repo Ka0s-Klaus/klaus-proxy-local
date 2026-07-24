@@ -66,10 +66,17 @@ flowchart TD
 | --- | --- |
 | Lenguaje | Python |
 | Queries | `security-extended` + `security-and-quality` |
+| Config | [`.github/codeql/codeql-config.yml`](../.github/codeql/codeql-config.yml) — `paths-ignore: [tests]` |
 | Schedule | Lunes 09:00 UTC (además de cada push/PR) |
 | Permisos | `security-events: write` (publica en Security tab) |
 
-Los findings aparecen en **Security → Code scanning alerts** del repositorio.
+Los findings aparecen en **Security → Code scanning alerts** del repositorio. Los
+tests se excluyen del análisis: sus fixtures crean condiciones inseguras a
+propósito para probar el hardening (ver [security.md](security.md)).
+
+> 🔑 **GitGuardian** (GitHub App) escanea además cada PR en busca de secretos
+> filtrados. Las fixtures de test que necesitan valores con forma de credencial se
+> ensamblan en runtime a partir de fragmentos para no incrustar secretos literales.
 
 ---
 
@@ -94,6 +101,7 @@ Ninguna PR puede mergearse si alguno de estos jobs falla, independientemente de 
 [tool.ruff]
 target-version = "py310"
 line-length = 88
+src = ["src"]                    # addons sueltos en src/ → first-party para isort
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]   # errores, pyflakes, isort, warnings
@@ -103,6 +111,11 @@ ignore = ["E501"]                # longitud de línea delegada a black
 line-length = 88
 target-version = ["py310", "py311", "py312"]
 ```
+
+> Los linters están **fijados** en `[project.optional-dependencies].dev`
+> (`ruff==0.16.0`, `black==25.11.0`): `black` cambia de estilo estable entre
+> versiones, y un rango flotante haría que `black --check` en CI reformatee código
+> ya formateado con otra versión. El pin garantiza formato reproducible local == CI.
 
 ---
 

@@ -29,8 +29,12 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
-    "ruff>=0.5",
-    "black>=24.0",
+    # Linters/formateadores fijados: black e isort/ruff cambian de estilo
+    # estable entre versiones (p. ej. black 25→26), y un rango flotante hace
+    # que `black --check` en CI reformatee código ya formateado con otra
+    # versión. Pinear garantiza un formato reproducible local == CI.
+    "ruff==0.16.0",
+    "black==25.11.0",
 ]
 
 [project.scripts]
@@ -42,6 +46,10 @@ where = ["src"]
 [tool.ruff]
 target-version = "py310"
 line-length = 88
+# Los addons/CLIs viven sueltos en src/ (no como paquete); declararlo como raíz
+# de fuentes hace que isort los trate como first-party y no los mezcle con
+# dependencias de terceros.
+src = ["src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
