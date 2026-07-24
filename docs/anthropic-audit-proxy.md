@@ -15,7 +15,7 @@ Este tooling vive de forma independiente en **`klaus-proxy-local`**:
 ```text
 klaus-proxy-local/
 ├── src/         # addons + CLIs (capture, pseudonymize, verify, analyze, cleanup)
-├── tests/       # suite pytest espejo (122 tests)
+├── tests/       # suite pytest espejo (131 tests)
 ├── docs/        # este doc + MANIFIESTO + MANUAL + plantilla del LaunchAgent
 └── captures/    # DATOS SENSIBLES (gitignored): original/, sent/, .pseudonym_vault.json
 ```
@@ -400,8 +400,9 @@ se instalan con `pip install -e ".[dev]"`. Ejecuta toda la suite con `pytest`:
 | [`test_anthropic_payload_pseudonymize.py`](../tests/test_anthropic_payload_pseudonymize.py) | 43 | round-trip forward/restore, palanca de rutas, word-literals, JSON estructural, secret-kv |
 | [`test_anthropic_capture_verify.py`](../tests/test_anthropic_capture_verify.py) | 30 | selección inferencia/telemetría, destino, redacción, fugas, códigos de salida |
 | [`test_anthropic_artifacts_cleanup.py`](../tests/test_anthropic_artifacts_cleanup.py) | 22 | dry-run, contención de rutas, symlinks protegidos, idempotencia |
+| [`test_anthropic_payload_analyze.py`](../tests/test_anthropic_payload_analyze.py) | 9 | ayuda/uso del CLI, detección de payload, summarize, render_dump, análisis de fichero |
 
 > Nota: los linters/formateadores están **fijados** en `pyproject.toml`
 > (`ruff==0.16.0`, `black==25.11.0`) para que el formato sea reproducible entre
-> local y CI. La suite completa (122 tests de auditoría + 1 placeholder del
-> paquete base = **123**) corre en el job `Test` del CI sobre Python 3.10/3.11/3.12.
+> local y CI. La suite completa (131 tests de auditoría + 1 placeholder del
+> paquete base = **132**) corre en el job `Test` del CI sobre Python 3.10/3.11/3.12.
