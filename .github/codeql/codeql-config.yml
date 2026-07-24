@@ -1,0 +1,10 @@
+name: "CodeQL config — Klaus Proxy Local"
+
+# El análisis se centra en el código de aplicación (`src/`). Los tests quedan
+# fuera: sus fixtures reproducen a propósito condiciones inseguras (p. ej.
+# ficheros world-readable con `os.chmod(..., 0o644)`) para verificar que la
+# herramienta de hardening las corrige. Escanearlos genera falsos positivos
+# `py/overly-permissive-file-permissions` sobre datos de prueba, no sobre el
+# producto.
+paths-ignore:
+  - tests
