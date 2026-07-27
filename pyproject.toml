@@ -34,7 +34,7 @@ dev = [
     # que `black --check` en CI reformatee código ya formateado con otra
     # versión. Pinear garantiza un formato reproducible local == CI.
     "ruff==0.16.0",
-    "black==25.11.0",
+    "black==26.5.1",
 ]
 
 [project.scripts]
