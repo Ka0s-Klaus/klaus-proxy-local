@@ -37,10 +37,12 @@ La inferencia **no** viaja directamente a `api.anthropic.com`. Claude Code (v2.1
 | Destino | Endpoint | Qué contiene | Sensibilidad |
 | --- | --- | --- | --- |
 | **`llm.tools.cloud.customer1.es`** (gateway corporativo, GCP `203.0.113.10`) | `POST /v1/messages?beta=true` | **La inferencia real**: system prompt, definición de las 25 tools, historial de mensajes, y **todo el contenido de ficheros que se lean/editen**. `model=claude-opus-4-8`, `max_tokens=64000`. | 🔴 Alta |
-| `api.anthropic.com` | `POST /api/event_logging/v2/batch` | Telemetría de uso (eventos del CLI). ~226 KB. | 🟠 Media |
+| `api.anthropic.com` | `POST /api/event_logging/v2/batch` | Telemetría de uso (eventos del CLI). ~226 KB. Rutas y contenido **hasheados**; comandos y prompts reducidos a **longitud/tipo**. Ver [análisis detallado](telemetria-anthropic-event-logging.md). | 🟢 Baja |
 | `api.anthropic.com` | `GET /mcp-registry/v0/servers` | Lookup del catálogo de servidores MCP (sin datos del usuario). | 🟢 Baja |
 
 > **Implicación de compliance:** los prompts y el contenido del repositorio salen hacia el **gateway de customer 1**, que actúa como intermediario y reenvía a Anthropic (API estilo Anthropic, cabecera `anthropic-version: 2023-06-01`). La telemetría, en cambio, va **directa** a Anthropic. Cualquier DPA/evaluación de privacidad debe cubrir ambos flujos por separado.
+
+> 📡 **Telemetría — veredicto (2026-07-24):** analizada en detalle en [telemetria-anthropic-event-logging.md](telemetria-anthropic-event-logging.md). Sensibilidad **baja** (rutas/contenido hasheados; prompts/comandos reducidos a metadatos). Único dato identificativo: `device_id` + fingerprint de `env`. Decisión: **documentar y no bloquear**.
 
 ```mermaid
 flowchart LR
@@ -392,6 +394,44 @@ mitmdump -s src/anthropic_payload_pseudonymize.py \
 > ⚠️ **Limitación conocida (streaming):** esta versión procesa la respuesta **completa** (mitmproxy bufferiza por defecto), lo que es correcto para las tool calls pero retrasa el render token-a-token. La variante en streaming (reemplazo con buffer de arrastre sobre SSE) queda como mejora posterior.
 
 > Tests en [`tests/test_anthropic_payload_pseudonymize.py`](../tests/test_anthropic_payload_pseudonymize.py) (43): round-trip forward/restore, longest-match-first, palanca de rutas, regex, idempotencia, persistencia del vault, redacción irreversible de secretos, word-literals con frontera (no corrompen `HTTPS`/`COMMIT`), transformación estructural JSON (regresión del `400`) y `secret-kv` sin morder `os.getenv(...)`.
+
+---
+
+## 🎨 Logs coloreados
+
+Los dos addons colorean sus líneas de log **por semántica**, para escanear en vivo de un vistazo qué está pasando:
+
+| Color | Nivel | Cuándo | Ejemplo |
+| --- | --- | --- | --- |
+| 🟢 Verde | `ok` | Se ejecutó una acción de auditoría real: el cuerpo se **reescribió** (dato sensible neutralizado) o la respuesta se **revirtió** | `[anthropic-pseudo] request POST /v1/messages seudónimos=53`<br>`[anthropic-capture] POST /v1/messages → sent/… (pseudonymized=True)` |
+| ⚪ Neutro | — | La request salió pero **no había nada que seudonimizar** (p. ej. telemetría `event_logging`). No es un problema — ver [telemetría](telemetria-anthropic-event-logging.md) | `[anthropic-capture] POST /api/event_logging/v2/batch → sent/… (pseudonymized=False)` |
+| 🟡 Amarillo | `warn` | Degradación que **no es fuga**: no se pudo persistir el vault (la request ya salió seudonimizada) o no se pudo revertir la response (el CLI puede ver seudónimos) | `[anthropic-pseudo] WARN no pude persistir el vault: … (la request va seudonimizada)`<br>`[anthropic-pseudo] WARN no pude leer la response de /… — no se revierte` |
+| 🔴 Rojo | `error` | Fallo serio: request **bloqueada en fail-closed** (no se pudo seudonimizar → no salió) o fallo al **escribir la evidencia** en disco | `[anthropic-pseudo] BLOQUEADA (fail-closed) POST /v1/messages: …`<br>`[anthropic-capture] ERROR escribiendo evidencia 20260724_130145_… : …` |
+
+> 💡 El neutro (sin color) para `pseudonymized=False` es **deliberado**: la telemetría domina el tráfico y nunca contiene rutas/identidad, así que colorearla llamaría la atención sin motivo. El amarillo se reserva a degradaciones sin fuga; lo que sí pone en riesgo un dato se **bloquea** (rojo), no se avisa.
+
+### Cuándo se colorea
+
+El coloreado se activa **solo si la salida es una terminal** (`sys.stdout.isatty()`), de modo que si rediriges el log a un fichero o lo pasas por un pipe (`claude-proxy | tee audit.log`) **no se cuelan secuencias ANSI** en la evidencia. Además:
+
+| Variable | Efecto |
+| --- | --- |
+| `NO_COLOR` (presente, cualquier valor) | Desactiva el color (convención [no-color.org](https://no-color.org)) |
+| `ANTHROPIC_LOG_COLOR=1` | **Fuerza** color aunque no sea TTY (útil para `less -R`) |
+| `ANTHROPIC_LOG_COLOR=0` | Desactiva color aunque sea TTY |
+
+El helper `colorize()` / `color_enabled()` es una función pura (misma implementación autocontenida en ambos addons), con tests en `test_anthropic_payload_capture.py` y `test_anthropic_payload_pseudonymize.py`.
+
+### 🚧 Fail-closed: si no se puede seudonimizar, no sale
+
+El seudonimizador está diseñado para **fallar cerrado**: si cualquier paso de la seudonimización de una request a un host objetivo lanza una excepción (no se puede leer/decodificar el cuerpo, reescribirlo, etc.), la request se **aborta localmente** y **no se envía a Anthropic**.
+
+- Técnicamente: `request()` envuelve todo el trabajo en un `try`; ante excepción, `_fail_closed()` fija `flow.response` a un **502** con un mensaje explicativo (mitmproxy responde **sin contactar con el servidor**). Si ni eso se puede, `flow.kill()`.
+- **Por qué:** sin esta red, una excepción en un hook de mitmproxy se **loguea pero el flujo continúa con el cuerpo original** — es decir, saldría **sin seudonimizar** (fail-**open**). El fail-closed convierte ese borde silencioso en un bloqueo ruidoso (línea 🔴 roja).
+- **Evidencia:** la request bloqueada se marca con `blocked: true` en el par `sent`/`original`. El cuerpo de `sent/` es un **marcador** (`«BLOCKED: …»`), no el cuerpo real — porque no salió nada. El cuerpo real (con secretos redactados) queda en `original/` para diagnóstico.
+- **Alcance:** solo aplica a la **request** (hacia Anthropic). En la **response** (hacia el CLI) NO se bloquea: no poder revertir seudónimos no es una fuga, así que se avisa en 🟡 amarillo y se deja pasar (bloquearla solo rompería la sesión).
+
+> En la práctica este bloqueo casi nunca se dispara: `get_text`/`pseudonymize_body` no lanzan sobre el JSON bien formado que envía Claude Code. Es una **red de seguridad**, no un camino habitual.
 
 ---
 

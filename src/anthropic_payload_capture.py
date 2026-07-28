@@ -25,9 +25,51 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+# --- Coloreado de logs --------------------------------------------------------
+# Coloreamos cada línea de log por semántica: verde = acción de auditoría OK
+# (se seudonimizó/capturó algo sensible), amarillo = aviso a revisar, rojo =
+# error. Se DESACTIVA si NO_COLOR está presente (convención https://no-color.org)
+# o si la salida NO es una terminal (p.ej. `claude-proxy | tee audit.log`), para
+# no ensuciar la evidencia con secuencias ANSI. Forzable con ANTHROPIC_LOG_COLOR=1
+# (siempre) o =0 (nunca).
+_ANSI = {"ok": "\033[32m", "warn": "\033[33m", "error": "\033[31m"}
+_ANSI_RESET = "\033[0m"
+
+
+def color_enabled(stream: Any = None) -> bool:
+    """¿Debe colorearse la salida? TTY y sin NO_COLOR; override ANTHROPIC_LOG_COLOR."""
+    forced = os.environ.get("ANTHROPIC_LOG_COLOR")
+    if forced in ("1", "true", "yes"):
+        return True
+    if forced in ("0", "false", "no"):
+        return False
+    if os.environ.get("NO_COLOR") is not None:
+        return False
+    stream = stream if stream is not None else sys.stdout
+    try:
+        return bool(stream.isatty())
+    except Exception:
+        return False
+
+
+def colorize(text: str, level: str, *, enabled: bool | None = None) -> str:
+    """Envuelve ``text`` en el ANSI de ``level`` (``ok``/``warn``/``error``).
+
+    ``enabled=None`` consulta ``color_enabled()``. Nivel desconocido o coloreado
+    desactivado → texto intacto (neutro). Pura → unit-testable sin terminal.
+    """
+    if enabled is None:
+        enabled = color_enabled()
+    code = _ANSI.get(level)
+    if not enabled or code is None:
+        return text
+    return f"{code}{text}{_ANSI_RESET}"
+
 
 # --- Configuración -----------------------------------------------------------
 
@@ -60,6 +102,11 @@ SENSITIVE_HEADERS = {
 }
 
 REDACTION = "«REDACTED»"
+
+# Cuerpo que se registra en `sent/` cuando la request fue BLOQUEADA (fail-closed):
+# nada salió del equipo, así que NO volcamos el cuerpo original como si se hubiera
+# enviado. El cuerpo real (secretos redactados) queda en `original/`.
+BLOCKED_SENT_MARKER = "«BLOCKED: request no enviada (fail-closed) — ver original/»"
 
 # Directorio de salida: captures/ relativo a la raíz del proyecto (tooling).
 # Permite override por env var para tests / rutas alternativas.
@@ -154,6 +201,7 @@ def build_record(
     variant: str = "sent",
     pseudonymized: bool = False,
     counterpart: str | None = None,
+    blocked: bool = False,
 ) -> dict[str, Any]:
     """Construye el registro de auditoría de una request.
 
@@ -161,13 +209,15 @@ def build_record(
     ``"original"`` (los mismos datos antes de seudonimizar, con los secretos
     Tier-1 redactados). ``pseudonymized`` indica si la seudonimización reescribió
     el cuerpo. ``counterpart`` es el nombre del fichero pareja en el subdir
-    hermano, para localizar el par a comparar.
+    hermano, para localizar el par a comparar. ``blocked`` marca las requests que
+    el seudonimizador abortó (fail-closed) y que por tanto NO salieron del equipo.
     """
     hdrs = redact_headers(headers) if redact else dict(headers)
     return {
         "captured_at": captured_at.isoformat(),
         "variant": variant,
         "pseudonymized": pseudonymized,
+        "blocked": blocked,
         "counterpart": counterpart,
         "method": method,
         "url": url,
@@ -235,6 +285,16 @@ class AnthropicPayloadCapture:
             redact = os.environ.get("ANTHROPIC_CAPTURE_REDACT", "1") != "0"
         self.redact = redact
 
+    def _emit(self, msg: str, level: str | None = None) -> None:
+        """Loguea ``msg`` coloreado según ``level`` (``None`` = neutro)."""
+        out = colorize(msg, level) if level else msg
+        try:
+            from mitmproxy import ctx
+
+            ctx.log.info(out)
+        except Exception:
+            print(out)
+
     def request(self, flow: Any) -> None:  # pragma: no cover - requiere mitmproxy
         req = flow.request
         if not is_anthropic_host(req.pretty_host):
@@ -251,6 +311,9 @@ class AnthropicPayloadCapture:
         if original_body is None:
             original_body = req.raw_content
             pseudonymized = False
+        # El seudonimizador aborta (fail-closed) las requests que no pudo
+        # seudonimizar: no salieron, así que su cuerpo NO se registra como enviado.
+        blocked = bool(meta.get("anthropic_blocked"))
 
         s_dir = sent_dir()
         o_dir = original_dir()
@@ -266,16 +329,18 @@ class AnthropicPayloadCapture:
             redact=self.redact,
             pseudonymized=pseudonymized,
             counterpart=name,
+            blocked=blocked,
         )
         # `sent`: destino y cabeceras seudonimizados con el vault del cuerpo, para
-        # que no se filtre el host del gateway ni otros valores nuestros.
+        # que no se filtre el host del gateway ni otros valores nuestros. Si la
+        # request fue bloqueada, el cuerpo `sent` es un marcador (no salió nada).
         sent_headers = {k: apply_forward(v, fwd) for k, v in dict(req.headers).items()}
         sent_record = build_record(
             url=apply_forward(req.pretty_url, fwd),
             host=apply_forward(req.pretty_host, fwd),
             path=apply_forward(req.path, fwd),
             headers=sent_headers,
-            body=req.raw_content,
+            body=BLOCKED_SENT_MARKER if blocked else req.raw_content,
             variant="sent",
             **base,
         )
@@ -290,22 +355,38 @@ class AnthropicPayloadCapture:
             **base,
         )
 
-        sent_path.write_text(
-            json.dumps(sent_record, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-        original_path.write_text(
-            json.dumps(original_record, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-
         try:
-            from mitmproxy import ctx
-
-            ctx.log.info(
-                f"[anthropic-capture] {req.method} {req.path} → "
-                f"sent/{name} + original/{name} (pseudonymized={pseudonymized})"
+            sent_path.write_text(
+                json.dumps(sent_record, indent=2, ensure_ascii=False), encoding="utf-8"
             )
-        except Exception:
-            print(f"[anthropic-capture] {req.method} {req.path} -> {name}")
+            original_path.write_text(
+                json.dumps(original_record, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            # Fallo al persistir la evidencia = hueco de auditoría: rojo y re-lanza
+            # (se preserva el comportamiento previo, que propagaba el error).
+            self._emit(
+                f"[anthropic-capture] ERROR escribiendo evidencia {name}: {exc}",
+                level="error",
+            )
+            raise
+
+        # Rojo si la request fue bloqueada (fail-closed, no salió). Si no: verde
+        # cuando la seudonimización reescribió el cuerpo (dato sensible neutralizado
+        # antes de salir); neutro cuando no había nada que reescribir.
+        if blocked:
+            self._emit(
+                f"[anthropic-capture] {req.method} {req.path} → "
+                f"sent/{name} + original/{name} (BLOQUEADA — no salió)",
+                level="error",
+            )
+        else:
+            self._emit(
+                f"[anthropic-capture] {req.method} {req.path} → "
+                f"sent/{name} + original/{name} (pseudonymized={pseudonymized})",
+                level="ok" if pseudonymized else None,
+            )
 
 
 # mitmproxy busca una variable de módulo ``addons``.
