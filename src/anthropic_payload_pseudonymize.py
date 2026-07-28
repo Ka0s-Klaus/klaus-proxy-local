@@ -36,10 +36,52 @@ import hashlib
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Any, Callable
 
 TOOL_ROOT = Path(__file__).resolve().parents[1]
+
+
+# --- Coloreado de logs --------------------------------------------------------
+# Coloreamos cada línea de log por semántica: verde = acción de auditoría OK
+# (se seudonimizó/revirtió algo), amarillo = aviso a revisar, rojo = error. Se
+# DESACTIVA si NO_COLOR está presente (convención https://no-color.org) o si la
+# salida NO es una terminal (p.ej. `claude-proxy | tee audit.log`), para no
+# ensuciar la evidencia con secuencias ANSI. Forzable con ANTHROPIC_LOG_COLOR=1
+# (siempre) o =0 (nunca).
+_ANSI = {"ok": "\033[32m", "warn": "\033[33m", "error": "\033[31m"}
+_ANSI_RESET = "\033[0m"
+
+
+def color_enabled(stream: Any = None) -> bool:
+    """¿Debe colorearse la salida? TTY y sin NO_COLOR; override ANTHROPIC_LOG_COLOR."""
+    forced = os.environ.get("ANTHROPIC_LOG_COLOR")
+    if forced in ("1", "true", "yes"):
+        return True
+    if forced in ("0", "false", "no"):
+        return False
+    if os.environ.get("NO_COLOR") is not None:
+        return False
+    stream = stream if stream is not None else sys.stdout
+    try:
+        return bool(stream.isatty())
+    except Exception:
+        return False
+
+
+def colorize(text: str, level: str, *, enabled: bool | None = None) -> str:
+    """Envuelve ``text`` en el ANSI de ``level`` (``ok``/``warn``/``error``).
+
+    ``enabled=None`` consulta ``color_enabled()``. Nivel desconocido o coloreado
+    desactivado → texto intacto (neutro). Pura → unit-testable sin terminal.
+    """
+    if enabled is None:
+        enabled = color_enabled()
+    code = _ANSI.get(level)
+    if not enabled or code is None:
+        return text
+    return f"{code}{text}{_ANSI_RESET}"
 
 
 def project_root() -> Path:
@@ -564,6 +606,23 @@ def restore_body(raw: str, vault: Vault) -> str:
     return json.dumps(new, ensure_ascii=False, separators=(",", ":"))
 
 
+# --- Fail-closed --------------------------------------------------------------
+
+
+def fail_closed_body(exc: Exception) -> bytes:
+    """Cuerpo de la respuesta de bloqueo que ve el cliente cuando el proxy corta
+    una request por no poder garantizar su seudonimización (fail-closed).
+
+    Función pura → unit-testable sin mitmproxy.
+    """
+    return (
+        "klaus-proxy (auditoría): request BLOQUEADA en modo fail-closed.\n"
+        "No se pudo garantizar la seudonimización del cuerpo, de modo que NO se "
+        "ha enviado a Anthropic para evitar una posible fuga de datos.\n"
+        f"Motivo: {type(exc).__name__}: {exc}\n"
+    ).encode("utf-8")
+
+
 # --- Hooks de mitmproxy ------------------------------------------------------
 
 
@@ -590,13 +649,14 @@ class AnthropicPseudonymizer:
             self._rules = build_rules()
         return self._rules
 
-    def _log(self, msg: str) -> None:
+    def _log(self, msg: str, level: str | None = None) -> None:
+        out = colorize(msg, level) if level else msg
         try:
             from mitmproxy import ctx
 
-            ctx.log.info(msg)
+            ctx.log.info(out)
         except Exception:
-            print(msg)
+            print(out)
 
     def request(self, flow: Any) -> None:  # pragma: no cover - requiere mitmproxy
         if not enabled():
@@ -604,10 +664,20 @@ class AnthropicPseudonymizer:
         req = flow.request
         if not is_target_host(req.pretty_host):
             return
+        # Fail-closed: si CUALQUIER paso de la seudonimización falla (no se puede
+        # leer el cuerpo, reescribirlo, etc.), NO dejamos salir la request — la
+        # abortamos localmente. Un cuerpo que no hemos podido seudonimizar nunca
+        # llega a Anthropic. Sin esta red, una excepción en un hook de mitmproxy se
+        # loguea pero el flujo continúa con el cuerpo ORIGINAL (fail-open).
         try:
-            text = req.get_text(strict=False)
-        except Exception:
-            return
+            self._pseudonymize_request(flow, req)
+        except Exception as exc:  # noqa: BLE001 - red de seguridad deliberada
+            self._fail_closed(flow, req, exc)
+
+    def _pseudonymize_request(self, flow: Any, req: Any) -> None:  # pragma: no cover
+        """Reescribe el cuerpo de la request. Cualquier excepción sube a
+        ``request`` y dispara ``_fail_closed`` (no debe tragarse errores)."""
+        text = req.get_text(strict=False)
         if not text:
             return
         vault = self._get_vault()
@@ -619,24 +689,65 @@ class AnthropicPseudonymizer:
         # de captura (que corre DESPUÉS) grabe el par original/enviado.
         original = redact_secrets_body(text, rules)
         new = pseudonymize_body(text, vault, rules)
-        try:
-            flow.metadata["anthropic_original_body"] = original
-            flow.metadata["anthropic_pseudonymized"] = bool(new != original)
-            # Mapa real→seudónimo YA poblado por el cuerpo, para que la captura
-            # seudonimice también url/host/cabeceras del registro `sent` con los
-            # MISMOS seudónimos y sin acuñar ninguno nuevo.
-            flow.metadata["anthropic_vault_forward"] = dict(vault.real_to_pseudo)
-        except Exception:
-            # metadata es solo traza para el addon de captura; su ausencia no
-            # afecta a la reescritura del cuerpo.
-            pass
+        flow.metadata["anthropic_original_body"] = original
+        flow.metadata["anthropic_pseudonymized"] = bool(new != original)
+        # Mapa real→seudónimo YA poblado por el cuerpo, para que la captura
+        # seudonimice también url/host/cabeceras del registro `sent` con los
+        # MISMOS seudónimos y sin acuñar ninguno nuevo.
+        flow.metadata["anthropic_vault_forward"] = dict(vault.real_to_pseudo)
+        # Reescribimos el cuerpo ANTES de persistir el vault: aunque el guardado
+        # del vault falle, lo que sale ya va seudonimizado.
         if new != text:
             req.set_text(new)
         if len(vault.pseudo_to_real) != before:
-            vault.save()
+            try:
+                vault.save()
+            except Exception as exc:  # noqa: BLE001
+                # La request YA va seudonimizada; solo se degradó la persistencia
+                # del vault → aviso (amarillo), sin bloquear ni fallar.
+                self._log(
+                    f"[anthropic-pseudo] WARN no pude persistir el vault: "
+                    f"{type(exc).__name__}: {exc} (la request va seudonimizada)",
+                    level="warn",
+                )
+        # Verde si reescribimos el cuerpo (algo sensible neutralizado); neutro si
+        # no hubo nada que seudonimizar en esta request (p.ej. telemetría).
         self._log(
             f"[anthropic-pseudo] request {req.method} {req.path} "
-            f"seudónimos={len(vault.pseudo_to_real)}"
+            f"seudónimos={len(vault.pseudo_to_real)}",
+            level="ok" if new != text else None,
+        )
+
+    def _fail_closed(self, flow: Any, req: Any, exc: Exception) -> None:  # pragma: no cover
+        """Corta la request localmente para que NO salga sin seudonimizar.
+
+        Fija ``flow.response`` (mitmproxy responde sin contactar con el servidor) y
+        marca ``anthropic_blocked`` para que la captura no registre el cuerpo como
+        'enviado'. Si ni siquiera podemos construir la respuesta, matamos el flujo.
+        """
+        try:
+            flow.metadata["anthropic_blocked"] = True
+        except Exception:
+            pass
+        try:
+            from mitmproxy import http
+
+            flow.response = http.Response.make(
+                502,
+                fail_closed_body(exc),
+                {"Content-Type": "text/plain; charset=utf-8"},
+            )
+        except Exception:
+            # Sin respuesta de bloqueo disponible, matamos el flujo: preferible a
+            # dejar salir el cuerpo original.
+            try:
+                flow.kill()
+            except Exception:
+                pass
+        self._log(
+            f"[anthropic-pseudo] BLOQUEADA (fail-closed) {req.method} {req.path}: "
+            f"{type(exc).__name__}: {exc} — la request NO salió",
+            level="error",
         )
 
     def response(self, flow: Any) -> None:  # pragma: no cover - requiere mitmproxy
@@ -648,13 +759,21 @@ class AnthropicPseudonymizer:
         try:
             text = flow.response.get_text(strict=False)
         except Exception:
+            # No poder revertir la response NO es una fuga (va hacia el CLI, no
+            # hacia Anthropic): avisamos en amarillo y dejamos pasar. Bloquearla
+            # solo rompería la sesión del usuario.
+            self._log(
+                f"[anthropic-pseudo] WARN no pude leer la response de {req.path} — "
+                f"no se revierte (el CLI puede ver seudónimos)",
+                level="warn",
+            )
             return
         if not text:
             return
         new = restore_body(text, self._get_vault())
         if new != text:
             flow.response.set_text(new)
-            self._log(f"[anthropic-pseudo] response {req.path} revertida")
+            self._log(f"[anthropic-pseudo] response {req.path} revertida", level="ok")
 
 
 # mitmproxy busca una variable de módulo ``addons``.

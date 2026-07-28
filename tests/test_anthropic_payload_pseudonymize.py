@@ -465,3 +465,62 @@ def test_redact_secrets_body_non_json_falls_back_to_text():
 
 def test_redact_secrets_body_empty():
     assert ps.redact_secrets_body("", ps.Rules()) == ""
+
+
+# --- Coloreado de logs --------------------------------------------------------
+
+
+class _FakeStream:
+    """Stream con isatty() controlable — evita depender de la terminal real."""
+
+    def __init__(self, tty: bool) -> None:
+        self._tty = tty
+
+    def isatty(self) -> bool:
+        return self._tty
+
+
+def test_colorize_wraps_by_level_when_enabled():
+    assert ps.colorize("x", "ok", enabled=True) == "\033[32mx\033[0m"
+    assert ps.colorize("x", "warn", enabled=True) == "\033[33mx\033[0m"
+    assert ps.colorize("x", "error", enabled=True) == "\033[31mx\033[0m"
+
+
+def test_colorize_noop_when_disabled_or_unknown_level():
+    assert ps.colorize("x", "ok", enabled=False) == "x"
+    assert ps.colorize("x", "desconocido", enabled=True) == "x"
+
+
+def test_color_enabled_force_flag_beats_no_color(monkeypatch):
+    monkeypatch.setenv("NO_COLOR", "1")
+    monkeypatch.setenv("ANTHROPIC_LOG_COLOR", "1")  # force=1 manda sobre NO_COLOR
+    assert ps.color_enabled(_FakeStream(False)) is True
+    monkeypatch.setenv("ANTHROPIC_LOG_COLOR", "0")  # force=0 desactiva aun con TTY
+    assert ps.color_enabled(_FakeStream(True)) is False
+
+
+def test_color_enabled_no_color_present_disables(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_LOG_COLOR", raising=False)
+    monkeypatch.setenv("NO_COLOR", "")  # su mera presencia (aun vacío) desactiva
+    assert ps.color_enabled(_FakeStream(True)) is False
+
+
+def test_color_enabled_falls_back_to_tty(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_LOG_COLOR", raising=False)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    assert ps.color_enabled(_FakeStream(True)) is True
+    assert ps.color_enabled(_FakeStream(False)) is False
+
+
+# --- Fail-closed --------------------------------------------------------------
+
+
+def test_fail_closed_body_is_bytes_and_explains_reason():
+    body = ps.fail_closed_body(ValueError("cuerpo ilegible"))
+    assert isinstance(body, bytes)
+    text = body.decode("utf-8")
+    assert "fail-closed" in text
+    assert "NO se ha" in text  # deja claro que la request no salió
+    # Incluye el tipo y el mensaje de la excepción para diagnóstico.
+    assert "ValueError" in text
+    assert "cuerpo ilegible" in text
