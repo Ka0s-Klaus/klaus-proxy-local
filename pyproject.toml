@@ -23,6 +23,7 @@ dependencies = [
     "fastapi>=0.111",
     "uvicorn[standard]>=0.30",
     "anthropic>=0.30",
+    "mitmproxy>=10.0",
 ]
 
 [project.optional-dependencies]
@@ -43,8 +44,17 @@ claude-proxy = "Klaus_proxy_local.launcher:main"
 klaus-install-wrappers = "Klaus_proxy_local.install_wrappers:main"
 klaus-setup = "Klaus_proxy_local.setup_shell:main"
 
+[tool.setuptools]
+package-dir = { "" = "src" }
+packages = ["Klaus_proxy_local"]
+include-package-data = true
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# Include wrapper scripts and other data files
+[tool.setuptools.package-data]
+Klaus_proxy_local = []  # No package data; scripts are at root level
 
 [tool.ruff]
 target-version = "py310"
