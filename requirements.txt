@@ -2,4 +2,4 @@
 # El proxy se ejecuta con mitmdump (mitmproxy). Instálalo aquí o vía Homebrew
 # (`brew install mitmproxy`). Los addons no importan mitmproxy a nivel de módulo
 # (import perezoso dentro de los hooks), por eso los tests no lo requieren.
-mitmproxy>=10,<12
+mitmproxy>=11.0.2,<12
