@@ -1,0 +1,15 @@
+include README.md
+include LICENSE
+include MANIFEST.in
+
+# Include all documentation
+recursive-include docs *.md
+
+# Include all wrapper scripts
+include scripts/claude-with-proxy.*
+
+# Include all test files
+recursive-include tests *.py
+
+# Include source code
+recursive-include src *.py
