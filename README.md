@@ -51,36 +51,67 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido
+## 🚀 Inicio rápido (v0.1.0)
+
+```bash
+# Instalar
+pip install Klaus-proxy-local
+
+# Terminal 1: arrancar el proxy
+claude-proxy
+
+# Terminal 2: usar Claude Code
+claude-with-proxy "tu pregunta"
+```
+
+✨ **Eso es todo.** La configuración es automática.
+
+---
+
+## 📚 Documentación
+
+Para nuevos usuarios, **empieza aquí:**
+
+- 🟢 **[QUICK_START.md](./docs/QUICK_START.md)** — Cómo instalar y usar (2 minutos)
+- 🔵 **[THREAT_MODEL.md](./docs/THREAT_MODEL.md)** — Qué protegemos y qué no
+- 📖 **[INDEX.md](./docs/INDEX.md)** — Índice completo de documentación
+
+Para desarrolladores y auditoría:
+
+| Tema | Documento |
+|------|-----------|
+| **Cómo funciona** | [architecture.md](./docs/architecture.md) |
+| **Setup completo** | [setup.md](./docs/setup.md) |
+| **Security fixes v0.1.0** | [SECURITY_HARDENING.md](./docs/SECURITY_HARDENING.md) |
+| **Runbook detallado** | [anthropic-audit-proxy.md](./docs/anthropic-audit-proxy.md) |
+| **Plan de pruebas** | [plan-pruebas-control.md](./docs/plan-pruebas-control.md) |
+
+---
+
+## 🔬 Desarrollo (desde el repositorio)
 
 ```bash
 # Clonar
 git clone https://github.com/Ka0s-Klaus/klaus-proxy-local.git
 cd klaus-proxy-local
 
-# Requisitos: mitmproxy (proxy) y, para desarrollo, pytest
-brew install mitmproxy          # o: pip install -r requirements.txt
-pip install -r requirements-dev.txt   # tests
+# Setup de desarrollo
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
 
-# Terminal 1 — arrancar el proxy de auditoría en primer plano (logs en vivo):
-mitmdump -s src/anthropic_payload_pseudonymize.py \
-         -s src/anthropic_payload_capture.py -p 8899
+# Correr tests
+pytest -v
 
-# Terminal 2 — enrutar un claude NUEVO por el proxy:
-HTTPS_PROXY=http://127.0.0.1:8899 HTTP_PROXY=http://127.0.0.1:8899 \
-NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem \
-claude -p "responde solo con la palabra: pong"
+# Linting
+ruff check .
+black --check .
 
-# Verificar en un comando lo que salió del equipo:
-python3 src/anthropic_capture_verify.py
-
-# Barrido diferencial por pares original↔sent (fugas independientes del vault):
-python3 src/anthropic_pair_verify.py
+# Ejecutar el proxy (manual, sin instalación)
+ANTHROPIC_PSEUDO_SALT=your-salt mitmdump \
+  -s src/anthropic_payload_pseudonymize.py \
+  -s src/anthropic_payload_capture.py -p 8899
 ```
-
-> El runbook completo (modelo manual con funciones `claude-proxy`/`claude` de `~/.zshrc`,
-> LaunchAgent, seudonimización bidireccional) está en
-> [`docs/anthropic-audit-proxy.md`](./docs/anthropic-audit-proxy.md).
 
 ---
 
@@ -115,14 +146,7 @@ klaus-proxy-local/
 
 ---
 
-## 📚 Documentación
-
-| Documento | Descripción |
-| --- | --- |
-| [`docs/anthropic-audit-proxy.md`](./docs/anthropic-audit-proxy.md) | Runbook completo: captura, seudonimización, verificación, arranque |
-| [`docs/MANIFIESTO_ficheros_embebidos.md`](./docs/MANIFIESTO_ficheros_embebidos.md) | Qué ficheros del repo se embeben en el payload y por qué vía |
-| [`docs/MANUAL_limpieza_hardening.md`](./docs/MANUAL_limpieza_hardening.md) | Limpieza + hardening del riesgo *data-at-rest* |
-| [`docs/plan-pruebas-control.md`](./docs/plan-pruebas-control.md) | Plan de pruebas de control: pre-flight, casos T1–T7, criterios de aceptación |
+Ver sección anterior: [📚 Documentación](#-documentación)
 
 ---
 
