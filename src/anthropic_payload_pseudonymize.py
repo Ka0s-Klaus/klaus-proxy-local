@@ -203,7 +203,26 @@ def is_target_host(host: str) -> bool:
 
 
 def _salt() -> str:
-    return os.environ.get("ANTHROPIC_PSEUDO_SALT", "mo-ecosistema1-audit")
+    """Load pseudonymization salt; must be explicitly configured.
+
+    Raises RuntimeError if ANTHROPIC_PSEUDO_SALT is not set. The default
+    salt was removed (it was public in the repo). In v0.1.0, auto-generation
+    will handle this transparently.
+    """
+    salt = os.environ.get("ANTHROPIC_PSEUDO_SALT")
+    if not salt:
+        raise RuntimeError(
+            "⚠️  ANTHROPIC_PSEUDO_SALT environment variable is required.\n"
+            "\n"
+            "Generate a random salt:\n"
+            "  python -c 'import secrets; print(secrets.token_hex(16))'\n"
+            "\n"
+            "Then set it in your shell:\n"
+            "  export ANTHROPIC_PSEUDO_SALT=<your-32-char-hex-salt>\n"
+            "\n"
+            "(v0.1.0 will auto-generate this on first run)"
+        )
+    return salt
 
 
 def vault_path() -> Path:
@@ -269,11 +288,19 @@ class Vault:
         return v
 
     def save(self, path: Path | None = None) -> Path:
+        """Save vault with secure permissions (0o600 = owner read/write only).
+
+        Parent directory is created with 0o700 (owner read/write/execute only).
+        This prevents other users on shared systems from accessing the vault.
+        """
         path = path or vault_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
+        # Create parent with restrictive permissions
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         path.write_text(
             json.dumps(self.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8"
         )
+        # Ensure vault is readable only by owner
+        os.chmod(path, 0o600)
         return path
 
     @classmethod
@@ -606,6 +633,26 @@ def restore_body(raw: str, vault: Vault) -> str:
     return json.dumps(new, ensure_ascii=False, separators=(",", ":"))
 
 
+def _find_unreversed_pseudonyms(text: str, vault: Vault) -> list[str]:
+    """Find pseudonyms in text that weren't reverted (sanity check).
+
+    Pseudonym pattern: prefix_<8hex>[z*] (e.g., /proj_a1b2c3d4, id_x9y8z7w6).
+    Used to detect vault corruption or reversal failures.
+
+    Returns list of unreversed pseudonyms found.
+    """
+    if not text or not vault.pseudo_to_real:
+        return []
+
+    # Pattern: word chars, underscore, 8 hex digits, optional z's for collision resolution
+    pseudo_pattern = re.compile(r"\b[a-z]+_[0-9a-f]{8}z*\b")
+    found = pseudo_pattern.findall(text)
+
+    # Filter out false positives: only report if pseudonym is actually in vault
+    unreversed = [p for p in set(found) if p in vault.pseudo_to_real]
+    return sorted(unreversed)
+
+
 # --- Fail-closed --------------------------------------------------------------
 
 
@@ -770,7 +817,18 @@ class AnthropicPseudonymizer:
             return
         if not text:
             return
-        new = restore_body(text, self._get_vault())
+
+        vault = self._get_vault()
+        new = restore_body(text, vault)
+
+        # Sanity check: detect unreversed pseudonyms (vault corruption, reversal bug)
+        unreversed = _find_unreversed_pseudonyms(new, vault)
+        if unreversed:
+            self._log(
+                f"[anthropic-pseudo] WARN unreversed pseudonyms in response {req.path}: {unreversed}",
+                level="warn",
+            )
+
         if new != text:
             flow.response.set_text(new)
             self._log(f"[anthropic-pseudo] response {req.path} revertida", level="ok")
