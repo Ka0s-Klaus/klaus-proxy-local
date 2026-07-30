@@ -39,6 +39,9 @@ dev = [
 
 [project.scripts]
 Klaus-proxy = "Klaus_proxy_local.main:main"
+claude-proxy = "Klaus_proxy_local.launcher:main"
+klaus-install-wrappers = "Klaus_proxy_local.install_wrappers:main"
+klaus-setup = "Klaus_proxy_local.setup_shell:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
