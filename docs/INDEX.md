@@ -30,7 +30,8 @@ docs/
 ├─ 🔵 ARCHITECTURE & DESIGN
 │  ├── architecture.md         — How Klaus Proxy works
 │  ├── MANIFIESTO_ficheros_embebidos.md — What data flows
-│  └── SECURITY_HARDENING.md   — v0.1.0 security fixes
+│  ├── SECURITY_HARDENING.md   — v0.1.0 security fixes (FASE 0) ✅
+│  └── FASE1_ZERO_CONFIG.md    — Auto-config + certs (FASE 1) 🔴
 │
 ├─ 🛠️  TECHNICAL DOCS
 │  ├── setup.md                — Complete setup guide
