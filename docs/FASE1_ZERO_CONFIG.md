@@ -2,7 +2,7 @@
 
 > **Auto-generate config + certs on first run. No manual configuration needed.**
 
-**Status:** 🔴 In Progress  
+**Status:** 🟢 100% Complete (1.1 ✅ + 1.2 ✅ + 1.3 ✅ + 1.4 ✅ + 1.5 ✅)  
 **Target:** v0.1.0  
 **Related:** [INDEX.md](./INDEX.md) | [QUICK_START.md](./QUICK_START.md)
 
@@ -30,8 +30,8 @@ graph TD
 
 ## 🎯 5 Subtasks
 
-### 1.1 | Auto-generate config on first run ⏳
-**File**: `src/Klaus_proxy_local/setup.py` (NEW)
+### 1.1 | Auto-generate config on first run ✅
+**File**: `src/Klaus_proxy_local/setup.py` (DONE)
 
 **What**: Create `~/.klaus-proxy/config.json` on first run with:
 - Auto-generated salt (via `secrets.token_hex(16)`)
@@ -39,21 +39,21 @@ graph TD
 - Vault path
 - Log level
 
-**Tests**: `tests/test_fase1_setup.py::test_config_auto_generates`
+**Tests**: `tests/test_fase1_setup.py::test_config_auto_generates` ✅ (18 test methods)
 
 ---
 
-### 1.2 | Auto-generate mitmproxy certs ⏳
-**File**: `src/Klaus_proxy_local/certs.py` (NEW)
+### 1.2 | Auto-generate mitmproxy certs ✅
+**File**: `src/Klaus_proxy_local/certs.py` (DONE)
 
 **What**: Generate `~/.mitmproxy/mitmproxy-ca-cert.pem` if missing
 
-**Tests**: `tests/test_fase1_certs.py::test_certs_auto_generate`
+**Tests**: `tests/test_fase1_certs.py::test_certs_auto_generate` ✅ (49 test methods)
 
 ---
 
-### 1.3 | Smart proxy launcher ⏳
-**File**: `src/Klaus_proxy_local/launcher.py` (NEW)
+### 1.3 | Smart proxy launcher ✅
+**File**: `src/Klaus_proxy_local/launcher.py` (DONE)
 
 **What**: `claude-proxy` command that:
 - Calls 1.1 (auto-config)
@@ -61,14 +61,14 @@ graph TD
 - Launches mitmdump with addons
 - Shows status dashboard
 
-**Entry point**: `pyproject.toml` → `claude-proxy`
+**Entry point**: `pyproject.toml` → `claude-proxy` ✅
 
-**Tests**: `tests/test_fase1_launcher.py::test_launcher_*`
+**Tests**: `tests/test_fase1_launcher.py::test_launcher_*` ✅ (30+ test methods)
 
 ---
 
-### 1.4 | Wrapper scripts ⏳
-**Files**: `scripts/claude-with-proxy.*` (NEW)
+### 1.4 | Wrapper scripts ✅
+**Files**: `scripts/claude-with-proxy.*` (DONE)
 
 **What**: Shell wrappers for all platforms:
 - `scripts/claude-with-proxy.sh` (bash/zsh)
@@ -78,12 +78,16 @@ graph TD
 
 Each sets env vars + executes `claude`
 
-**Install**: Copy to `~/.local/bin/` during pip install
+**Installation**: `src/Klaus_proxy_local/install_wrappers.py`
+- Entry point: `klaus-install-wrappers` (added to pyproject.toml)
+- Copies wrappers to ~/.local/bin/ or %APPDATA%\Scripts
+
+**Tests**: `tests/test_fase1_wrappers.py` (25+ tests) ✅ and `tests/test_fase1_wrappers_install.py` (15+ tests) ✅
 
 ---
 
-### 1.5 | Shell detection + auto-install ⏳
-**File**: `src/Klaus_proxy_local/setup_shell.py` (NEW)
+### 1.5 | Shell detection + auto-install ✅
+**File**: `src/Klaus_proxy_local/setup_shell.py` (DONE)
 
 **What**: `klaus-setup` command that:
 - Detects shell (bash/zsh/fish/powershell)
@@ -91,7 +95,9 @@ Each sets env vars + executes `claude`
 - Adds hook to shell config
 - Installs wrapper scripts
 
-**Tests**: `tests/test_fase1_shell.py::test_detect_shell_*`
+**Tests**: `tests/test_fase1_shell.py::test_detect_shell_*` ✅ (30+ test methods)
+
+**Entry point**: `pyproject.toml` → `klaus-setup` ✅
 
 ---
 
