@@ -43,6 +43,7 @@ Klaus-proxy = "Klaus_proxy_local.main:main"
 claude-proxy = "Klaus_proxy_local.launcher:main"
 klaus-install-wrappers = "Klaus_proxy_local.install_wrappers:main"
 klaus-setup = "Klaus_proxy_local.setup_shell:main"
+klaus-scan = "Klaus_proxy_local.scan:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
