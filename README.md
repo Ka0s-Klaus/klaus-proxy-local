@@ -6,6 +6,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://python.org)
+[![Version](https://img.shields.io/badge/version-0.2.0-green)](./docs/RELEASES.md)
+[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
 
@@ -68,6 +70,29 @@ claude-with-proxy "tu pregunta"
 
 ---
 
+## 📦 Releases
+
+### v0.2.0 — Sensitive Data Scanner ✅
+- 🔍 Multi-tier secret detection (3 tiers independent)
+- 📋 20 built-in patterns + custom pattern support
+- ⚡ Interactive CLI review workflow ([A]pprove/[S]kip/[C]opy/[Q]uit)
+- 🔗 Vault integration with v0.1.0
+- 🧪 65+ tests (100% passing)
+
+[📖 Release Notes](./docs/RELEASE_v0.2.0.md) | [📋 Full Details](./docs/RELEASES_DOCUMENTATION.md)
+
+### v0.1.0 — Initial Release ✅
+- 🔐 HTTPS proxy + pseudonymization
+- 🚀 Zero-configuration setup
+- 🛡️ Security hardening (3 critical fixes)
+- 🔒 Bidirectional vault mapping
+
+[📖 Release Notes](./docs/RELEASE_v0.1.0.md)
+
+**[📖 All Releases](./docs/RELEASES.md)** | **[🗂️ Release Documentation](./docs/RELEASES_DOCUMENTATION.md)**
+
+---
+
 ## 📚 Documentación
 
 Para nuevos usuarios, **empieza aquí:**
@@ -76,10 +101,21 @@ Para nuevos usuarios, **empieza aquí:**
 - 🔵 **[THREAT_MODEL.md](./docs/THREAT_MODEL.md)** — Qué protegemos y qué no
 - 📖 **[INDEX.md](./docs/INDEX.md)** — Índice completo de documentación
 
+Para versiones y releases:
+
+| Tema | Documento |
+|------|-----------|
+| **All Releases** | [RELEASES.md](./docs/RELEASES.md) |
+| **v0.2.0 Release** | [RELEASE_v0.2.0.md](./docs/RELEASE_v0.2.0.md) |
+| **v0.1.0 Release** | [RELEASE_v0.1.0.md](./docs/RELEASE_v0.1.0.md) |
+| **Release History** | [RELEASES_DOCUMENTATION.md](./docs/RELEASES_DOCUMENTATION.md) |
+
 Para desarrolladores y auditoría:
 
 | Tema | Documento |
 |------|-----------|
+| **Scanner (v0.2.0)** | [FASE2_SENSITIVE_DATA_SCANNER.md](./docs/FASE2_SENSITIVE_DATA_SCANNER.md) |
+| **Custom Patterns** | [FASE2_CUSTOM_PATTERNS.md](./docs/FASE2_CUSTOM_PATTERNS.md) |
 | **Cómo funciona** | [architecture.md](./docs/architecture.md) |
 | **Setup completo** | [setup.md](./docs/setup.md) |
 | **Security fixes v0.1.0** | [SECURITY_HARDENING.md](./docs/SECURITY_HARDENING.md) |
