@@ -29,6 +29,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Optional
 import sys
+import math
 
 
 # --- Confidence Levels ---
@@ -756,6 +757,181 @@ class VaultIntegration:
         return vault.save()
 
 
+# --- Tier 3: Heuristic Detection (Entropy & Diversity) ---
+
+
+class EntropyAnalyzer:
+    """Detects potential secrets using Shannon entropy analysis."""
+
+    # Entropy thresholds (bits per character)
+    ENTROPY_THRESHOLDS = {
+        "low": 3.5,      # Normal English text
+        "medium": 4.5,   # Could be secret
+        "high": 5.5,     # Very likely secret
+    }
+
+    @staticmethod
+    def shannon_entropy(text: str) -> float:
+        """Calculate Shannon entropy of text (bits/char).
+
+        Higher entropy = more random = likely secret.
+        Normal text: 3-4 bits/char
+        Random secrets: 5-6 bits/char
+        """
+        if not text:
+            return 0.0
+
+        from collections import Counter
+
+        freq = Counter(text)
+        entropy = 0.0
+        for count in freq.values():
+            p = count / len(text)
+            entropy -= p * math.log2(p)
+        return entropy
+
+    @staticmethod
+    def classify_entropy(text: str) -> tuple[str, float]:
+        """Classify string by entropy level.
+
+        Returns: (level, entropy_value)
+        """
+        entropy = EntropyAnalyzer.shannon_entropy(text)
+
+        # Adjust for length: longer high-entropy strings are more suspicious
+        length_factor = min(1.0, len(text) / 20)
+        adjusted_entropy = entropy * length_factor
+
+        if adjusted_entropy >= EntropyAnalyzer.ENTROPY_THRESHOLDS["high"]:
+            return "high", adjusted_entropy
+        elif adjusted_entropy >= EntropyAnalyzer.ENTROPY_THRESHOLDS["medium"]:
+            return "medium", adjusted_entropy
+        else:
+            return "low", adjusted_entropy
+
+
+class CharacterDiversityAnalyzer:
+    """Analyzes character set diversity (suggests secret if mixed)."""
+
+    @staticmethod
+    def analyze_charset(text: str) -> tuple[float, str]:
+        """Analyze character set diversity.
+
+        Returns: (diversity_score, charset_type)
+        - diversity_score: 0-1, higher = more diverse
+        - charset_type: 'alphanumeric', 'mixed', 'high-entropy'
+        """
+        has_lower = any(c.islower() for c in text)
+        has_upper = any(c.isupper() for c in text)
+        has_digit = any(c.isdigit() for c in text)
+        has_symbol = any(c in "!@#$%^&*()_-+=[]{}|;:,./<>?~`\\\"'" for c in text)
+
+        charset_count = sum([has_lower, has_upper, has_digit, has_symbol])
+        diversity = charset_count / 4.0
+
+        if has_symbol and (has_lower or has_upper) and has_digit:
+            charset_type = "high-entropy"
+        elif charset_count >= 3:
+            charset_type = "mixed"
+        else:
+            charset_type = "alphanumeric"
+
+        return diversity, charset_type
+
+
+class HeuristicDetector:
+    """Tier 3: Heuristic detection (entropy + diversity)."""
+
+    # Length heuristics
+    MIN_SECRET_LENGTH = 8  # Secrets usually >= 8 chars
+    MAX_SECRET_LENGTH = 64  # Secrets usually <= 64 chars
+
+    def __init__(self):
+        self.entropy_analyzer = EntropyAnalyzer()
+        self.diversity_analyzer = CharacterDiversityAnalyzer()
+
+    def detect_suspicious_strings(
+        self, line: str, file_path: Path, line_number: int
+    ) -> list[SensitiveDataFinding]:
+        """Detect suspicious strings by entropy + diversity + length.
+
+        Returns findings with MEDIUM/LOW confidence based on heuristics.
+        """
+        findings = []
+
+        # Split into tokens (heuristic: anything 8-64 chars)
+        import re
+
+        tokens = re.findall(r"\S{8,64}", line)
+
+        for token in tokens:
+            # Skip common false positives
+            if self._is_likely_false_positive(token):
+                continue
+
+            # Analyze entropy
+            entropy_level, entropy_val = self.entropy_analyzer.classify_entropy(token)
+
+            # Analyze diversity
+            diversity, charset = self.diversity_analyzer.analyze_charset(token)
+
+            # Confidence scoring
+            # Both high entropy AND high diversity = strong signal
+            if (
+                entropy_level in ("high", "medium")
+                and diversity >= 0.75
+                and charset in ("high-entropy", "mixed")
+            ):
+                confidence = (
+                    Confidence.MEDIUM
+                    if entropy_level == "high"
+                    else Confidence.LOW
+                )
+
+                finding = SensitiveDataFinding(
+                    value=token,
+                    category="suspicious-string",
+                    detection_method="entropy",
+                    confidence=confidence,
+                    file_path=file_path,
+                    line_number=line_number,
+                    context=line[:120],
+                    reason=f"High entropy ({entropy_val:.2f}) + diverse charset ({charset}) + length ({len(token)})",
+                )
+                findings.append(finding)
+
+        return findings
+
+    @staticmethod
+    def _is_likely_false_positive(token: str) -> bool:
+        """Detect tokens that are likely false positives."""
+        # Skip URLs
+        if token.startswith("http"):
+            return True
+        if "://" in token:
+            return True
+
+        # Skip common valid tokens
+        if token.startswith("v") and all(
+            c.isdigit() or c == "." for c in token[1:]
+        ):
+            return True  # Version numbers like v1.2.3
+
+        # Skip UUIDs
+        if token.count("-") == 4:  # UUID pattern
+            return True
+
+        # Skip hex strings (not necessarily secrets)
+        if all(c in "0123456789abcdefABCDEF" for c in token):
+            return True
+
+        # Skip base64 strings (harder to distinguish)
+        if len(token) < 16:
+            return True  # Too short to be reliable secret
+
+        return False
+
+
 # --- Main Scanner ---
 
 
@@ -773,7 +949,7 @@ class SensitiveDataScanner:
 
         Args:
             enable_contextual: Enable Tier 2 (contextual detection) — default True
-            enable_heuristic: Enable Tier 3 (entropy-based detection)
+            enable_heuristic: Enable Tier 3 (entropy-based detection) — default False
             enable_vault_integration: Enable Vault integration (requires pseudonymizer)
             custom_patterns: Additional patterns to search for
         """
@@ -788,7 +964,7 @@ class SensitiveDataScanner:
 
         self.pattern_detector = PatternDetector(all_patterns)
         self.context_detector = ContextDetector() if enable_contextual else None
-        self.enable_heuristic = enable_heuristic
+        self.heuristic_detector = HeuristicDetector() if enable_heuristic else None
         self.vault_integration = (
             VaultIntegration() if enable_vault_integration else None
         )
@@ -825,6 +1001,14 @@ class SensitiveDataScanner:
                         line, file_path, line_number
                     )
                     findings.extend(tier2_findings)
+
+                # Tier 3: Heuristic detection (entropy + diversity)
+                # Only on high-risk files to reduce false positives
+                if self.heuristic_detector and self.context_detector and self.context_detector.file_analyzer.file_risk_level(file_path) in ("critical", "high"):
+                    tier3_findings = self.heuristic_detector.detect_suspicious_strings(
+                        line, file_path, line_number
+                    )
+                    findings.extend(tier3_findings)
 
                 # Skip already-in-vault items (if vault integration enabled)
                 if self.vault_integration:
