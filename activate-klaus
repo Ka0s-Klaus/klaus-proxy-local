@@ -1,0 +1,19 @@
+#!/bin/bash
+# Activar Klaus Proxy Local con Python 3.13
+
+VENV_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.venv-py313"
+
+if [ ! -d "$VENV_DIR" ]; then
+    echo "❌ Virtual environment not found at $VENV_DIR"
+    echo "Create it with: python3.13 -m venv $VENV_DIR"
+    exit 1
+fi
+
+source "$VENV_DIR/bin/activate"
+echo "✅ Klaus Proxy Local environment activated (Python 3.13)"
+echo "Commands available:"
+echo "  klaus-install-python  - Install Python 3.13+"
+echo "  claude-proxy          - Start the audit proxy"
+echo "  klaus-scan            - Scan for sensitive data"
+echo ""
+echo "Deactivate with: deactivate"
