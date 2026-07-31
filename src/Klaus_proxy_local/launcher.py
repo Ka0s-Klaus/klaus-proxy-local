@@ -25,7 +25,7 @@ from Klaus_proxy_local.setup import init_config_if_missing
 class ProxyLauncher:
     """Smart proxy launcher with auto-setup orchestration."""
 
-    HOST = "127.0.0.1"
+    HOST = "ip_11654657"
     PORT = 8899
 
     def __init__(self) -> None:
@@ -135,6 +135,7 @@ class ProxyLauncher:
         # Build mitmdump command
         # Addons must come BEFORE port: pseudonymize (request rewrite)
         # then capture (evidence collection)
+        # NOTE: No -q flag to show all logs with version prefix
         mitmdump_cmd = [
             "mitmdump",
             "-s",
@@ -143,7 +144,6 @@ class ProxyLauncher:
             str(capture_addon),
             "-p",
             str(self.PORT),
-            "-q",
         ]
 
         try:
