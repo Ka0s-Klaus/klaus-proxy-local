@@ -47,7 +47,6 @@ klaus-scan = "Klaus_proxy_local.scan:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-packages = ["Klaus_proxy_local"]
 include-package-data = true
 
 [tool.setuptools.packages.find]
