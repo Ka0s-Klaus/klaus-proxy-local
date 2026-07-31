@@ -25,7 +25,7 @@ from Klaus_proxy_local.setup import init_config_if_missing
 class ProxyLauncher:
     """Smart proxy launcher with auto-setup orchestration."""
 
-    HOST = "ip_11654657"
+    HOST = "127.0.0.1"
     PORT = 8899
 
     def __init__(self) -> None:
@@ -82,11 +82,12 @@ class ProxyLauncher:
     def process_log_line(self, line: str) -> str:
         """Add version prefix to log lines with timestamps.
         
-        Transforms: [14:12:35.323][127.0.0.1:59259] message
-        Into:       [v0.1.0][14:12:35.323][127.0.0.1:59259] message
+        Transforms: [14:18:53.157][anthropic-pseudo] message
+        Into:       [v0.1.0][14:18:53.157][anthropic-pseudo] message
         """
         # Match lines starting with a timestamp in format [HH:MM:SS.mmm]
-        if line.startswith("[") and re.match(r"^\[\d{2}:\d{2}:\d{2}\.\d{3}\]", line):
+        # Handles variations: [HH:MM:SS], [HH:MM:SS.m], [HH:MM:SS.mm], [HH:MM:SS.mmm], etc.
+        if re.match(r"^\[\d{2}:\d{2}:\d{2}(\.\d+)?\]", line):
             return f"[v{__version__}]{line}"
         return line
 
@@ -103,7 +104,10 @@ class ProxyLauncher:
         except Exception:
             pass
         finally:
-            stream.close()
+            try:
+                stream.close()
+            except Exception:
+                pass
 
     def launch_mitmdump(self) -> None:
         """Launch mitmdump with pseudonymization and capture addons.
@@ -139,6 +143,7 @@ class ProxyLauncher:
             str(capture_addon),
             "-p",
             str(self.PORT),
+            "-q",
         ]
 
         try:
@@ -148,22 +153,18 @@ class ProxyLauncher:
             self.mitmdump_process = subprocess.Popen(
                 mitmdump_cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
+                universal_newlines=True,
             )
 
-            # Start threads to stream logs with version prefix
-            stdout_thread = threading.Thread(
+            # Start thread to stream logs with version prefix
+            log_thread = threading.Thread(
                 target=self.stream_logs, args=(self.mitmdump_process.stdout, False)
             )
-            stderr_thread = threading.Thread(
-                target=self.stream_logs, args=(self.mitmdump_process.stderr, True)
-            )
-            stdout_thread.daemon = True
-            stderr_thread.daemon = True
-            stdout_thread.start()
-            stderr_thread.start()
+            log_thread.daemon = True
+            log_thread.start()
 
             # Small delay to let mitmdump start
             import time
