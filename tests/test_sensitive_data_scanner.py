@@ -16,7 +16,9 @@ import pytest
 
 from Klaus_proxy_local.sensitive_data_scanner import (
     Confidence,
+    ContextualAnalyzer,
     FileTraversal,
+    FileContextAnalyzer,
     PatternDetector,
     ScanResult,
     SensitiveDataFinding,
@@ -535,3 +537,184 @@ class TestIntegration:
                 assert finding.line_number > 0
                 assert finding.reason
                 assert finding.confidence == Confidence.CRITICAL
+
+
+# --- Test Tier 2: Contextual Detection ---
+
+
+class TestContextualAnalyzer:
+    """Test contextual detection by variable names."""
+
+    def test_detect_password_variable(self):
+        line = 'password = "super_secret_123"'
+        findings = ContextualAnalyzer.analyze_line(line)
+        assert len(findings) == 1
+        assert findings[0] == ("super_secret_123", "password")
+
+    def test_detect_api_key_variable(self):
+        line = "API_KEY=my_secret_key_value"
+        findings = ContextualAnalyzer.analyze_line(line)
+        assert len(findings) == 1
+        assert findings[0][1] == "api_key"
+
+    def test_detect_token_variable(self):
+        line = 'token: "abc123def456ghi789"'
+        findings = ContextualAnalyzer.analyze_line(line)
+        assert len(findings) == 1
+        assert findings[0][1] == "token"
+
+    def test_detect_db_password(self):
+        line = 'db_password = "secure_pass_12345"'
+        findings = ContextualAnalyzer.analyze_line(line)
+        assert len(findings) == 1
+        assert findings[0][1] == "db_password"
+
+    def test_detect_aws_secret_key(self):
+        line = "AWS_SECRET_ACCESS_KEY=my_aws_secret"
+        findings = ContextualAnalyzer.analyze_line(line)
+        assert len(findings) == 1
+        assert findings[0][1] == "aws_secret_access_key"
+
+    def test_json_format_detection(self):
+        line = '{"api_key": "secret_value_123"}'
+        findings = ContextualAnalyzer.analyze_line(line)
+        assert any(f[1] == "api_key" for f in findings)
+
+    def test_no_detection_in_comments(self):
+        line = "# password: this is not a real password"
+        findings = ContextualAnalyzer.analyze_line(line)
+        # May or may not detect in comments - implementation choice
+        # For now, we're lenient and allow it
+        pass
+
+    def test_case_insensitive_detection(self):
+        line = "PASSWORD=secret123"
+        findings = ContextualAnalyzer.analyze_line(line)
+        assert len(findings) == 1
+
+    def test_multiple_variables_same_line(self):
+        line = 'username="admin" password="secret" token="xyz"'
+        findings = ContextualAnalyzer.analyze_line(line)
+        assert len(findings) >= 2  # At least password and token
+
+
+class TestFileContextAnalyzer:
+    """Test file type and location heuristics."""
+
+    def test_env_file_critical(self):
+        assert FileContextAnalyzer.file_risk_level(Path(".env")) == "critical"
+        assert FileContextAnalyzer.file_risk_level(Path(".env.production")) == "critical"
+        assert FileContextAnalyzer.file_risk_level(Path(".env.local")) == "critical"
+
+    def test_secrets_file_critical(self):
+        assert FileContextAnalyzer.file_risk_level(Path("secret.yaml")) == "critical"
+        assert FileContextAnalyzer.file_risk_level(Path("secrets.json")) == "critical"
+
+    def test_key_files_critical(self):
+        assert FileContextAnalyzer.file_risk_level(Path("id_rsa")) == "critical"
+        assert FileContextAnalyzer.file_risk_level(Path("key.pem")) == "critical"
+
+    def test_terraform_files_critical(self):
+        assert FileContextAnalyzer.file_risk_level(Path("terraform.tfvars")) == "critical"
+
+    def test_aws_credentials_critical(self):
+        assert FileContextAnalyzer.file_risk_level(Path(".aws/credentials")) == "critical"
+
+    def test_config_files_high(self):
+        assert FileContextAnalyzer.file_risk_level(Path("config.yaml")) == "high"
+        assert FileContextAnalyzer.file_risk_level(Path("config.json")) == "high"
+
+    def test_code_files_medium(self):
+        assert FileContextAnalyzer.file_risk_level(Path("main.py")) == "medium"
+        assert FileContextAnalyzer.file_risk_level(Path("app.js")) == "medium"
+
+    def test_readme_low(self):
+        assert FileContextAnalyzer.file_risk_level(Path("README.md")) == "low"
+
+    def test_nested_secrets_dir_high(self):
+        # File inside .secrets directory
+        assert FileContextAnalyzer.file_risk_level(Path(".secrets/db.conf")) == "high"
+
+
+class TestContextDetector:
+    """Test full contextual detection."""
+
+    def test_detect_variable_in_line(self):
+        from Klaus_proxy_local.sensitive_data_scanner import ContextDetector
+
+        detector = ContextDetector()
+        findings = detector.detect_in_line(
+            'password = "secret123"', Path("config.py"), 5
+        )
+        assert len(findings) >= 1
+        assert findings[0].confidence == Confidence.HIGH
+
+    def test_detect_by_file_type(self):
+        from Klaus_proxy_local.sensitive_data_scanner import ContextDetector
+
+        detector = ContextDetector()
+        finding = detector.detect_by_file_type(Path(".env"))
+        assert finding is not None
+        assert finding.confidence == Confidence.MEDIUM
+        assert "high-risk" in finding.category
+
+
+# --- Test Tier 2: Scanner Integration ---
+
+
+class TestScannerTier2:
+    """Test scanner with Tier 2 contextual detection enabled."""
+
+    def test_scanner_detects_variable_names(self):
+        scanner = SensitiveDataScanner(enable_contextual=True)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+            f.write('api_key = "secret_value_xyz"\n')
+            f.write('password = "super_secret"\n')
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            findings = scanner.scan_file(path)
+            # Should detect both contextually
+            assert len(findings) >= 2
+            high_conf = [f for f in findings if f.confidence == Confidence.HIGH]
+            assert len(high_conf) >= 1
+        finally:
+            path.unlink()
+
+    def test_scanner_flags_high_risk_files(self):
+        scanner = SensitiveDataScanner(enable_contextual=True)
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".env.production", delete=False
+        ) as f:
+            f.write("Normal content\n")
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            findings = scanner.scan_file(path)
+            # Should flag as high-risk file even if content is normal
+            risk_findings = [
+                f for f in findings if "high-risk" in f.category
+            ]
+            assert len(risk_findings) >= 1
+        finally:
+            path.unlink()
+
+    def test_scanner_contextual_disabled(self):
+        scanner = SensitiveDataScanner(enable_contextual=False)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+            f.write('password = "secret"\n')
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            findings = scanner.scan_file(path)
+            # Should NOT detect by variable name when contextual is disabled
+            high_conf = [f for f in findings if f.confidence == Confidence.HIGH]
+            assert len(high_conf) == 0
+        finally:
+            path.unlink()

@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Optional
+import sys
 
 
 # --- Confidence Levels ---
@@ -450,6 +451,311 @@ class FileTraversal:
         return sorted(files)
 
 
+# --- Tier 2: Contextual Detection ---
+
+
+class ContextualAnalyzer:
+    """Detects sensitive data by analyzing variable names and context."""
+
+    # High-confidence secret variable names
+    SECRET_VAR_NAMES = {
+        "password",
+        "passwd",
+        "pwd",
+        "secret",
+        "token",
+        "apikey",
+        "api_key",
+        "api-key",
+        "key",
+        "credential",
+        "credentials",
+        "auth",
+        "authtoken",
+        "access_token",
+        "refresh_token",
+        "session_token",
+        "jwt",
+        "bearer",
+        "client_secret",
+        "client_id",
+        "app_secret",
+        "app_id",
+        "private_key",
+        "rsa_key",
+        "ssh_key",
+        "gpg_key",
+        "encryption_key",
+        "decrypt_key",
+        "db_password",
+        "db_user",
+        "db_host",
+        "database_url",
+        "connection_string",
+        "aws_secret_access_key",
+        "aws_access_key_id",
+        "aws_session_token",
+        "github_token",
+        "gitlab_token",
+        "bitbucket_token",
+        "slack_token",
+        "slack_webhook",
+        "discord_webhook",
+        "stripe_key",
+        "openai_key",
+        "anthropic_key",
+    }
+
+    @staticmethod
+    def analyze_line(line: str) -> list[tuple[str, str]]:
+        """Find potential secrets by variable name context.
+
+        Returns: [(value, var_name)]
+        """
+        findings = []
+
+        for var_name in ContextualAnalyzer.SECRET_VAR_NAMES:
+            # Case-insensitive match with word boundary
+            pattern = r"(?<![a-zA-Z0-9_])" + re.escape(var_name) + r"(?![a-zA-Z0-9_])"
+            if not re.search(pattern, line, re.IGNORECASE):
+                continue
+
+            # Try to extract value (various assignment formats)
+            # Format 1: var = "value"
+            match = re.search(
+                r"(?<![a-zA-Z0-9_])"
+                + re.escape(var_name)
+                + r"(?![a-zA-Z0-9_])\s*[:=]\s*[\"']([^\"']{4,})[\"']",
+                line,
+                re.IGNORECASE,
+            )
+            if match:
+                findings.append((match.group(1), var_name))
+                continue
+
+            # Format 2: var=value (no spaces)
+            match = re.search(
+                r"(?<![a-zA-Z0-9_])"
+                + re.escape(var_name)
+                + r"(?![a-zA-Z0-9_])=([^\s\"']+)",
+                line,
+                re.IGNORECASE,
+            )
+            if match:
+                value = match.group(1).rstrip(",;)")
+                if len(value) >= 4:
+                    findings.append((value, var_name))
+                continue
+
+            # Format 3: "var": "value" (JSON)
+            match = re.search(
+                r'["\']'
+                + re.escape(var_name)
+                + r'["\']\\s*:\\s*["\']([^"\']{4,})["\']',
+                line,
+                re.IGNORECASE,
+            )
+            if match:
+                findings.append((match.group(1), var_name))
+
+        return findings
+
+
+class FileContextAnalyzer:
+    """Analyzes file type and location for secret indicators."""
+
+    # Files almost certainly containing secrets
+    HIGH_RISK_FILENAMES = {
+        ".env",
+        ".env.local",
+        ".env.production",
+        ".env.development",
+        ".env.secret",
+        ".env.private",
+        "secret.yaml",
+        "secret.yml",
+        "secrets.json",
+        "credentials.json",
+        ".credentials",
+        ".netrc",
+        "config.production.json",
+        "config.prod.json",
+        ".aws/credentials",
+        ".ssh/config",
+        ".ssh/authorized_keys",
+        ".docker/config.json",
+        ".kube/config",
+        "terraform.tfvars",
+        "terraform.tfvars.json",
+        "ansible-vault",
+        ".vault-pass",
+        ".private-key",
+        ".pem",
+        ".key",
+    }
+
+    # File extensions commonly containing secrets
+    HIGH_RISK_EXTENSIONS = {
+        ".env",
+        ".key",
+        ".pem",
+        ".p8",
+        ".p12",
+        ".pfx",
+        ".jks",
+        ".keystore",
+        ".privkey",
+    }
+
+    @staticmethod
+    def file_risk_level(file_path: Path) -> str:
+        """Estimate how likely this file is to contain secrets.
+
+        Returns: "critical", "high", "medium", "low"
+        """
+        filename = file_path.name
+
+        # Check exact filename matches
+        if filename in FileContextAnalyzer.HIGH_RISK_FILENAMES:
+            return "critical"
+
+        # Check extensions
+        if file_path.suffix in FileContextAnalyzer.HIGH_RISK_EXTENSIONS:
+            return "critical"
+
+        # Check path contains high-risk directory names
+        for parent in file_path.parents:
+            if parent.name in {".env", ".secrets", ".credentials", ".aws", ".ssh", ".kube"}:
+                return "high"
+
+        # Config files: high scrutiny
+        if file_path.suffix in {".yaml", ".yml", ".json", ".toml", ".ini", ".conf"}:
+            return "high"
+
+        # Code files: medium scrutiny
+        if file_path.suffix in {".py", ".js", ".ts", ".go", ".rs", ".java", ".sh", ".bash"}:
+            return "medium"
+
+        return "low"
+
+
+class ContextDetector:
+    """Tier 2: Contextual detection (variable names, file types)."""
+
+    def __init__(self):
+        self.contextual_analyzer = ContextualAnalyzer()
+        self.file_analyzer = FileContextAnalyzer()
+
+    def detect_in_line(self, line: str, file_path: Path, line_number: int) -> list[SensitiveDataFinding]:
+        """Detect by analyzing variable names and patterns."""
+        findings = []
+        for value, var_name in self.contextual_analyzer.analyze_line(line):
+            finding = SensitiveDataFinding(
+                value=value,
+                category=f"secret-var-{var_name}",
+                detection_method="contextual",
+                confidence=Confidence.HIGH,
+                file_path=file_path,
+                line_number=line_number,
+                context=line[:120],
+                reason=f"Variable name suggests secret: {var_name}",
+            )
+            findings.append(finding)
+        return findings
+
+    def detect_by_file_type(
+        self, file_path: Path
+    ) -> Optional[SensitiveDataFinding]:
+        """Warn if file is high-risk (may contain secrets)."""
+        risk = self.file_analyzer.file_risk_level(file_path)
+        if risk in ("critical", "high"):
+            return SensitiveDataFinding(
+                value=str(file_path),
+                category="high-risk-file",
+                detection_method="contextual",
+                confidence=Confidence.MEDIUM,
+                file_path=file_path,
+                line_number=0,
+                context=f"File: {file_path.name}",
+                reason=f"High-risk file type/location ({risk}). May contain secrets.",
+            )
+        return None
+
+
+# --- Tier 2: Vault Integration ---
+
+
+def _import_vault():
+    """Lazy import of Vault from pseudonymizer to avoid circular deps."""
+    try:
+        import sys
+        from pathlib import Path
+
+        # Add src directory to path
+        src_path = Path(__file__).resolve().parent.parent
+        if str(src_path) not in sys.path:
+            sys.path.insert(0, str(src_path))
+
+        from anthropic_payload_pseudonymize import Vault
+
+        return Vault
+    except ImportError:
+        return None
+
+
+class VaultIntegration:
+    """Integrates scanner findings with Vault for pseudonymization."""
+
+    def __init__(self):
+        self.Vault = _import_vault()
+        self._vault = None
+
+    def get_vault(self):
+        """Load or create vault (lazy loading)."""
+        if self._vault is None:
+            if self.Vault is None:
+                raise RuntimeError(
+                    "Cannot import Vault class. Ensure pseudonymizer is available."
+                )
+            self._vault = self.Vault.load()
+        return self._vault
+
+    def add_finding_to_vault(
+        self, finding: SensitiveDataFinding, prefix: str = "secret"
+    ) -> str:
+        """Add a finding to the vault as a reversible entry.
+
+        Args:
+            finding: The finding to add
+            prefix: Prefix for pseudonym (e.g., "secret", "credential", "api-key")
+
+        Returns:
+            The generated pseudonym
+        """
+        vault = self.get_vault()
+        pseudo = vault.map(finding.value, prefix)
+        vault.save()
+        return pseudo
+
+    def check_already_in_vault(self, value: str) -> Optional[str]:
+        """Check if a value is already in the vault.
+
+        Returns:
+            The pseudonym if found, None otherwise
+        """
+        vault = self.get_vault()
+        return vault.real_to_pseudo.get(value)
+
+    def save_vault(self) -> Path:
+        """Explicitly save vault to disk.
+
+        Returns:
+            Path to vault file
+        """
+        vault = self.get_vault()
+        return vault.save()
+
+
 # --- Main Scanner ---
 
 
@@ -458,15 +764,17 @@ class SensitiveDataScanner:
 
     def __init__(
         self,
-        enable_contextual: bool = False,
+        enable_contextual: bool = True,
         enable_heuristic: bool = False,
+        enable_vault_integration: bool = True,
         custom_patterns: dict[str, tuple[re.Pattern, str, str]] | None = None,
     ):
         """Initialize scanner with detection tiers.
 
         Args:
-            enable_contextual: Enable Tier 2 (contextual detection)
+            enable_contextual: Enable Tier 2 (contextual detection) — default True
             enable_heuristic: Enable Tier 3 (entropy-based detection)
+            enable_vault_integration: Enable Vault integration (requires pseudonymizer)
             custom_patterns: Additional patterns to search for
         """
         # Combine all Tier 1 patterns
@@ -479,19 +787,28 @@ class SensitiveDataScanner:
             all_patterns.update(custom_patterns)
 
         self.pattern_detector = PatternDetector(all_patterns)
-        self.enable_contextual = enable_contextual
+        self.context_detector = ContextDetector() if enable_contextual else None
         self.enable_heuristic = enable_heuristic
+        self.vault_integration = (
+            VaultIntegration() if enable_vault_integration else None
+        )
 
     def scan_file(self, file_path: Path) -> list[SensitiveDataFinding]:
         """Scan a single file for sensitive data."""
         findings = []
 
         try:
+            # Check file risk level (Tier 2)
+            if self.context_detector:
+                file_warning = self.context_detector.detect_by_file_type(file_path)
+                if file_warning:
+                    findings.append(file_warning)
+
             # Read file
             try:
                 content = file_path.read_text(encoding="utf-8", errors="ignore")
             except Exception:
-                return []
+                return findings
 
             # Scan line by line
             for line_number, line in enumerate(content.split("\n"), 1):
@@ -499,9 +816,23 @@ class SensitiveDataScanner:
                     continue
 
                 # Tier 1: Pattern detection (always enabled)
-                findings.extend(
-                    self.pattern_detector.detect(line, file_path, line_number)
-                )
+                tier1_findings = self.pattern_detector.detect(line, file_path, line_number)
+                findings.extend(tier1_findings)
+
+                # Tier 2: Contextual detection (high-risk files)
+                if self.context_detector and self.context_detector.file_analyzer.file_risk_level(file_path) in ("critical", "high"):
+                    tier2_findings = self.context_detector.detect_in_line(
+                        line, file_path, line_number
+                    )
+                    findings.extend(tier2_findings)
+
+                # Skip already-in-vault items (if vault integration enabled)
+                if self.vault_integration:
+                    findings = [
+                        f
+                        for f in findings
+                        if not self.vault_integration.check_already_in_vault(f.value)
+                    ]
 
         except Exception:
             # Never crash on a single file
