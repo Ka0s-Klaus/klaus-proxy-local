@@ -10,11 +10,14 @@ Orchestrates:
 Usage:
   claude-proxy           # Start the proxy (entry point in pyproject.toml)
 """
+import re
 import signal
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
+from Klaus_proxy_local import __version__
 from Klaus_proxy_local.certs import ensure_mitmproxy_certs
 from Klaus_proxy_local.setup import init_config_if_missing
 
@@ -22,7 +25,7 @@ from Klaus_proxy_local.setup import init_config_if_missing
 class ProxyLauncher:
     """Smart proxy launcher with auto-setup orchestration."""
 
-    HOST = "127.0.0.1"
+    HOST = "ip_11654657"
     PORT = 8899
 
     def __init__(self) -> None:
@@ -58,7 +61,7 @@ class ProxyLauncher:
     def show_dashboard(self) -> None:
         """Show startup dashboard."""
         print("=" * 60)
-        print("🔐 Klaus Proxy Local — Running")
+        print(f"🔐 Klaus Proxy Local — Running (v{__version__})")
         print("=" * 60)
         print(f"")
         print(f"🎯 Listening on:        {self.HOST}:{self.PORT}")
@@ -75,6 +78,32 @@ class ProxyLauncher:
         print("🛑 To stop: Press Ctrl+C")
         print("=" * 60)
         print("")
+
+    def process_log_line(self, line: str) -> str:
+        """Add version prefix to log lines with timestamps.
+        
+        Transforms: [14:12:35.323][127.0.0.1:59259] message
+        Into:       [v0.1.0][14:12:35.323][127.0.0.1:59259] message
+        """
+        # Match lines starting with a timestamp in format [HH:MM:SS.mmm]
+        if line.startswith("[") and re.match(r"^\[\d{2}:\d{2}:\d{2}\.\d{3}\]", line):
+            return f"[v{__version__}]{line}"
+        return line
+
+    def stream_logs(self, stream, is_stderr: bool = False) -> None:
+        """Stream logs from mitmdump process, adding version prefix."""
+        try:
+            for line in iter(stream.readline, ""):
+                if line:
+                    processed_line = self.process_log_line(line.rstrip())
+                    if is_stderr:
+                        print(processed_line, file=sys.stderr)
+                    else:
+                        print(processed_line)
+        except Exception:
+            pass
+        finally:
+            stream.close()
 
     def launch_mitmdump(self) -> None:
         """Launch mitmdump with pseudonymization and capture addons.
@@ -110,7 +139,6 @@ class ProxyLauncher:
             str(capture_addon),
             "-p",
             str(self.PORT),
-            "-q",  # quiet mode
         ]
 
         try:
@@ -119,10 +147,23 @@ class ProxyLauncher:
 
             self.mitmdump_process = subprocess.Popen(
                 mitmdump_cmd,
-                stdout=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                bufsize=1,
             )
+
+            # Start threads to stream logs with version prefix
+            stdout_thread = threading.Thread(
+                target=self.stream_logs, args=(self.mitmdump_process.stdout, False)
+            )
+            stderr_thread = threading.Thread(
+                target=self.stream_logs, args=(self.mitmdump_process.stderr, True)
+            )
+            stdout_thread.daemon = True
+            stderr_thread.daemon = True
+            stdout_thread.start()
+            stderr_thread.start()
 
             # Small delay to let mitmdump start
             import time
@@ -131,9 +172,8 @@ class ProxyLauncher:
 
             # Check if process is still alive
             if self.mitmdump_process.poll() is not None:
-                _, stderr = self.mitmdump_process.communicate()
                 raise RuntimeError(
-                    f"❌ mitmdump failed to start:\n{stderr}\n"
+                    f"❌ mitmdump failed to start.\n"
                     f"   Make sure mitmproxy is installed: pip install mitmproxy"
                 )
 
