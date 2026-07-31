@@ -103,6 +103,13 @@ def print_summary(result, min_confidence: Confidence) -> None:
     print(f"Findings above threshold: {len(above_threshold)}/{len(result.findings)}")
 
 
+def _mask_value(value: str) -> str:
+    """Mask a sensitive value for safe display (show first/last 4 chars)."""
+    if len(value) <= 8:
+        return "***" + str(len(value)) + "***"
+    return value[:4] + "***" + value[-4:]
+
+
 def print_findings(result, min_confidence: Confidence) -> None:
     """Print findings for review."""
     above_threshold = [
@@ -129,6 +136,7 @@ def print_findings(result, min_confidence: Confidence) -> None:
         print(f"  File: {finding.file_path}:{finding.line_number}")
         print(f"  Type: {finding.category}")
         print(f"  Method: {finding.detection_method}")
+        print(f"  Detected: {_mask_value(finding.value)}")
         print(f"\n  Context:")
 
         # Show context (limit length)
@@ -153,6 +161,7 @@ def interactive_review(result, min_confidence: Confidence, vault_integration=Non
         return 0
 
     approved_count = 0
+    approve_all_remaining = False
 
     for idx, finding in enumerate(above_threshold, 1):
         # Confidence indicator
@@ -167,6 +176,7 @@ def interactive_review(result, min_confidence: Confidence, vault_integration=Non
         print(f"  File: {finding.file_path}:{finding.line_number}")
         print(f"  Type: {finding.category}")
         print(f"  Method: {finding.detection_method}")
+        print(f"  Detected value: {finding.value}")
         print(f"  Reason: {finding.reason}")
         print(f"\n  Context: {finding.context[:120]}")
 
@@ -178,15 +188,18 @@ def interactive_review(result, min_confidence: Confidence, vault_integration=Non
                 continue
 
         # Get user input
-        while True:
-            response = (
-                input(
-                    "\n  Action: [A]pprove / [S]kip / [C]opy value / [Q]uit? >> "
-                ).strip().upper()
-            )
-            if response in ("A", "S", "C", "Q"):
-                break
-            print("  Invalid choice. Use A, S, C, or Q")
+        if approve_all_remaining:
+            response = "A"
+        else:
+            while True:
+                response = (
+                    input(
+                        "\n  Action: [A]pprove / [S]kip / [C]opy value / [L]All / [Q]uit? >> "
+                    ).strip().upper()
+                )
+                if response in ("A", "S", "C", "L", "Q"):
+                    break
+                print("  Invalid choice. Use A, S, C, L, or Q")
 
         if response == "A":
             finding.user_approved = True
@@ -217,6 +230,23 @@ def interactive_review(result, min_confidence: Confidence, vault_integration=Non
                 print(f"  📋 Copied to clipboard")
             except Exception:
                 print(f"  ⓘ Value: {finding.value}")
+        elif response == "L":
+            approve_all_remaining = True
+            finding.user_approved = True
+            approved_count += 1
+
+            if vault_integration:
+                try:
+                    prefix = _get_prefix_for_category(finding.category)
+                    pseudo = vault_integration.add_finding_to_vault(finding, prefix)
+                    print(f"  ✓ Approved and added to vault")
+                    print(f"     Pseudonym: {pseudo}")
+                except Exception as e:
+                    print(f"  ⚠️  Approved but vault error: {e}")
+            else:
+                print(f"  ✓ Approved")
+
+            print(f"  📋 Approving all remaining findings...")
         elif response == "Q":
             print("\n⊘ Review cancelled")
             return approved_count
