@@ -140,7 +140,7 @@ def print_findings(result, min_confidence: Confidence) -> None:
         print(f"\n  Reason: {finding.reason}")
 
 
-def interactive_review(result, min_confidence: Confidence) -> int:
+def interactive_review(result, min_confidence: Confidence, vault_integration=None) -> int:
     """Interactive review of findings above threshold.
 
     Returns: count of findings approved for vault
@@ -166,29 +166,78 @@ def interactive_review(result, min_confidence: Confidence) -> int:
         print(f"\n[{idx}/{len(above_threshold)}] {conf_icon} {finding.confidence.name}")
         print(f"  File: {finding.file_path}:{finding.line_number}")
         print(f"  Type: {finding.category}")
+        print(f"  Method: {finding.detection_method}")
         print(f"  Reason: {finding.reason}")
-        print(f"\n  Context: {finding.context[:100]}")
+        print(f"\n  Context: {finding.context[:120]}")
+
+        # Check if already in vault
+        if vault_integration:
+            existing = vault_integration.check_already_in_vault(finding.value)
+            if existing:
+                print(f"  ⓘ Already in vault: {existing}")
+                continue
 
         # Get user input
         while True:
             response = (
-                input("\n  Action: [A]pprove / [S]kip / [Q]uit? >> ").strip().upper()
+                input(
+                    "\n  Action: [A]pprove / [S]kip / [C]opy value / [Q]uit? >> "
+                ).strip().upper()
             )
-            if response in ("A", "S", "Q"):
+            if response in ("A", "S", "C", "Q"):
                 break
-            print("  Invalid choice. Use A, S, or Q")
+            print("  Invalid choice. Use A, S, C, or Q")
 
         if response == "A":
             finding.user_approved = True
             approved_count += 1
-            print(f"  ✓ Approved")
+
+            # Add to vault if integration available
+            if vault_integration:
+                try:
+                    prefix = _get_prefix_for_category(finding.category)
+                    pseudo = vault_integration.add_finding_to_vault(finding, prefix)
+                    print(f"  ✓ Approved and added to vault")
+                    print(f"     Pseudonym: {pseudo}")
+                except Exception as e:
+                    print(f"  ⚠️  Approved but vault error: {e}")
+            else:
+                print(f"  ✓ Approved")
+
         elif response == "S":
             print(f"  ⊘ Skipped")
+        elif response == "C":
+            # Copy to clipboard (if available)
+            try:
+                import subprocess
+
+                subprocess.run(
+                    ["pbcopy"], input=finding.value.encode(), check=True
+                )
+                print(f"  📋 Copied to clipboard")
+            except Exception:
+                print(f"  ⓘ Value: {finding.value}")
         elif response == "Q":
             print("\n⊘ Review cancelled")
             return approved_count
 
     return approved_count
+
+
+def _get_prefix_for_category(category: str) -> str:
+    """Determine vault prefix based on finding category."""
+    if "api-key" in category or "token" in category:
+        return "api-key"
+    elif "password" in category or "secret" in category:
+        return "secret"
+    elif "connection" in category or "db" in category:
+        return "db-connection"
+    elif "key" in category:
+        return "key"
+    elif "host" in category or "ip" in category:
+        return "infra"
+    else:
+        return "data"
 
 
 def main(argv: list[str] | None = None) -> NoReturn:
@@ -252,23 +301,42 @@ def main(argv: list[str] | None = None) -> NoReturn:
         print("\n" + json.dumps(output, indent=2))
         sys.exit(0)
 
+    # Initialize vault integration
+    vault_integration = None
+    try:
+        from Klaus_proxy_local.sensitive_data_scanner import VaultIntegration
+
+        vault_integration = VaultIntegration()
+    except Exception as e:
+        print(f"⚠️  Vault integration unavailable: {e}")
+
     # Interactive review (unless --approve-all)
     if args["approve_all"]:
-        approved_count = sum(
-            1
-            for f in result.findings
-            if f.confidence <= min_confidence
-        )
-        print(f"\n✓ Auto-approved {approved_count} CRITICAL findings")
+        above_threshold = [
+            f for f in result.findings if f.confidence <= min_confidence
+        ]
+        approved_count = 0
+        for finding in above_threshold:
+            finding.user_approved = True
+            approved_count += 1
+            if vault_integration:
+                try:
+                    prefix = _get_prefix_for_category(finding.category)
+                    vault_integration.add_finding_to_vault(finding, prefix)
+                except Exception:
+                    pass
+        print(f"\n✓ Auto-approved {approved_count} findings (added to vault)")
     else:
         # Ask user to review
         above_threshold = [
             f for f in result.findings if f.confidence <= min_confidence
         ]
         if above_threshold:
-            review = input(f"\n\nReview {len(above_threshold)} finding(s)? [Y/N]: ").strip().upper()
+            review = input(
+                f"\n\nReview {len(above_threshold)} finding(s)? [Y/N]: "
+            ).strip().upper()
             if review == "Y":
-                approved_count = interactive_review(result, min_confidence)
+                approved_count = interactive_review(result, min_confidence, vault_integration)
             else:
                 approved_count = 0
         else:
