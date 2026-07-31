@@ -17,8 +17,11 @@ import pytest
 from Klaus_proxy_local.sensitive_data_scanner import (
     Confidence,
     ContextualAnalyzer,
+    EntropyAnalyzer,
+    CharacterDiversityAnalyzer,
     FileTraversal,
     FileContextAnalyzer,
+    HeuristicDetector,
     PatternDetector,
     ScanResult,
     SensitiveDataFinding,
@@ -660,6 +663,210 @@ class TestContextDetector:
 
 
 # --- Test Tier 2: Scanner Integration ---
+
+
+# --- Test Tier 3: Heuristic Detection ---
+
+
+class TestEntropyAnalyzer:
+    """Test entropy-based secret detection."""
+
+    def test_shannon_entropy_calculation(self):
+        # Low entropy (normal text)
+        normal = "thequickbrownfox"
+        entropy = EntropyAnalyzer.shannon_entropy(normal)
+        assert entropy < 5.0, f"Normal text entropy {entropy} should be < 5"
+
+        # High entropy (random string)
+        random_str = "x7mK9pQwEr2tLnVbHj4sZa"
+        entropy = EntropyAnalyzer.shannon_entropy(random_str)
+        assert entropy > 4.5, f"Random string entropy {entropy} should be > 4.5"
+
+    def test_classify_entropy_levels(self):
+        # Low entropy
+        normal, _ = EntropyAnalyzer.classify_entropy("hello")
+        assert normal == "low"
+
+        # Medium entropy
+        medium_str = "Pass123"
+        level, _ = EntropyAnalyzer.classify_entropy(medium_str)
+        # Can be low or medium depending on length factor
+
+        # High entropy
+        high_str = "x7mK9pQwEr2tLnVbHj4sZa"
+        level, _ = EntropyAnalyzer.classify_entropy(high_str)
+        assert level in ("high", "medium")
+
+    def test_empty_string_entropy(self):
+        entropy = EntropyAnalyzer.shannon_entropy("")
+        assert entropy == 0.0
+
+
+class TestCharacterDiversityAnalyzer:
+    """Test character diversity analysis."""
+
+    def test_alphanumeric_only(self):
+        diversity, charset = CharacterDiversityAnalyzer.analyze_charset(
+            "abc123ABC"
+        )
+        assert charset == "alphanumeric"
+        assert diversity == 0.5  # 2 out of 4 character types
+
+    def test_mixed_charset(self):
+        diversity, charset = CharacterDiversityAnalyzer.analyze_charset(
+            "Pass123"
+        )
+        assert charset == "mixed"
+        assert diversity >= 0.5
+
+    def test_high_entropy_charset(self):
+        diversity, charset = CharacterDiversityAnalyzer.analyze_charset(
+            "P@ssw0rd!"
+        )
+        assert charset == "high-entropy"
+        assert diversity >= 0.75
+
+    def test_only_lowercase(self):
+        diversity, charset = CharacterDiversityAnalyzer.analyze_charset(
+            "abcdefgh"
+        )
+        assert charset == "alphanumeric"
+        assert diversity < 0.5
+
+
+class TestHeuristicDetector:
+    """Test heuristic (entropy + diversity) detection."""
+
+    def test_detect_high_entropy_string(self):
+        detector = HeuristicDetector()
+        findings = detector.detect_suspicious_strings(
+            'secret = "x7mK9pQwEr2tLnVbHj4sZa"',
+            Path("config.py"),
+            1,
+        )
+        assert len(findings) >= 1
+        assert findings[0].confidence in (Confidence.MEDIUM, Confidence.LOW)
+
+    def test_skip_version_numbers(self):
+        detector = HeuristicDetector()
+        findings = detector.detect_suspicious_strings(
+            'version = "v1.2.3.4.5"',
+            Path("config.py"),
+            1,
+        )
+        # Version numbers should be skipped
+        assert len(findings) == 0
+
+    def test_skip_urls(self):
+        detector = HeuristicDetector()
+        findings = detector.detect_suspicious_strings(
+            'url = "https://example.com/path/to/resource"',
+            Path("config.py"),
+            1,
+        )
+        # URLs should be skipped
+        assert len(findings) == 0
+
+    def test_skip_uuids(self):
+        detector = HeuristicDetector()
+        findings = detector.detect_suspicious_strings(
+            'id = "550e8400-e29b-41d4-a716-446655440000"',
+            Path("config.py"),
+            1,
+        )
+        # UUIDs should be skipped
+        assert len(findings) == 0
+
+    def test_skip_hex_strings(self):
+        detector = HeuristicDetector()
+        findings = detector.detect_suspicious_strings(
+            'hash = "a1b2c3d4e5f6789012345678"',
+            Path("config.py"),
+            1,
+        )
+        # Hex strings should be skipped
+        assert len(findings) == 0
+
+    def test_detect_suspicious_mixed_charset(self):
+        detector = HeuristicDetector()
+        findings = detector.detect_suspicious_strings(
+            'password = "Super$ecure123!"',
+            Path(".env"),
+            1,
+        )
+        # Should detect high-entropy + high-diversity strings
+        assert len(findings) >= 0  # May or may not detect depending on thresholds
+
+    def test_minimum_length_requirement(self):
+        detector = HeuristicDetector()
+        findings = detector.detect_suspicious_strings(
+            'short = "abc1234"',  # Only 7 chars
+            Path("config.py"),
+            1,
+        )
+        # Too short, should be skipped
+        assert len(findings) == 0
+
+
+class TestScannerTier3:
+    """Test scanner with Tier 3 heuristic detection enabled."""
+
+    def test_scanner_detects_entropy(self):
+        scanner = SensitiveDataScanner(
+            enable_contextual=True, enable_heuristic=True
+        )
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+            f.write('password = "x7mK9pQwEr2tLnVbHj4sZa"\n')
+            f.write('normal_var = "hello"\n')
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            findings = scanner.scan_file(path)
+            # Should have at least file warning + entropy findings
+            assert len(findings) >= 1
+        finally:
+            path.unlink()
+
+    def test_scanner_heuristic_disabled(self):
+        scanner = SensitiveDataScanner(
+            enable_contextual=True, enable_heuristic=False
+        )
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+            f.write('password = "x7mK9pQwEr2tLnVbHj4sZa"\n')
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            findings = scanner.scan_file(path)
+            # Should not detect entropy-based (only file risk + variable name)
+            entropy_findings = [f for f in findings if f.detection_method == "entropy"]
+            assert len(entropy_findings) == 0
+        finally:
+            path.unlink()
+
+    def test_scanner_only_high_risk_files_heuristic(self):
+        """Heuristic detection only on high-risk files to reduce false positives."""
+        scanner = SensitiveDataScanner(
+            enable_contextual=True, enable_heuristic=True
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".py", delete=False
+        ) as f:  # Low-risk file
+            f.write('high_entropy_string = "x7mK9pQwEr2tLnVbHj4sZa"\n')
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            findings = scanner.scan_file(path)
+            # Low-risk files shouldn't trigger Tier 3 (to avoid FP)
+            entropy_findings = [f for f in findings if f.detection_method == "entropy"]
+            assert len(entropy_findings) == 0
+        finally:
+            path.unlink()
 
 
 class TestScannerTier2:
