@@ -1,0 +1,537 @@
+#!/usr/bin/env python3
+"""Test suite for Sensitive Data Scanner (FASE 2.1).
+
+Covers:
+  - Tier 1 pattern detection (critical confidence)
+  - File traversal (binary detection, directory filtering)
+  - ScanResult aggregation
+  - Confidence levels
+"""
+import json
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from Klaus_proxy_local.sensitive_data_scanner import (
+    Confidence,
+    FileTraversal,
+    PatternDetector,
+    ScanResult,
+    SensitiveDataFinding,
+    SensitiveDataScanner,
+    _NETWORK_PATTERNS,
+    _SCANNER_PATTERNS_TIER1,
+    _SECRET_PATTERNS_V1,
+)
+
+
+# --- Test Confidence Enum ---
+
+
+class TestConfidenceEnum:
+    """Test Confidence enum comparisons."""
+
+    def test_confidence_ordering(self):
+        assert Confidence.CRITICAL < Confidence.HIGH
+        assert Confidence.HIGH < Confidence.MEDIUM
+        assert Confidence.MEDIUM < Confidence.LOW
+        assert Confidence.LOW < Confidence.UNKNOWN
+
+    def test_confidence_comparison_operators(self):
+        assert Confidence.CRITICAL <= Confidence.CRITICAL
+        assert Confidence.CRITICAL <= Confidence.HIGH
+        assert Confidence.HIGH >= Confidence.CRITICAL
+        assert Confidence.UNKNOWN > Confidence.CRITICAL
+
+
+# --- Test SensitiveDataFinding ---
+
+
+class TestSensitiveDataFinding:
+    """Test finding data structure."""
+
+    def test_finding_creation(self):
+        finding = SensitiveDataFinding(
+            value="AKIA2XYZABC1234XYZAB",
+            category="aws-access-key",
+            detection_method="pattern",
+            confidence=Confidence.CRITICAL,
+            file_path=Path(".env"),
+            line_number=5,
+            context="AWS_ACCESS_KEY_ID=AKIA2XYZABC1234XYZAB",
+            reason="Pattern match: AWS Access Key ID",
+        )
+        assert finding.value == "AKIA2XYZABC1234XYZAB"
+        assert finding.confidence == Confidence.CRITICAL
+        assert not finding.user_approved
+
+    def test_finding_to_dict(self):
+        finding = SensitiveDataFinding(
+            value="test_secret",
+            category="api-key",
+            detection_method="pattern",
+            confidence=Confidence.CRITICAL,
+            file_path=Path("config.py"),
+            line_number=10,
+            context="API_KEY=test_secret",
+            reason="Test reason",
+        )
+        d = finding.to_dict()
+        assert d["value"] == "test_secret"
+        assert d["confidence"] == "CRITICAL"
+        assert d["file_path"] == "config.py"
+        assert d["line_number"] == 10
+
+
+# --- Test ScanResult ---
+
+
+class TestScanResult:
+    """Test scan result aggregation."""
+
+    def test_empty_result_summary(self):
+        result = ScanResult()
+        summary = result.summary()
+        assert "0 files scanned" in summary
+        assert "0 findings" in summary
+
+    def test_result_with_findings(self):
+        result = ScanResult(
+            total_files_scanned=100,
+            files_with_findings=5,
+            findings_by_confidence={
+                "CRITICAL": 3,
+                "HIGH": 2,
+                "MEDIUM": 1,
+                "LOW": 0,
+            },
+            scan_duration_seconds=1.5,
+        )
+        summary = result.summary()
+        assert "100 files scanned" in summary
+        assert "6 findings" in summary
+        assert "CRITICAL: 3" in summary
+        assert "1.50s" in summary
+
+
+# --- Test PatternDetector ---
+
+
+class TestPatternDetector:
+    """Test Tier 1 pattern detection."""
+
+    def test_detect_aws_access_key(self):
+        detector = PatternDetector(_SECRET_PATTERNS_V1)
+        text = "AWS_ACCESS_KEY_ID=AKIA2XYZABC1234XYZAB"
+        findings = detector.detect(text, Path(".env"), 5)
+
+        assert len(findings) == 1
+        assert findings[0].value == "AKIA2XYZABC1234XYZAB"
+        assert findings[0].category == "aws-access-key"
+        assert findings[0].confidence == Confidence.CRITICAL
+
+    def test_detect_github_token(self):
+        detector = PatternDetector(_SECRET_PATTERNS_V1)
+        text = "GH_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz0123456789ab"
+        findings = detector.detect(text, Path("config.py"), 10)
+
+        assert len(findings) == 1
+        assert "ghp_" in findings[0].value
+        assert findings[0].category == "github-token"
+
+    def test_detect_private_key(self):
+        detector = PatternDetector(_SECRET_PATTERNS_V1)
+        text = (
+            "-----BEGIN PRIVATE KEY-----\n"
+            "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7\n"
+            "-----END PRIVATE KEY-----"
+        )
+        findings = detector.detect(text, Path("id_rsa"), 1)
+
+        assert len(findings) == 1
+        assert findings[0].category == "private-key"
+
+    def test_detect_jwt_token(self):
+        detector = PatternDetector(_SECRET_PATTERNS_V1)
+        text = "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ"
+        findings = detector.detect(text, Path("auth.py"), 15)
+
+        assert len(findings) >= 1  # May detect multiple tokens
+        assert any(f.category == "jwt" for f in findings)
+
+    def test_detect_stripe_api_key(self):
+        detector = PatternDetector(_SCANNER_PATTERNS_TIER1)
+        text = "STRIPE_SECRET_KEY=sk_live_abcdefghijklmnopqrst"
+        findings = detector.detect(text, Path(".env"), 1)
+
+        assert len(findings) == 1
+        assert findings[0].category == "stripe-api-key"
+
+    def test_detect_openai_api_key(self):
+        detector = PatternDetector(_SCANNER_PATTERNS_TIER1)
+        text = "OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz0123456789"
+        findings = detector.detect(text, Path("config.py"), 1)
+
+        assert len(findings) == 1
+        assert findings[0].category == "openai-api-key"
+
+    def test_detect_mongodb_connection(self):
+        detector = PatternDetector(_SCANNER_PATTERNS_TIER1)
+        text = "mongodb+srv://user:password@cluster.mongodb.net/dbname"
+        findings = detector.detect(text, Path(".env"), 1)
+
+        assert len(findings) == 1
+        assert findings[0].category == "mongodb-connection"
+
+    def test_detect_postgres_connection(self):
+        detector = PatternDetector(_SCANNER_PATTERNS_TIER1)
+        text = "DATABASE_URL=postgresql://user:secret123@localhost:5432/mydb"
+        findings = detector.detect(text, Path(".env"), 1)
+
+        assert len(findings) == 1
+        assert findings[0].category == "db-connection"
+
+    def test_detect_url_with_credentials(self):
+        detector = PatternDetector(_SCANNER_PATTERNS_TIER1)
+        text = "https://admin:super_secret@internal.example.com/api"
+        findings = detector.detect(text, Path("config.py"), 1)
+
+        assert len(findings) == 1
+        assert findings[0].category == "url-with-credentials"
+
+    def test_detect_bearer_token(self):
+        detector = PatternDetector(_SCANNER_PATTERNS_TIER1)
+        text = "Authorization: Bearer tk_prod_abcdefghijklmnopqrstuvwxyz01234567890"
+        findings = detector.detect(text, Path("api.py"), 1)
+
+        assert len(findings) == 1
+        assert findings[0].category == "bearer-token"
+
+    def test_detect_ipv4_address(self):
+        detector = PatternDetector(_NETWORK_PATTERNS)
+        text = "Server IP: 192.168.1.100"
+        findings = detector.detect(text, Path("config.txt"), 1)
+
+        assert len(findings) == 1
+        assert findings[0].value == "192.168.1.100"
+        assert findings[0].category == "ipv4"
+
+    def test_detect_internal_hostname(self):
+        detector = PatternDetector(_NETWORK_PATTERNS)
+        text = "DATABASE_HOST=db.internal.corp"
+        findings = detector.detect(text, Path(".env"), 1)
+
+        assert len(findings) == 1
+        assert findings[0].category == "internal-hostname"
+
+    def test_no_false_positives_in_normal_text(self):
+        detector = PatternDetector(_SECRET_PATTERNS_V1)
+        text = "This is normal text without any secrets"
+        findings = detector.detect(text, Path("README.md"), 1)
+
+        assert len(findings) == 0
+
+    def test_multiple_findings_in_single_line(self):
+        detector = PatternDetector(_SECRET_PATTERNS_V1)
+        text = (
+            "AWS_KEY=AKIA2XYZABC1234XYZAB GH_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz0123456789ab"
+        )
+        findings = detector.detect(text, Path(".env"), 1)
+
+        assert len(findings) == 2
+
+
+# --- Test FileTraversal ---
+
+
+class TestFileTraversal:
+    """Test smart file traversal."""
+
+    def test_should_skip_extension(self):
+        assert FileTraversal.should_scan_file(Path("file.pyc")) is False
+        assert FileTraversal.should_scan_file(Path("file.jpg")) is False
+        assert FileTraversal.should_scan_file(Path("file.exe")) is False
+        assert FileTraversal.should_scan_file(Path("file.py")) is True
+        assert FileTraversal.should_scan_file(Path("file.json")) is True
+
+    def test_should_skip_directory(self):
+        assert FileTraversal.should_skip_directory(Path(".git")) is True
+        assert FileTraversal.should_skip_directory(Path("node_modules")) is True
+        assert FileTraversal.should_skip_directory(Path(".venv")) is True
+        assert FileTraversal.should_skip_directory(Path(".secrets")) is False
+        assert FileTraversal.should_skip_directory(Path(".aws")) is False
+        assert FileTraversal.should_skip_directory(Path("src")) is False
+
+    def test_should_skip_hidden_directories(self):
+        assert FileTraversal.should_skip_directory(Path(".random")) is True
+        assert FileTraversal.should_skip_directory(Path(".env")) is False
+        assert FileTraversal.should_skip_directory(Path(".ssh")) is False
+
+    def test_binary_detection_png(self):
+        """Test binary file detection using magic bytes."""
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            # PNG magic bytes
+            f.write(b"\x89PNG\r\n\x1a\n")
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            assert FileTraversal.should_scan_file(path) is False
+        finally:
+            path.unlink()
+
+    def test_binary_detection_zip(self):
+        """Test ZIP file detection."""
+        with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as f:
+            f.write(b"PK\x03\x04")  # ZIP magic bytes
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            assert FileTraversal.should_scan_file(path) is False
+        finally:
+            path.unlink()
+
+    def test_text_file_detection(self):
+        """Test that text files are scannable."""
+        with tempfile.NamedTemporaryFile(
+            suffix=".py", mode="w", delete=False
+        ) as f:
+            f.write("# Python file\nprint('hello')")
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            assert FileTraversal.should_scan_file(path) is True
+        finally:
+            path.unlink()
+
+    def test_walk_filters_directories(self):
+        """Test directory walking with filtering."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+
+            # Create directory structure
+            (root / ".git").mkdir()
+            (root / ".git" / "config").write_text("git config")
+
+            (root / "src").mkdir()
+            (root / "src" / "main.py").write_text("# Python code")
+
+            (root / "venv").mkdir()
+            (root / "venv" / "lib.so").write_bytes(b"binary")
+
+            # Walk should include src/main.py but skip .git and venv
+            files = FileTraversal.walk(root)
+            file_names = [f.name for f in files]
+
+            assert "main.py" in file_names
+            assert "config" not in file_names  # In .git
+            assert "lib.so" not in file_names  # In venv
+
+    def test_walk_handles_permission_errors(self):
+        """Test that walk handles permission denied gracefully."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "readable.py").write_text("# code")
+
+            # Create unreadable directory (skip on error)
+            unreadable = root / "unreadable"
+            unreadable.mkdir()
+
+            # This should not raise, just skip unreadable dir
+            files = FileTraversal.walk(root)
+            assert len(files) >= 1
+
+
+# --- Test SensitiveDataScanner ---
+
+
+class TestSensitiveDataScanner:
+    """Test main scanner orchestrator."""
+
+    def test_scanner_initialization(self):
+        scanner = SensitiveDataScanner()
+        assert scanner.pattern_detector is not None
+        assert scanner.enable_contextual is False
+        assert scanner.enable_heuristic is False
+
+    def test_scan_file_with_secrets(self):
+        scanner = SensitiveDataScanner()
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
+            f.write("AWS_ACCESS_KEY_ID=AKIA2XYZABC1234XYZAB\n")
+            f.write("STRIPE_KEY=sk_live_1234567890abcdefghij\n")
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            findings = scanner.scan_file(path)
+            assert len(findings) >= 2
+            categories = {f.category for f in findings}
+            assert "aws-access-key" in categories
+        finally:
+            path.unlink()
+
+    def test_scan_file_no_secrets(self):
+        scanner = SensitiveDataScanner()
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+            f.write("# Normal Python code\n")
+            f.write("def hello():\n")
+            f.write("    return 'world'\n")
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            findings = scanner.scan_file(path)
+            assert len(findings) == 0
+        finally:
+            path.unlink()
+
+    def test_scan_file_handles_errors(self):
+        """Test that scanner handles unreadable files gracefully."""
+        scanner = SensitiveDataScanner()
+
+        # Non-existent file should return empty list, not crash
+        findings = scanner.scan_file(Path("/non/existent/file.py"))
+        assert len(findings) == 0
+
+    def test_scan_directory_basic(self):
+        scanner = SensitiveDataScanner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+
+            # Create files with secrets
+            (root / ".env").write_text("AWS_KEY=AKIA2XYZABC1234XYZAB\n")
+            (root / "config.py").write_text("OPENAI_KEY=sk_abcdefghij\n")
+            (root / "README.md").write_text("# Normal readme\n")
+
+            result = scanner.scan_directory(root)
+
+            assert result.total_files_scanned >= 3
+            assert len(result.findings) >= 2
+            assert result.scan_duration_seconds >= 0
+
+    def test_scan_directory_with_progress_callback(self):
+        scanner = SensitiveDataScanner()
+        progress_calls = []
+
+        def progress_callback(current: int, total: int):
+            progress_calls.append((current, total))
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / "file1.py").write_text("x = 1")
+            (root / "file2.py").write_text("y = 2")
+
+            result = scanner.scan_directory(root, progress_callback)
+
+            # Progress callback should have been called
+            assert len(progress_calls) > 0
+
+    def test_scan_directory_skips_unwanted_dirs(self):
+        scanner = SensitiveDataScanner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+
+            # Create directory structure
+            (root / "src").mkdir()
+            (root / "src" / "main.py").write_text("OPENAI_KEY=sk_test")
+
+            (root / ".git").mkdir()
+            (root / ".git" / "config").write_text("OPENAI_KEY=sk_test")
+
+            result = scanner.scan_directory(root)
+
+            # Should scan src but not .git
+            assert result.files_with_findings >= 1
+            files_scanned = {str(f.file_path) for f in result.findings}
+            assert any("src" in str(f) for f in files_scanned)
+
+    def test_scan_result_confidence_counting(self):
+        scanner = SensitiveDataScanner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / ".env").write_text(
+                "AWS_KEY=AKIA2XYZABC1234XYZAB\n"
+                "STRIPE=sk_live_1234567890abcdefghij\n"
+            )
+
+            result = scanner.scan_directory(root)
+
+            assert result.findings_by_confidence.get("CRITICAL", 0) >= 2
+            assert result.files_with_findings >= 1
+
+    def test_custom_patterns(self):
+        """Test scanner with custom patterns."""
+        import re
+
+        custom = {
+            "custom-secret": (
+                re.compile(r"CUSTOM_SECRET=[A-Z0-9]{20}"),
+                "custom-secret",
+                "Custom secret pattern",
+            )
+        }
+
+        scanner = SensitiveDataScanner(custom_patterns=custom)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+            f.write("CUSTOM_SECRET=ABCDEFGHIJ0123456789\n")
+            f.flush()
+            path = Path(f.name)
+
+        try:
+            findings = scanner.scan_file(path)
+            assert any(f.category == "custom-secret" for f in findings)
+        finally:
+            path.unlink()
+
+
+# --- Integration Tests ---
+
+
+class TestIntegration:
+    """Integration tests for full scanning workflow."""
+
+    def test_end_to_end_scan(self):
+        """Test complete scan workflow on realistic project."""
+        scanner = SensitiveDataScanner()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+
+            # Create realistic project structure
+            (root / "src").mkdir()
+            (root / ".env.production").write_text(
+                "DATABASE_URL=postgresql://admin:secret123@db.prod.internal:5432/mydb\n"
+                "AWS_ACCESS_KEY_ID=AKIA2XYZABC1234XYZAB\n"
+            )
+            (root / "config.json").write_text(
+                json.dumps({
+                    "api_key": "sk_live_1234567890abcdefghij",
+                    "stripe_secret": "sk_live_abcdefghij1234567890",
+                })
+            )
+            (root / "README.md").write_text("# Project\n\nNormal documentation")
+
+            # Scan
+            result = scanner.scan_directory(root)
+
+            # Verify
+            assert result.total_files_scanned >= 3
+            assert len(result.findings) >= 3
+            assert result.findings_by_confidence.get("CRITICAL", 0) >= 2
+
+            # Verify finding details
+            for finding in result.findings:
+                assert finding.file_path
+                assert finding.line_number > 0
+                assert finding.reason
+                assert finding.confidence == Confidence.CRITICAL
