@@ -7,7 +7,7 @@ name = "Klaus-proxy-local"
 version = "0.1.0"
 description = "HTTP proxy and toolkit for the Anthropic API"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 license = { text = "MIT" }
 keywords = ["anthropic", "claude", "proxy", "llm"]
 classifiers = [
