@@ -757,6 +757,78 @@ class VaultIntegration:
         return vault.save()
 
 
+# --- Configuration Loading (Custom Patterns) ---
+
+
+class ConfigurationLoader:
+    """Loads and manages custom pattern configuration from .klaus/config.yml"""
+
+    DEFAULT_CONFIG_PATH = Path.home() / ".klaus" / "config.yml"
+
+    @staticmethod
+    def load_config(config_path: Optional[Path] = None) -> dict[str, Any]:
+        """Load configuration from file (or use default path).
+
+        Returns: dict with 'patterns' and 'settings' keys
+        """
+        path = config_path or ConfigurationLoader.DEFAULT_CONFIG_PATH
+
+        if not path.exists():
+            return {"patterns": {}, "settings": {}}
+
+        try:
+            import yaml
+
+            with open(path, "r") as f:
+                config = yaml.safe_load(f) or {}
+            return config
+        except ImportError:
+            # YAML not available, try JSON fallback
+            json_path = path.with_suffix(".json")
+            if json_path.exists():
+                return json.loads(json_path.read_text())
+            return {"patterns": {}, "settings": {}}
+        except Exception as e:
+            print(f"⚠️  Error loading config from {path}: {e}")
+            return {"patterns": {}, "settings": {}}
+
+    @staticmethod
+    def parse_patterns(patterns_config: dict[str, Any]) -> dict[str, tuple[re.Pattern, str, str]]:
+        """Parse pattern definitions from config.
+
+        Expected format:
+            patterns:
+              my-custom-pattern:
+                regex: "my_pattern_[A-Z0-9]{10,}"
+                label: "my-service-key"
+                description: "My service API key"
+                enabled: true
+
+        Returns: dict of compiled patterns
+        """
+        result = {}
+
+        for name, config in patterns_config.items():
+            if not isinstance(config, dict):
+                continue
+
+            if not config.get("enabled", True):
+                continue
+
+            try:
+                regex_str = config.get("regex", "")
+                label = config.get("label", name)
+                description = config.get("description", "Custom pattern")
+
+                compiled = re.compile(regex_str)
+                result[name] = (compiled, label, description)
+            except Exception as e:
+                print(f"⚠️  Error compiling pattern '{name}': {e}")
+                continue
+
+        return result
+
+
 # --- Tier 3: Heuristic Detection (Entropy & Diversity) ---
 
 
@@ -944,6 +1016,7 @@ class SensitiveDataScanner:
         enable_heuristic: bool = False,
         enable_vault_integration: bool = True,
         custom_patterns: dict[str, tuple[re.Pattern, str, str]] | None = None,
+        config_path: Optional[Path] = None,
     ):
         """Initialize scanner with detection tiers.
 
@@ -951,8 +1024,15 @@ class SensitiveDataScanner:
             enable_contextual: Enable Tier 2 (contextual detection) — default True
             enable_heuristic: Enable Tier 3 (entropy-based detection) — default False
             enable_vault_integration: Enable Vault integration (requires pseudonymizer)
-            custom_patterns: Additional patterns to search for
+            custom_patterns: Additional patterns to search for (dict or loaded from config)
+            config_path: Path to .klaus/config.yml (auto-loads if not provided)
         """
+        # Load configuration if available
+        if custom_patterns is None and not config_path:
+            config = ConfigurationLoader.load_config()
+            patterns_config = config.get("patterns", {})
+            custom_patterns = ConfigurationLoader.parse_patterns(patterns_config)
+
         # Combine all Tier 1 patterns
         all_patterns = {
             **_SECRET_PATTERNS_V1,
