@@ -118,9 +118,10 @@ class TestVaultPermissions:
 
                 # Verify mappings are preserved
                 assert vault2.real_to_pseudo["user1"] == vault1.real_to_pseudo["user1"]
-                assert vault2.real_to_pseudo["email@example.com"] == vault1.real_to_pseudo[
-                    "email@example.com"
-                ]
+                assert (
+                    vault2.real_to_pseudo["email@example.com"]
+                    == vault1.real_to_pseudo["email@example.com"]
+                )
             finally:
                 os.environ.pop("ANTHROPIC_PSEUDO_SALT", None)
 
@@ -242,7 +243,9 @@ class TestSecurityFixesIntegration:
                 assert response_restored == original
 
                 # Verify no unreversed pseudonyms
-                unreversed = ps._find_unreversed_pseudonyms(response_restored, vault_loaded)
+                unreversed = ps._find_unreversed_pseudonyms(
+                    response_restored, vault_loaded
+                )
                 assert unreversed == []
 
             finally:

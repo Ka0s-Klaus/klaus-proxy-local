@@ -264,23 +264,24 @@ class TestWrapperDocumentation:
         """All scripts document usage."""
         for name, script in scripts.items():
             content = script.read_text()
-            assert "Usage:" in content or "usage" in content.lower(), \
-                f"{name} has no usage documentation"
+            assert (
+                "Usage:" in content or "usage" in content.lower()
+            ), f"{name} has no usage documentation"
 
     def test_all_scripts_explain_proxy(self, scripts):
         """All scripts explain proxy routing."""
         for name, script in scripts.items():
             content = script.read_text()
-            has_proxy_doc = ("Klaus Proxy" in content or
-                            "proxy" in content.lower())
+            has_proxy_doc = "Klaus Proxy" in content or "proxy" in content.lower()
             assert has_proxy_doc, f"{name} doesn't document proxy"
 
     def test_all_scripts_have_startup_instruction(self, scripts):
         """All scripts remind user to start proxy first."""
         for name, script in scripts.items():
             content = script.read_text()
-            has_instruction = ("claude-proxy" in content or
-                              "start the proxy" in content.lower())
+            has_instruction = (
+                "claude-proxy" in content or "start the proxy" in content.lower()
+            )
             assert has_instruction, f"{name} doesn't mention starting proxy"
 
 
@@ -298,20 +299,22 @@ class TestWrapperIntegration:
             ["bash", "-n", str(bash_script)],
             capture_output=True,
         )
-        assert result.returncode == 0, \
-            f"Bash syntax error: {result.stderr.decode()}"
+        assert result.returncode == 0, f"Bash syntax error: {result.stderr.decode()}"
 
     def test_fish_wrapper_syntax_valid(self):
         """Fish wrapper has valid syntax."""
-        fish_script = Path(__file__).parent.parent / "scripts" / "claude-with-proxy.fish"
+        fish_script = (
+            Path(__file__).parent.parent / "scripts" / "claude-with-proxy.fish"
+        )
         result = subprocess.run(
             ["fish", "-n", str(fish_script)],
             capture_output=True,
         )
         # Fish might not be installed, so skip if not found
         if result.returncode != 127:
-            assert result.returncode == 0, \
-                f"Fish syntax error: {result.stderr.decode()}"
+            assert (
+                result.returncode == 0
+            ), f"Fish syntax error: {result.stderr.decode()}"
 
     def test_ps1_has_correct_encoding(self):
         """PowerShell wrapper should be UTF-8."""

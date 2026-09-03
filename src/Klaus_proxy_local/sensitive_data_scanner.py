@@ -18,7 +18,6 @@ Usage:
 """
 from __future__ import annotations
 
-import fnmatch
 import json
 import math
 import re
@@ -28,9 +27,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Optional
-import sys
-import math
-
 
 # --- Confidence Levels ---
 
@@ -151,9 +147,7 @@ _SECRET_PATTERNS_V1 = {
         "Slack token",
     ),
     "jwt": (
-        re.compile(
-            r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"
-        ),
+        re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
         "jwt",
         "JWT token",
     ),
@@ -177,9 +171,7 @@ _SCANNER_PATTERNS_TIER1 = {
         "Anthropic API key",
     ),
     "mongodb-uri": (
-        re.compile(
-            r"mongodb(?:\+srv)?://[^/\s]+(?::[^@/\s]+)?@[^/\s]+"
-        ),
+        re.compile(r"mongodb(?:\+srv)?://[^/\s]+(?::[^@/\s]+)?@[^/\s]+"),
         "mongodb-connection",
         "MongoDB connection string with credentials",
     ),
@@ -200,9 +192,7 @@ _SCANNER_PATTERNS_TIER1 = {
         "AWS Secret Access Key",
     ),
     "aws-session-token": (
-        re.compile(
-            r"(?:aws_session_token|AWS_SESSION_TOKEN)\s*=\s*[A-Za-z0-9/+=]{1,}"
-        ),
+        re.compile(r"(?:aws_session_token|AWS_SESSION_TOKEN)\s*=\s*[A-Za-z0-9/+=]{1,}"),
         "aws-session-token",
         "AWS Session Token",
     ),
@@ -217,9 +207,7 @@ _SCANNER_PATTERNS_TIER1 = {
         "SSH public key",
     ),
     "oauth-refresh-token": (
-        re.compile(
-            r"(?:refresh_token|REFRESH_TOKEN)\s*[:=]\s*[A-Za-z0-9._\-]{20,}"
-        ),
+        re.compile(r"(?:refresh_token|REFRESH_TOKEN)\s*[:=]\s*[A-Za-z0-9._\-]{20,}"),
         "oauth-refresh-token",
         "OAuth refresh token",
     ),
@@ -593,6 +581,10 @@ class FileContextAnalyzer:
         ".private-key",
         ".pem",
         ".key",
+        "id_rsa",
+        "id_rsa.pub",
+        "id_dsa",
+        "id_ed25519",
     }
 
     # File extensions commonly containing secrets
@@ -615,6 +607,7 @@ class FileContextAnalyzer:
         Returns: "critical", "high", "medium", "low"
         """
         filename = file_path.name
+        path_str = str(file_path)
 
         # Check exact filename matches
         if filename in FileContextAnalyzer.HIGH_RISK_FILENAMES:
@@ -624,9 +617,22 @@ class FileContextAnalyzer:
         if file_path.suffix in FileContextAnalyzer.HIGH_RISK_EXTENSIONS:
             return "critical"
 
+        # Check specific paths (e.g., ".aws/credentials")
+        critical_paths = {".aws/credentials", ".ssh/config", ".ssh/authorized_keys"}
+        for crit_path in critical_paths:
+            if path_str.endswith(crit_path):
+                return "critical"
+
         # Check path contains high-risk directory names
         for parent in file_path.parents:
-            if parent.name in {".env", ".secrets", ".credentials", ".aws", ".ssh", ".kube"}:
+            if parent.name in {
+                ".env",
+                ".secrets",
+                ".credentials",
+                ".aws",
+                ".ssh",
+                ".kube",
+            }:
                 return "high"
 
         # Config files: high scrutiny
@@ -634,7 +640,16 @@ class FileContextAnalyzer:
             return "high"
 
         # Code files: medium scrutiny
-        if file_path.suffix in {".py", ".js", ".ts", ".go", ".rs", ".java", ".sh", ".bash"}:
+        if file_path.suffix in {
+            ".py",
+            ".js",
+            ".ts",
+            ".go",
+            ".rs",
+            ".java",
+            ".sh",
+            ".bash",
+        }:
             return "medium"
 
         return "low"
@@ -647,7 +662,9 @@ class ContextDetector:
         self.contextual_analyzer = ContextualAnalyzer()
         self.file_analyzer = FileContextAnalyzer()
 
-    def detect_in_line(self, line: str, file_path: Path, line_number: int) -> list[SensitiveDataFinding]:
+    def detect_in_line(
+        self, line: str, file_path: Path, line_number: int
+    ) -> list[SensitiveDataFinding]:
         """Detect by analyzing variable names and patterns."""
         findings = []
         for value, var_name in self.contextual_analyzer.analyze_line(line):
@@ -664,9 +681,7 @@ class ContextDetector:
             findings.append(finding)
         return findings
 
-    def detect_by_file_type(
-        self, file_path: Path
-    ) -> Optional[SensitiveDataFinding]:
+    def detect_by_file_type(self, file_path: Path) -> Optional[SensitiveDataFinding]:
         """Warn if file is high-risk (may contain secrets)."""
         risk = self.file_analyzer.file_risk_level(file_path)
         if risk in ("critical", "high"):
@@ -793,7 +808,9 @@ class ConfigurationLoader:
             return {"patterns": {}, "settings": {}}
 
     @staticmethod
-    def parse_patterns(patterns_config: dict[str, Any]) -> dict[str, tuple[re.Pattern, str, str]]:
+    def parse_patterns(
+        patterns_config: dict[str, Any],
+    ) -> dict[str, tuple[re.Pattern, str, str]]:
         """Parse pattern definitions from config.
 
         Expected format:
@@ -837,9 +854,9 @@ class EntropyAnalyzer:
 
     # Entropy thresholds (bits per character)
     ENTROPY_THRESHOLDS = {
-        "low": 3.5,      # Normal English text
-        "medium": 4.5,   # Could be secret
-        "high": 5.5,     # Very likely secret
+        "low": 3.5,  # Normal English text
+        "medium": 4.5,  # Could be secret
+        "high": 5.5,  # Very likely secret
     }
 
     @staticmethod
@@ -853,7 +870,6 @@ class EntropyAnalyzer:
         if not text:
             return 0.0
 
-        from collections import Counter
 
         freq = Counter(text)
         entropy = 0.0
@@ -955,9 +971,7 @@ class HeuristicDetector:
                 and charset in ("high-entropy", "mixed")
             ):
                 confidence = (
-                    Confidence.MEDIUM
-                    if entropy_level == "high"
-                    else Confidence.LOW
+                    Confidence.MEDIUM if entropy_level == "high" else Confidence.LOW
                 )
 
                 finding = SensitiveDataFinding(
@@ -984,9 +998,7 @@ class HeuristicDetector:
             return True
 
         # Skip common valid tokens
-        if token.startswith("v") and all(
-            c.isdigit() or c == "." for c in token[1:]
-        ):
+        if token.startswith("v") and all(c.isdigit() or c == "." for c in token[1:]):
             return True  # Version numbers like v1.2.3
 
         # Skip UUIDs
@@ -1072,11 +1084,17 @@ class SensitiveDataScanner:
                     continue
 
                 # Tier 1: Pattern detection (always enabled)
-                tier1_findings = self.pattern_detector.detect(line, file_path, line_number)
+                tier1_findings = self.pattern_detector.detect(
+                    line, file_path, line_number
+                )
                 findings.extend(tier1_findings)
 
                 # Tier 2: Contextual detection (high-risk files)
-                if self.context_detector and self.context_detector.file_analyzer.file_risk_level(file_path) in ("critical", "high"):
+                if (
+                    self.context_detector
+                    and self.context_detector.file_analyzer.file_risk_level(file_path)
+                    in ("critical", "high")
+                ):
                     tier2_findings = self.context_detector.detect_in_line(
                         line, file_path, line_number
                     )
@@ -1084,7 +1102,12 @@ class SensitiveDataScanner:
 
                 # Tier 3: Heuristic detection (entropy + diversity)
                 # Only on high-risk files to reduce false positives
-                if self.heuristic_detector and self.context_detector and self.context_detector.file_analyzer.file_risk_level(file_path) in ("critical", "high"):
+                if (
+                    self.heuristic_detector
+                    and self.context_detector
+                    and self.context_detector.file_analyzer.file_risk_level(file_path)
+                    in ("critical", "high")
+                ):
                     tier3_findings = self.heuristic_detector.detect_suspicious_strings(
                         line, file_path, line_number
                     )

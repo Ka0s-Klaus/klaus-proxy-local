@@ -178,7 +178,7 @@ def ask_user_permission() -> bool:
     if config_file:
         print(f"Config file:     {config_file}")
     else:
-        print(f"Config file:     (not found or not configurable)")
+        print("Config file:     (not found or not configurable)")
 
     print()
     print("Enable Klaus Proxy auto-startup?")
@@ -301,15 +301,15 @@ def run_setup() -> None:
     print("=" * 60)
     print()
     print("Next steps:")
-    print(f"  1. Reload your shell:")
-    print(f"     exec $SHELL")
+    print("  1. Reload your shell:")
+    print("     exec $SHELL")
     print()
-    print(f"  2. Proxy will start automatically on next shell open")
+    print("  2. Proxy will start automatically on next shell open")
     print()
-    print(f"  3. Use Claude Code as normal:")
-    print(f"     claude 'your question'")
+    print("  3. Use Claude Code as normal:")
+    print("     claude 'your question'")
     print()
-    print(f"To disable auto-startup, remove the Klaus Proxy hook from:")
+    print("To disable auto-startup, remove the Klaus Proxy hook from:")
     print(f"  {config_file}")
     print()
 

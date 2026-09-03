@@ -47,7 +47,9 @@ class TestEnsurePrerequisites:
         """ensure_prerequisites() calls init_config_if_missing()."""
         launcher = ProxyLauncher()
         with patch("Klaus_proxy_local.launcher.init_config_if_missing") as mock_config:
-            with patch("Klaus_proxy_local.launcher.ensure_mitmproxy_certs") as mock_certs:
+            with patch(
+                "Klaus_proxy_local.launcher.ensure_mitmproxy_certs"
+            ) as mock_certs:
                 mock_config.return_value = {"version": "0.1.0"}
                 mock_certs.return_value = Path("/tmp/cert.pem")
 
@@ -58,7 +60,9 @@ class TestEnsurePrerequisites:
         """ensure_prerequisites() calls ensure_mitmproxy_certs()."""
         launcher = ProxyLauncher()
         with patch("Klaus_proxy_local.launcher.init_config_if_missing") as mock_config:
-            with patch("Klaus_proxy_local.launcher.ensure_mitmproxy_certs") as mock_certs:
+            with patch(
+                "Klaus_proxy_local.launcher.ensure_mitmproxy_certs"
+            ) as mock_certs:
                 mock_config.return_value = {"version": "0.1.0"}
                 mock_certs.return_value = Path("/tmp/cert.pem")
 
@@ -70,7 +74,9 @@ class TestEnsurePrerequisites:
         launcher = ProxyLauncher()
         test_config = {"version": "0.1.0", "salt": "test"}
         with patch("Klaus_proxy_local.launcher.init_config_if_missing") as mock_config:
-            with patch("Klaus_proxy_local.launcher.ensure_mitmproxy_certs") as mock_certs:
+            with patch(
+                "Klaus_proxy_local.launcher.ensure_mitmproxy_certs"
+            ) as mock_certs:
                 mock_config.return_value = test_config
                 mock_certs.return_value = Path("/tmp/cert.pem")
 
@@ -82,7 +88,9 @@ class TestEnsurePrerequisites:
         launcher = ProxyLauncher()
         cert_path = Path("/home/user/.mitmproxy/cert.pem")
         with patch("Klaus_proxy_local.launcher.init_config_if_missing") as mock_config:
-            with patch("Klaus_proxy_local.launcher.ensure_mitmproxy_certs") as mock_certs:
+            with patch(
+                "Klaus_proxy_local.launcher.ensure_mitmproxy_certs"
+            ) as mock_certs:
                 mock_config.return_value = {"version": "0.1.0"}
                 mock_certs.return_value = cert_path
 
@@ -102,7 +110,9 @@ class TestEnsurePrerequisites:
         """ensure_prerequisites() raises if cert setup fails."""
         launcher = ProxyLauncher()
         with patch("Klaus_proxy_local.launcher.init_config_if_missing") as mock_config:
-            with patch("Klaus_proxy_local.launcher.ensure_mitmproxy_certs") as mock_certs:
+            with patch(
+                "Klaus_proxy_local.launcher.ensure_mitmproxy_certs"
+            ) as mock_certs:
                 mock_config.return_value = {"version": "0.1.0"}
                 mock_certs.side_effect = RuntimeError("Cert error")
 

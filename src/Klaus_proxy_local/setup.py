@@ -102,7 +102,9 @@ def init_config_if_missing() -> dict:
     }
 
     # 4. Write config.json (0o600 = owner rw only)
-    cfg_file.write_text(json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8")
+    cfg_file.write_text(
+        json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     os.chmod(cfg_file, 0o600)
     print(f"✅ Config written to {cfg_file} (mode 0o600)")
 

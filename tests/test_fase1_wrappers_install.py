@@ -157,7 +157,9 @@ class TestInstallWrappers:
             assert not bin_dir.exists()
 
             with patch.object(install_wrappers, "get_bin_dir", return_value=bin_dir):
-                with patch.object(install_wrappers, "get_wrapper_scripts", return_value=[]):
+                with patch.object(
+                    install_wrappers, "get_wrapper_scripts", return_value=[]
+                ):
                     try:
                         install_wrappers.install_wrappers()
                     except RuntimeError:
@@ -179,8 +181,11 @@ class TestInstallWrappers:
             bin_dir = Path(tmpdir) / "bin"
 
             with patch.object(install_wrappers, "get_bin_dir", return_value=bin_dir):
-                with patch.object(install_wrappers, "get_wrapper_scripts",
-                                 return_value=[(src_script, "test-wrapper")]):
+                with patch.object(
+                    install_wrappers,
+                    "get_wrapper_scripts",
+                    return_value=[(src_script, "test-wrapper")],
+                ):
                     install_wrappers.install_wrappers()
 
             # Script should be copied
@@ -201,8 +206,11 @@ class TestInstallWrappers:
             bin_dir = Path(tmpdir) / "bin"
 
             with patch.object(install_wrappers, "get_bin_dir", return_value=bin_dir):
-                with patch.object(install_wrappers, "get_wrapper_scripts",
-                                 return_value=[(src_script, "test-wrapper")]):
+                with patch.object(
+                    install_wrappers,
+                    "get_wrapper_scripts",
+                    return_value=[(src_script, "test-wrapper")],
+                ):
                     with patch("platform.system", return_value="Linux"):
                         install_wrappers.install_wrappers()
 
@@ -218,8 +226,9 @@ class TestInstallWrappers:
             bin_dir = Path(tmpdir) / "bin"
 
             with patch.object(install_wrappers, "get_bin_dir", return_value=bin_dir):
-                with patch.object(install_wrappers, "get_wrapper_scripts",
-                                 return_value=[]):
+                with patch.object(
+                    install_wrappers, "get_wrapper_scripts", return_value=[]
+                ):
                     with pytest.raises(RuntimeError, match="No scripts were installed"):
                         install_wrappers.install_wrappers()
 
@@ -234,10 +243,14 @@ class TestInstallWrappers:
             bin_dir = Path(tmpdir) / "bin"
 
             with patch.object(install_wrappers, "get_bin_dir", return_value=bin_dir):
-                with patch.object(install_wrappers, "get_wrapper_scripts",
-                                 return_value=[(src_script, "test")]):
-                    with patch.object(install_wrappers, "ensure_bin_dir_in_path",
-                                     return_value=False):
+                with patch.object(
+                    install_wrappers,
+                    "get_wrapper_scripts",
+                    return_value=[(src_script, "test")],
+                ):
+                    with patch.object(
+                        install_wrappers, "ensure_bin_dir_in_path", return_value=False
+                    ):
                         # Should not raise, but warn
                         install_wrappers.install_wrappers()
 

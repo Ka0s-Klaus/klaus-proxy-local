@@ -240,9 +240,7 @@ class TestPatternDetector:
 
     def test_multiple_findings_in_single_line(self):
         detector = PatternDetector(_SECRET_PATTERNS_V1)
-        text = (
-            "AWS_KEY=AKIA2XYZABC1234XYZAB GH_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz0123456789ab"
-        )
+        text = "AWS_KEY=AKIA2XYZABC1234XYZAB GH_TOKEN=ghp_abcdefghijklmnopqrstuvwxyz0123456789ab"
         findings = detector.detect(text, Path(".env"), 1)
 
         assert len(findings) == 2
@@ -301,9 +299,7 @@ class TestFileTraversal:
 
     def test_text_file_detection(self):
         """Test that text files are scannable."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".py", mode="w", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as f:
             f.write("# Python file\nprint('hello')")
             f.flush()
             path = Path(f.name)
@@ -464,8 +460,7 @@ class TestSensitiveDataScanner:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             (root / ".env").write_text(
-                "AWS_KEY=AKIA2XYZABC1234XYZAB\n"
-                "STRIPE=sk_live_1234567890abcdefghij\n"
+                "AWS_KEY=AKIA2XYZABC1234XYZAB\n" "STRIPE=sk_live_1234567890abcdefghij\n"
             )
 
             result = scanner.scan_directory(root)
@@ -519,10 +514,12 @@ class TestIntegration:
                 "AWS_ACCESS_KEY_ID=AKIA2XYZABC1234XYZAB\n"
             )
             (root / "config.json").write_text(
-                json.dumps({
-                    "api_key": "sk_live_1234567890abcdefghij",
-                    "stripe_secret": "sk_live_abcdefghij1234567890",
-                })
+                json.dumps(
+                    {
+                        "api_key": "sk_live_1234567890abcdefghij",
+                        "stripe_secret": "sk_live_abcdefghij1234567890",
+                    }
+                )
             )
             (root / "README.md").write_text("# Project\n\nNormal documentation")
 
@@ -606,7 +603,9 @@ class TestFileContextAnalyzer:
 
     def test_env_file_critical(self):
         assert FileContextAnalyzer.file_risk_level(Path(".env")) == "critical"
-        assert FileContextAnalyzer.file_risk_level(Path(".env.production")) == "critical"
+        assert (
+            FileContextAnalyzer.file_risk_level(Path(".env.production")) == "critical"
+        )
         assert FileContextAnalyzer.file_risk_level(Path(".env.local")) == "critical"
 
     def test_secrets_file_critical(self):
@@ -618,10 +617,14 @@ class TestFileContextAnalyzer:
         assert FileContextAnalyzer.file_risk_level(Path("key.pem")) == "critical"
 
     def test_terraform_files_critical(self):
-        assert FileContextAnalyzer.file_risk_level(Path("terraform.tfvars")) == "critical"
+        assert (
+            FileContextAnalyzer.file_risk_level(Path("terraform.tfvars")) == "critical"
+        )
 
     def test_aws_credentials_critical(self):
-        assert FileContextAnalyzer.file_risk_level(Path(".aws/credentials")) == "critical"
+        assert (
+            FileContextAnalyzer.file_risk_level(Path(".aws/credentials")) == "critical"
+        )
 
     def test_config_files_high(self):
         assert FileContextAnalyzer.file_risk_level(Path("config.yaml")) == "high"
@@ -677,23 +680,23 @@ class TestEntropyAnalyzer:
         entropy = EntropyAnalyzer.shannon_entropy(normal)
         assert entropy < 5.0, f"Normal text entropy {entropy} should be < 5"
 
-        # High entropy (random string)
-        random_str = "x7mK9pQwEr2tLnVbHj4sZa"
+        # High entropy (random string with 32+ unique chars)
+        random_str = "x7mK9pQwEr2tLnVbHj4sZa8B3C5D6FGN"
         entropy = EntropyAnalyzer.shannon_entropy(random_str)
-        assert entropy > 4.5, f"Random string entropy {entropy} should be > 4.5"
+        assert entropy > 4.8, f"Random string entropy {entropy} should be > 4.8"
 
     def test_classify_entropy_levels(self):
         # Low entropy
         normal, _ = EntropyAnalyzer.classify_entropy("hello")
         assert normal == "low"
 
-        # Medium entropy
-        medium_str = "Pass123"
+        # Medium entropy (20+ chars with high entropy)
+        medium_str = "x7mK9pQwEr2tLnVbHj4sZ"  # 20 chars
         level, _ = EntropyAnalyzer.classify_entropy(medium_str)
-        # Can be low or medium depending on length factor
+        assert level in ("low", "medium")
 
-        # High entropy
-        high_str = "x7mK9pQwEr2tLnVbHj4sZa"
+        # High entropy (32+ chars with all unique)
+        high_str = "x7mK9pQwEr2tLnVbHj4sZa8B3C5D6FGN"
         level, _ = EntropyAnalyzer.classify_entropy(high_str)
         assert level in ("high", "medium")
 
@@ -706,30 +709,22 @@ class TestCharacterDiversityAnalyzer:
     """Test character diversity analysis."""
 
     def test_alphanumeric_only(self):
-        diversity, charset = CharacterDiversityAnalyzer.analyze_charset(
-            "abc123ABC"
-        )
+        diversity, charset = CharacterDiversityAnalyzer.analyze_charset("abc123")
         assert charset == "alphanumeric"
         assert diversity == 0.5  # 2 out of 4 character types
 
     def test_mixed_charset(self):
-        diversity, charset = CharacterDiversityAnalyzer.analyze_charset(
-            "Pass123"
-        )
+        diversity, charset = CharacterDiversityAnalyzer.analyze_charset("Pass123")
         assert charset == "mixed"
         assert diversity >= 0.5
 
     def test_high_entropy_charset(self):
-        diversity, charset = CharacterDiversityAnalyzer.analyze_charset(
-            "P@ssw0rd!"
-        )
+        diversity, charset = CharacterDiversityAnalyzer.analyze_charset("P@ssw0rd!")
         assert charset == "high-entropy"
         assert diversity >= 0.75
 
     def test_only_lowercase(self):
-        diversity, charset = CharacterDiversityAnalyzer.analyze_charset(
-            "abcdefgh"
-        )
+        diversity, charset = CharacterDiversityAnalyzer.analyze_charset("abcdefgh")
         assert charset == "alphanumeric"
         assert diversity < 0.5
 
@@ -812,9 +807,7 @@ class TestScannerTier3:
     """Test scanner with Tier 3 heuristic detection enabled."""
 
     def test_scanner_detects_entropy(self):
-        scanner = SensitiveDataScanner(
-            enable_contextual=True, enable_heuristic=True
-        )
+        scanner = SensitiveDataScanner(enable_contextual=True, enable_heuristic=True)
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write('password = "x7mK9pQwEr2tLnVbHj4sZa"\n')
@@ -830,9 +823,7 @@ class TestScannerTier3:
             path.unlink()
 
     def test_scanner_heuristic_disabled(self):
-        scanner = SensitiveDataScanner(
-            enable_contextual=True, enable_heuristic=False
-        )
+        scanner = SensitiveDataScanner(enable_contextual=True, enable_heuristic=False)
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".env", delete=False) as f:
             f.write('password = "x7mK9pQwEr2tLnVbHj4sZa"\n')
@@ -849,9 +840,7 @@ class TestScannerTier3:
 
     def test_scanner_only_high_risk_files_heuristic(self):
         """Heuristic detection only on high-risk files to reduce false positives."""
-        scanner = SensitiveDataScanner(
-            enable_contextual=True, enable_heuristic=True
-        )
+        scanner = SensitiveDataScanner(enable_contextual=True, enable_heuristic=True)
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".py", delete=False
@@ -903,9 +892,7 @@ class TestScannerTier2:
         try:
             findings = scanner.scan_file(path)
             # Should flag as high-risk file even if content is normal
-            risk_findings = [
-                f for f in findings if "high-risk" in f.category
-            ]
+            risk_findings = [f for f in findings if "high-risk" in f.category]
             assert len(risk_findings) >= 1
         finally:
             path.unlink()

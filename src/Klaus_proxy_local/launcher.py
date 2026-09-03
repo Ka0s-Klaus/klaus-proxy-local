@@ -45,15 +45,15 @@ class ProxyLauncher:
         # Step 1: Auto-generate config
         try:
             self.config = init_config_if_missing()
-            print(f"✅ Configuration ready")
-            print(f"   Location: ~/.klaus-proxy/config.json\n")
+            print("✅ Configuration ready")
+            print("   Location: ~/.klaus-proxy/config.json\n")
         except Exception as e:
             raise RuntimeError(f"❌ Config setup failed: {e}")
 
         # Step 2: Auto-generate certs
         try:
             self.cert_file = ensure_mitmproxy_certs()
-            print(f"✅ Certificates ready")
+            print("✅ Certificates ready")
             print(f"   Location: {self.cert_file}\n")
         except RuntimeError as e:
             raise RuntimeError(f"❌ Cert setup failed: {e}")
@@ -63,25 +63,25 @@ class ProxyLauncher:
         print("=" * 60)
         print(f"🔐 Klaus Proxy Local — Running (v{__version__})")
         print("=" * 60)
-        print(f"")
+        print("")
         print(f"🎯 Listening on:        {self.HOST}:{self.PORT}")
-        print(f"📁 Config:              ~/.klaus-proxy/config.json")
-        print(f"📋 Captures:            ~/.klaus-proxy/captures/")
+        print("📁 Config:              ~/.klaus-proxy/config.json")
+        print("📋 Captures:            ~/.klaus-proxy/captures/")
         print(f"🔒 Certificate:         {self.cert_file}")
-        print(f"")
+        print("")
         print("📖 Usage:")
-        print(f"  Terminal 1 (this one): Keep this running")
+        print("  Terminal 1 (this one): Keep this running")
         print(f"  Terminal 2: export HTTP_PROXY=http://{self.HOST}:{self.PORT}")
         print(f"              export HTTPS_PROXY=http://{self.HOST}:{self.PORT}")
-        print(f"              claude 'your question'")
-        print(f"")
+        print("              claude 'your question'")
+        print("")
         print("🛑 To stop: Press Ctrl+C")
         print("=" * 60)
         print("")
 
     def process_log_line(self, line: str) -> str:
         """Add version prefix to log lines with timestamps.
-        
+
         Transforms: [14:18:53.157][anthropic-pseudo] message
         Into:       [v0.1.0][14:18:53.157][anthropic-pseudo] message
         """
@@ -147,7 +147,7 @@ class ProxyLauncher:
         ]
 
         try:
-            print(f"🚀 Starting mitmdump...")
+            print("🚀 Starting mitmdump...")
             print(f"   Command: {' '.join(mitmdump_cmd)}\n")
 
             self.mitmdump_process = subprocess.Popen(
@@ -174,17 +174,17 @@ class ProxyLauncher:
             # Check if process is still alive
             if self.mitmdump_process.poll() is not None:
                 raise RuntimeError(
-                    f"❌ mitmdump failed to start.\n"
-                    f"   Make sure mitmproxy is installed: pip install mitmproxy"
+                    "❌ mitmdump failed to start.\n"
+                    "   Make sure mitmproxy is installed: pip install mitmproxy"
                 )
 
         except FileNotFoundError:
             raise RuntimeError(
-                f"❌ mitmdump not found in PATH.\n"
-                f"   Install mitmproxy:\n"
-                f"   brew install mitmproxy   (macOS)\n"
-                f"   apt install mitmproxy    (Ubuntu)\n"
-                f"   pip install mitmproxy    (anywhere)"
+                "❌ mitmdump not found in PATH.\n"
+                "   Install mitmproxy:\n"
+                "   brew install mitmproxy   (macOS)\n"
+                "   apt install mitmproxy    (Ubuntu)\n"
+                "   pip install mitmproxy    (anywhere)"
             )
 
     def handle_signal(self, signum, frame) -> None:

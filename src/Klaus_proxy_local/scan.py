@@ -97,9 +97,7 @@ def print_summary(result, min_confidence: Confidence) -> None:
     print(f"\nMinimum confidence threshold: {min_confidence.name}")
 
     # Count findings above threshold
-    above_threshold = [
-        f for f in result.findings if f.confidence <= min_confidence
-    ]
+    above_threshold = [f for f in result.findings if f.confidence <= min_confidence]
     print(f"Findings above threshold: {len(above_threshold)}/{len(result.findings)}")
 
 
@@ -112,9 +110,7 @@ def _mask_value(value: str) -> str:
 
 def print_findings(result, min_confidence: Confidence) -> None:
     """Print findings for review."""
-    above_threshold = [
-        f for f in result.findings if f.confidence <= min_confidence
-    ]
+    above_threshold = [f for f in result.findings if f.confidence <= min_confidence]
 
     if not above_threshold:
         print("\n✨ No findings above threshold")
@@ -137,7 +133,7 @@ def print_findings(result, min_confidence: Confidence) -> None:
         print(f"  Type: {finding.category}")
         print(f"  Method: {finding.detection_method}")
         print(f"  Detected: {_mask_value(finding.value)}")
-        print(f"\n  Context:")
+        print("\n  Context:")
 
         # Show context (limit length)
         context = finding.context[:80]
@@ -148,14 +144,14 @@ def print_findings(result, min_confidence: Confidence) -> None:
         print(f"\n  Reason: {finding.reason}")
 
 
-def interactive_review(result, min_confidence: Confidence, vault_integration=None) -> int:
+def interactive_review(
+    result, min_confidence: Confidence, vault_integration=None
+) -> int:
     """Interactive review of findings above threshold.
 
     Returns: count of findings approved for vault
     """
-    above_threshold = [
-        f for f in result.findings if f.confidence <= min_confidence
-    ]
+    above_threshold = [f for f in result.findings if f.confidence <= min_confidence]
 
     if not above_threshold:
         return 0
@@ -195,7 +191,9 @@ def interactive_review(result, min_confidence: Confidence, vault_integration=Non
                 response = (
                     input(
                         "\n  Action: [A]pprove / [S]kip / [C]opy value / [L]All / [Q]uit? >> "
-                    ).strip().upper()
+                    )
+                    .strip()
+                    .upper()
                 )
                 if response in ("A", "S", "C", "L", "Q"):
                     break
@@ -210,24 +208,22 @@ def interactive_review(result, min_confidence: Confidence, vault_integration=Non
                 try:
                     prefix = _get_prefix_for_category(finding.category)
                     pseudo = vault_integration.add_finding_to_vault(finding, prefix)
-                    print(f"  ✓ Approved and added to vault")
+                    print("  ✓ Approved and added to vault")
                     print(f"     Pseudonym: {pseudo}")
                 except Exception as e:
                     print(f"  ⚠️  Approved but vault error: {e}")
             else:
-                print(f"  ✓ Approved")
+                print("  ✓ Approved")
 
         elif response == "S":
-            print(f"  ⊘ Skipped")
+            print("  ⊘ Skipped")
         elif response == "C":
             # Copy to clipboard (if available)
             try:
                 import subprocess
 
-                subprocess.run(
-                    ["pbcopy"], input=finding.value.encode(), check=True
-                )
-                print(f"  📋 Copied to clipboard")
+                subprocess.run(["pbcopy"], input=finding.value.encode(), check=True)
+                print("  📋 Copied to clipboard")
             except Exception:
                 print(f"  ⓘ Value: {finding.value}")
         elif response == "L":
@@ -239,14 +235,14 @@ def interactive_review(result, min_confidence: Confidence, vault_integration=Non
                 try:
                     prefix = _get_prefix_for_category(finding.category)
                     pseudo = vault_integration.add_finding_to_vault(finding, prefix)
-                    print(f"  ✓ Approved and added to vault")
+                    print("  ✓ Approved and added to vault")
                     print(f"     Pseudonym: {pseudo}")
                 except Exception as e:
                     print(f"  ⚠️  Approved but vault error: {e}")
             else:
-                print(f"  ✓ Approved")
+                print("  ✓ Approved")
 
-            print(f"  📋 Approving all remaining findings...")
+            print("  📋 Approving all remaining findings...")
         elif response == "Q":
             print("\n⊘ Review cancelled")
             return approved_count
@@ -319,9 +315,7 @@ def main(argv: list[str] | None = None) -> NoReturn:
     if args["json"]:
         import json
 
-        above_threshold = [
-            f for f in result.findings if f.confidence <= min_confidence
-        ]
+        above_threshold = [f for f in result.findings if f.confidence <= min_confidence]
         output = {
             "total_files_scanned": result.total_files_scanned,
             "findings_count": len(above_threshold),
@@ -342,9 +336,7 @@ def main(argv: list[str] | None = None) -> NoReturn:
 
     # Interactive review (unless --approve-all)
     if args["approve_all"]:
-        above_threshold = [
-            f for f in result.findings if f.confidence <= min_confidence
-        ]
+        above_threshold = [f for f in result.findings if f.confidence <= min_confidence]
         approved_count = 0
         for finding in above_threshold:
             finding.user_approved = True
@@ -358,21 +350,23 @@ def main(argv: list[str] | None = None) -> NoReturn:
         print(f"\n✓ Auto-approved {approved_count} findings (added to vault)")
     else:
         # Ask user to review
-        above_threshold = [
-            f for f in result.findings if f.confidence <= min_confidence
-        ]
+        above_threshold = [f for f in result.findings if f.confidence <= min_confidence]
         if above_threshold:
-            review = input(
-                f"\n\nReview {len(above_threshold)} finding(s)? [Y/N]: "
-            ).strip().upper()
+            review = (
+                input(f"\n\nReview {len(above_threshold)} finding(s)? [Y/N]: ")
+                .strip()
+                .upper()
+            )
             if review == "Y":
-                approved_count = interactive_review(result, min_confidence, vault_integration)
+                approved_count = interactive_review(
+                    result, min_confidence, vault_integration
+                )
             else:
                 approved_count = 0
         else:
             approved_count = 0
 
-    print(f"\n\n✨ Scan complete")
+    print("\n\n✨ Scan complete")
     print(f"  Files scanned: {result.total_files_scanned}")
     print(f"  Findings: {len(result.findings)}")
     print(f"  Approved for vault: {approved_count}")
