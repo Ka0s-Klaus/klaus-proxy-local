@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install wrapper scripts to user's PATH (FASE 1.4).
+r"""Install wrapper scripts to user's PATH (FASE 1.4).
 
 Copies claude-with-proxy.* scripts to ~/.local/bin/ on Unix-like systems
 or %APPDATA%\Scripts on Windows, making them available system-wide.
@@ -11,13 +11,12 @@ Usage:
 import os
 import platform
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 
 def get_bin_dir() -> Path:
-    """Get platform-appropriate bin directory for user scripts.
+    r"""Get platform-appropriate bin directory for user scripts.
 
     Returns:
       ~/.local/bin on Unix-like systems
@@ -152,13 +151,13 @@ def install_wrappers() -> None:
         # Check PATH and warn if needed
         if not ensure_bin_dir_in_path():
             print(f"\n⚠️  {bin_dir} is not in your PATH")
-            print(f"\nAdd it to your shell config:")
+            print("\nAdd it to your shell config:")
 
             if platform.system() in ("Linux", "Darwin"):
-                print(f"  # Add to ~/.bashrc, ~/.zshrc, or equivalent:")
-                print(f"  export PATH=\"{bin_dir}:$PATH\"")
+                print("  # Add to ~/.bashrc, ~/.zshrc, or equivalent:")
+                print(f'  export PATH="{bin_dir}:$PATH"')
             elif platform.system() == "Windows":
-                print(f"  Windows: Scripts folder is usually in PATH automatically")
+                print("  Windows: Scripts folder is usually in PATH automatically")
 
         print()
 

@@ -32,8 +32,8 @@ dev = [
     # estable entre versiones (p. ej. black 25→26), y un rango flotante hace
     # que `black --check` en CI reformatee código ya formateado con otra
     # versión. Pinear garantiza un formato reproducible local == CI.
-    "ruff==0.17.0",
-    "black==25.12.1",
+    "ruff==0.16.5",
+    "black==25.11.0",
 ]
 
 [project.scripts]

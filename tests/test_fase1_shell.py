@@ -362,8 +362,12 @@ class TestIntegration:
             config_file = Path(tmpdir) / "bashrc"
 
             with patch.object(setup_shell, "detect_shell", return_value="bash"):
-                with patch.object(setup_shell, "get_shell_config_file", return_value=config_file):
-                    with patch.object(setup_shell, "ask_user_permission", return_value=True):
+                with patch.object(
+                    setup_shell, "get_shell_config_file", return_value=config_file
+                ):
+                    with patch.object(
+                        setup_shell, "ask_user_permission", return_value=True
+                    ):
                         with patch("Klaus_proxy_local.setup_shell.install_wrappers"):
                             # Should not raise
                             setup_shell.run_setup()
@@ -379,8 +383,12 @@ class TestIntegration:
             config_file = Path(tmpdir) / "config.fish"
 
             with patch.object(setup_shell, "detect_shell", return_value="fish"):
-                with patch.object(setup_shell, "get_shell_config_file", return_value=config_file):
-                    with patch.object(setup_shell, "ask_user_permission", return_value=True):
+                with patch.object(
+                    setup_shell, "get_shell_config_file", return_value=config_file
+                ):
+                    with patch.object(
+                        setup_shell, "ask_user_permission", return_value=True
+                    ):
                         with patch("Klaus_proxy_local.setup_shell.install_wrappers"):
                             setup_shell.run_setup()
 

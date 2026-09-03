@@ -193,7 +193,9 @@ class TestEnsureMitmproxyCerts:
             mock_cert_file.return_value = cert_path
 
             with patch.object(certs, "is_mitmproxy_installed", return_value=True):
-                with patch.object(certs, "generate_mitmproxy_certs", return_value=False):
+                with patch.object(
+                    certs, "generate_mitmproxy_certs", return_value=False
+                ):
                     with pytest.raises(RuntimeError, match="Failed to generate"):
                         certs.ensure_mitmproxy_certs()
 
@@ -237,7 +239,9 @@ class TestErrorMessages:
             mock_cert_file.return_value = cert_path
 
             with patch.object(certs, "is_mitmproxy_installed", return_value=True):
-                with patch.object(certs, "generate_mitmproxy_certs", return_value=False):
+                with patch.object(
+                    certs, "generate_mitmproxy_certs", return_value=False
+                ):
                     with pytest.raises(RuntimeError) as exc_info:
                         certs.ensure_mitmproxy_certs()
 

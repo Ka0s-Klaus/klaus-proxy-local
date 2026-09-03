@@ -765,7 +765,9 @@ class AnthropicPseudonymizer:
             level="ok" if new != text else None,
         )
 
-    def _fail_closed(self, flow: Any, req: Any, exc: Exception) -> None:  # pragma: no cover
+    def _fail_closed(
+        self, flow: Any, req: Any, exc: Exception
+    ) -> None:  # pragma: no cover
         """Corta la request localmente para que NO salga sin seudonimizar.
 
         Fija ``flow.response`` (mitmproxy responde sin contactar con el servidor) y

@@ -105,7 +105,9 @@ class TestAutoCertFlow:
         from Klaus_proxy_local.certs import ensure_mitmproxy_certs
 
         with patch("Klaus_proxy_local.certs.mitmproxy_cert_file") as mock_cert:
-            with patch("Klaus_proxy_local.certs.is_mitmproxy_installed", return_value=False):
+            with patch(
+                "Klaus_proxy_local.certs.is_mitmproxy_installed", return_value=False
+            ):
                 with patch("pathlib.Path.exists", return_value=False):
                     with pytest.raises(RuntimeError, match="mitmproxy not found"):
                         ensure_mitmproxy_certs()
@@ -124,7 +126,11 @@ class TestLauncherOrchestration:
             with patch.object(launcher, "launch_mitmdump") as mock_launch:
                 with patch.object(launcher, "show_dashboard"):
                     with patch("signal.signal"):
-                        with patch.object(launcher.mitmdump_process, "wait", side_effect=KeyboardInterrupt):
+                        with patch.object(
+                            launcher.mitmdump_process,
+                            "wait",
+                            side_effect=KeyboardInterrupt,
+                        ):
                             try:
                                 launcher.run()
                             except:
@@ -216,7 +222,13 @@ class TestEndToEndFlow:
         import Klaus_proxy_local
 
         # Simulate: import submodules
-        from Klaus_proxy_local import setup, certs, launcher, install_wrappers, setup_shell
+        from Klaus_proxy_local import (
+            setup,
+            certs,
+            launcher,
+            install_wrappers,
+            setup_shell,
+        )
 
         assert all([setup, certs, launcher, install_wrappers, setup_shell])
 

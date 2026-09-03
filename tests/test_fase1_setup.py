@@ -48,8 +48,17 @@ class TestConfigAutoGeneration:
             with patch.object(setup, "config_dir", return_value=config_dir):
                 config = setup.init_config_if_missing()
 
-            required_keys = {"version", "salt", "hosts", "capture_dir", "vault_path", "log_level"}
-            assert required_keys.issubset(config.keys()), f"Missing keys: {required_keys - config.keys()}"
+            required_keys = {
+                "version",
+                "salt",
+                "hosts",
+                "capture_dir",
+                "vault_path",
+                "log_level",
+            }
+            assert required_keys.issubset(
+                config.keys()
+            ), f"Missing keys: {required_keys - config.keys()}"
 
     def test_config_version_correct(self):
         """Config version is 0.1.0."""
@@ -144,8 +153,14 @@ class TestConfigPermissions:
             config_dir = Path(tmpdir)
 
             with patch.object(setup, "config_dir", return_value=config_dir):
-                with patch.object(setup, "original_dir", return_value=config_dir / "captures" / "original"):
-                    with patch.object(setup, "sent_dir", return_value=config_dir / "captures" / "sent"):
+                with patch.object(
+                    setup,
+                    "original_dir",
+                    return_value=config_dir / "captures" / "original",
+                ):
+                    with patch.object(
+                        setup, "sent_dir", return_value=config_dir / "captures" / "sent"
+                    ):
                         setup.init_config_if_missing()
 
             # Check captures/ dir
@@ -188,8 +203,12 @@ class TestDirectoryCreation:
             captures = config_dir / "captures"
 
             with patch.object(setup, "config_dir", return_value=config_dir):
-                with patch.object(setup, "original_dir", return_value=captures / "original"):
-                    with patch.object(setup, "sent_dir", return_value=captures / "sent"):
+                with patch.object(
+                    setup, "original_dir", return_value=captures / "original"
+                ):
+                    with patch.object(
+                        setup, "sent_dir", return_value=captures / "sent"
+                    ):
                         setup.init_config_if_missing()
 
             assert captures.exists()
@@ -204,7 +223,9 @@ class TestDirectoryCreation:
 
             with patch.object(setup, "config_dir", return_value=config_dir):
                 with patch.object(setup, "original_dir", return_value=original):
-                    with patch.object(setup, "sent_dir", return_value=captures / "sent"):
+                    with patch.object(
+                        setup, "sent_dir", return_value=captures / "sent"
+                    ):
                         setup.init_config_if_missing()
 
             assert original.exists()
@@ -218,7 +239,9 @@ class TestDirectoryCreation:
             sent = captures / "sent"
 
             with patch.object(setup, "config_dir", return_value=config_dir):
-                with patch.object(setup, "original_dir", return_value=captures / "original"):
+                with patch.object(
+                    setup, "original_dir", return_value=captures / "original"
+                ):
                     with patch.object(setup, "sent_dir", return_value=sent):
                         setup.init_config_if_missing()
 
@@ -238,7 +261,9 @@ class TestIdempotence:
                 config1 = setup.init_config_if_missing()
                 config2 = setup.init_config_if_missing()
 
-            assert config1["salt"] == config2["salt"], "Salt should be stable across calls"
+            assert (
+                config1["salt"] == config2["salt"]
+            ), "Salt should be stable across calls"
 
     def test_config_idempotent_no_error(self):
         """Calling init_config_if_missing() twice doesn't error."""
