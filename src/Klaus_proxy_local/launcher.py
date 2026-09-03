@@ -25,7 +25,7 @@ from Klaus_proxy_local.setup import init_config_if_missing
 class ProxyLauncher:
     """Smart proxy launcher with auto-setup orchestration."""
 
-    HOST = "ip_11654657"
+    HOST = "127.0.0.1"
     PORT = 8899
 
     def __init__(self) -> None:

@@ -101,10 +101,11 @@ class ScanResult:
         high = self.findings_by_confidence.get("HIGH", 0)
         medium = self.findings_by_confidence.get("MEDIUM", 0)
         low = self.findings_by_confidence.get("LOW", 0)
+        total_findings = sum(self.findings_by_confidence.values())
 
         return (
             f"Scan complete: {self.total_files_scanned} files scanned, "
-            f"{len(self.findings)} findings\n"
+            f"{total_findings} findings\n"
             f"  🔴 CRITICAL: {critical}\n"
             f"  🟠 HIGH: {high}\n"
             f"  🟡 MEDIUM: {medium}\n"
