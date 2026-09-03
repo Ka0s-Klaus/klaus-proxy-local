@@ -322,7 +322,11 @@ class TestShutdown:
         """shutdown() kills process if terminate timeout."""
         launcher = ProxyLauncher()
         mock_process = MagicMock()
-        mock_process.wait.side_effect = subprocess.TimeoutExpired("mitmdump", 5)
+        # First wait() raises TimeoutExpired, second wait() succeeds
+        mock_process.wait.side_effect = [
+            subprocess.TimeoutExpired("mitmdump", 5),
+            None
+        ]
         launcher.mitmdump_process = mock_process
 
         launcher.shutdown()

@@ -368,7 +368,7 @@ class TestIntegration:
                     with patch.object(
                         setup_shell, "ask_user_permission", return_value=True
                     ):
-                        with patch("Klaus_proxy_local.setup_shell.install_wrappers"):
+                        with patch("Klaus_proxy_local.install_wrappers.install_wrappers"):
                             # Should not raise
                             setup_shell.run_setup()
 
@@ -389,7 +389,7 @@ class TestIntegration:
                     with patch.object(
                         setup_shell, "ask_user_permission", return_value=True
                     ):
-                        with patch("Klaus_proxy_local.setup_shell.install_wrappers"):
+                        with patch("Klaus_proxy_local.install_wrappers.install_wrappers"):
                             setup_shell.run_setup()
 
             assert config_file.exists()

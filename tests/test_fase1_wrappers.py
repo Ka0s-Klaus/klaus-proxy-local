@@ -306,15 +306,17 @@ class TestWrapperIntegration:
         fish_script = (
             Path(__file__).parent.parent / "scripts" / "claude-with-proxy.fish"
         )
-        result = subprocess.run(
-            ["fish", "-n", str(fish_script)],
-            capture_output=True,
-        )
-        # Fish might not be installed, so skip if not found
-        if result.returncode != 127:
+        try:
+            result = subprocess.run(
+                ["fish", "-n", str(fish_script)],
+                capture_output=True,
+            )
             assert (
                 result.returncode == 0
             ), f"Fish syntax error: {result.stderr.decode()}"
+        except FileNotFoundError:
+            # Fish not installed, skip this test
+            pytest.skip("fish shell not installed")
 
     def test_ps1_has_correct_encoding(self):
         """PowerShell wrapper should be UTF-8."""

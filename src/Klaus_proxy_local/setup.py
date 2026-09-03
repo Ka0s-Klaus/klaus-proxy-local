@@ -109,6 +109,7 @@ def init_config_if_missing() -> dict:
     print(f"✅ Config written to {cfg_file} (mode 0o600)")
 
     # 5. Create capture directories (0o700 each)
+    capture_dir().mkdir(parents=True, exist_ok=True, mode=0o700)
     for cap_dir in [original_dir(), sent_dir()]:
         cap_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     print(f"✅ Captures directory ready at {capture_dir()}")
