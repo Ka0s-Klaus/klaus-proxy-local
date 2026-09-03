@@ -498,9 +498,53 @@ class ContextualAnalyzer:
     }
 
     @staticmethod
-    def analyze_line(line: str) -> list[tuple[str, str]]:
-        """Find potential secrets by variable name context.
+    def _extract_json_keys(line: str) -> list[tuple[str, str]]:
+        """Extract secrets from JSON format (TIER 2.1: JSON key detection).
 
+        Handles: {"api_key": "secret_value"}, {"password": "pass"}
+        Returns: [(value, key_name)]
+        """
+        findings = []
+
+        # Try to parse as JSON first
+        try:
+            # Find potential JSON objects in the line
+            json_match = re.search(r'\{[^{}]*\}', line)
+            if json_match:
+                json_str = json_match.group(0)
+                try:
+                    obj = json.loads(json_str)
+                    if isinstance(obj, dict):
+                        for key, value in obj.items():
+                            # Check if key is a secret variable name
+                            key_normalized = key.lower().replace('-', '_')
+                            if key_normalized in ContextualAnalyzer.SECRET_VAR_NAMES:
+                                if isinstance(value, str) and len(value) >= 4:
+                                    findings.append((value, key))
+                except (json.JSONDecodeError, ValueError):
+                    pass
+        except Exception:
+            pass
+
+        # Fallback: regex-based JSON key detection
+        for var_name in ContextualAnalyzer.SECRET_VAR_NAMES:
+            # Match "var": "value" or 'var': 'value'
+            pattern = (
+                r'["\']' + re.escape(var_name) + r'["\']'
+                r'\s*:\s*'
+                r'["\']([^"\']{4,})["\']'
+            )
+            match = re.search(pattern, line, re.IGNORECASE)
+            if match and (match.group(1), var_name) not in findings:
+                findings.append((match.group(1), var_name))
+
+        return findings
+
+    @staticmethod
+    def _extract_multi_variables(line: str) -> list[tuple[str, str]]:
+        """Extract multiple variables from same line (TIER 2.2: Multi-variable detection).
+
+        Handles: password="x" token="y", or key=abc secret=xyz, etc.
         Returns: [(value, var_name)]
         """
         findings = []
@@ -511,8 +555,7 @@ class ContextualAnalyzer:
             if not re.search(pattern, line, re.IGNORECASE):
                 continue
 
-            # Try to extract value (various assignment formats)
-            # Format 1: var = "value"
+            # Format 1: var = "value" or var: "value"
             match = re.search(
                 r"(?<![a-zA-Z0-9_])"
                 + re.escape(var_name)
@@ -521,10 +564,12 @@ class ContextualAnalyzer:
                 re.IGNORECASE,
             )
             if match:
-                findings.append((match.group(1), var_name))
+                value = match.group(1)
+                if (value, var_name) not in findings:
+                    findings.append((value, var_name))
                 continue
 
-            # Format 2: var=value (no spaces)
+            # Format 2: var=value (no spaces, unquoted)
             match = re.search(
                 r"(?<![a-zA-Z0-9_])"
                 + re.escape(var_name)
@@ -534,22 +579,41 @@ class ContextualAnalyzer:
             )
             if match:
                 value = match.group(1).rstrip(",;)")
-                if len(value) >= 4:
+                if len(value) >= 4 and (value, var_name) not in findings:
                     findings.append((value, var_name))
-                continue
-
-            # Format 3: "var": "value" (JSON)
-            match = re.search(
-                r'["\']'
-                + re.escape(var_name)
-                + r'["\']\\s*:\\s*["\']([^"\']{4,})["\']',
-                line,
-                re.IGNORECASE,
-            )
-            if match:
-                findings.append((match.group(1), var_name))
 
         return findings
+
+    @staticmethod
+    def analyze_line(line: str) -> list[tuple[str, str]]:
+        """Find potential secrets by variable name context (Tier 2: Contextual).
+
+        Implements three detection strategies:
+        1. Standard format: var = "value"
+        2. JSON format: {"api_key": "value"} (TIER 2.1)
+        3. Multi-variable: password="x" token="y" (TIER 2.2)
+
+        Returns: [(value, var_name)]
+        """
+        findings = []
+
+        # Try JSON extraction first (TIER 2.1)
+        json_findings = ContextualAnalyzer._extract_json_keys(line)
+        findings.extend(json_findings)
+
+        # Try multi-variable extraction (TIER 2.2)
+        multi_findings = ContextualAnalyzer._extract_multi_variables(line)
+        findings.extend(multi_findings)
+
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_findings = []
+        for finding in findings:
+            if finding not in seen:
+                seen.add(finding)
+                unique_findings.append(finding)
+
+        return unique_findings
 
 
 class FileContextAnalyzer:
@@ -1026,9 +1090,9 @@ class SensitiveDataScanner:
 
     def __init__(
         self,
-        enable_contextual: bool = True,
+        enable_contextual: bool = False,
         enable_heuristic: bool = False,
-        enable_vault_integration: bool = True,
+        enable_vault_integration: bool = False,
         custom_patterns: dict[str, tuple[re.Pattern, str, str]] | None = None,
         config_path: Optional[Path] = None,
     ):
@@ -1056,6 +1120,11 @@ class SensitiveDataScanner:
         if custom_patterns:
             all_patterns.update(custom_patterns)
 
+        # Store configuration
+        self.enable_contextual = enable_contextual
+        self.enable_heuristic = enable_heuristic
+
+        # Initialize detectors
         self.pattern_detector = PatternDetector(all_patterns)
         self.context_detector = ContextDetector() if enable_contextual else None
         self.heuristic_detector = HeuristicDetector() if enable_heuristic else None
