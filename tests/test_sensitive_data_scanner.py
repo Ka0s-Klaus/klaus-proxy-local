@@ -408,7 +408,7 @@ class TestSensitiveDataScanner:
 
             # Create files with secrets
             (root / ".env").write_text("AWS_KEY=AKIA2XYZABC1234XYZAB\n")
-            (root / "config.py").write_text("OPENAI_KEY=sk_abcdefghij\n")
+            (root / "config.py").write_text("STRIPE_KEY=sk_live_1234567890abcdefghij\n")
             (root / "README.md").write_text("# Normal readme\n")
 
             result = scanner.scan_directory(root)
@@ -442,10 +442,10 @@ class TestSensitiveDataScanner:
 
             # Create directory structure
             (root / "src").mkdir()
-            (root / "src" / "main.py").write_text("OPENAI_KEY=sk_test")
+            (root / "src" / ".env").write_text("STRIPE_KEY=sk_live_1234567890abcdefghij")
 
             (root / ".git").mkdir()
-            (root / ".git" / "config").write_text("OPENAI_KEY=sk_test")
+            (root / ".git" / "config").write_text("OPENAI_KEY=sk_live_1234567890abcdefghij")
 
             result = scanner.scan_directory(root)
 
@@ -576,11 +576,12 @@ class TestContextualAnalyzer:
         assert findings[0][1] == "aws_secret_access_key"
 
     def test_json_format_detection(self):
+        """TIER 2.1: JSON key detection"""
         line = '{"api_key": "secret_value_123"}'
         findings = ContextualAnalyzer.analyze_line(line)
-        # JSON key detection may require more sophisticated parsing
-        # For now, we test that contextual analyzer processes JSON
-        assert isinstance(findings, list)
+        # JSON key detection should extract the value
+        assert len(findings) >= 1
+        assert any(f[1] == "api_key" for f in findings)
 
     def test_no_detection_in_comments(self):
         line = "# password: this is not a real password"
@@ -594,11 +595,54 @@ class TestContextualAnalyzer:
         findings = ContextualAnalyzer.analyze_line(line)
         assert len(findings) == 1
 
-    def test_multiple_variables_same_line(self):
-        line = 'username="admin" password="secret" token="xyz"'
+    def test_json_key_detection_complex(self):
+        """TIER 2.1: JSON key detection with nested structures"""
+        line = '{"database": {"db_password": "secure_pass_12345", "db_host": "localhost"}}'
         findings = ContextualAnalyzer.analyze_line(line)
-        # Contextual analyzer detects high-confidence patterns like "password"
-        assert len(findings) >= 1  # At least one finding (password)
+        # Should detect db_password as a secret variable
+        var_names = {f[1] for f in findings}
+        assert "db_password" in var_names
+
+    def test_json_key_multiple_secrets(self):
+        """TIER 2.1: JSON with multiple secret keys"""
+        line = '{"api_key": "secret1", "password": "secret2", "token": "secret3"}'
+        findings = ContextualAnalyzer.analyze_line(line)
+        # Should detect all three secrets
+        assert len(findings) >= 3
+        var_names = {f[1] for f in findings}
+        assert "api_key" in var_names or "apikey" in var_names
+        assert "password" in var_names
+        assert "token" in var_names
+
+    def test_multi_variable_with_spaces(self):
+        """TIER 2.2: Multi-variable with spaces in assignments"""
+        line = 'api_key = "secret_value_xyz" password = "pass_secure_123"'
+        findings = ContextualAnalyzer.analyze_line(line)
+        # Should detect both variables
+        var_names = {f[1] for f in findings}
+        assert "api_key" in var_names or "apikey" in var_names
+        assert "password" in var_names
+
+    def test_multi_variable_mixed_formats(self):
+        """TIER 2.2: Multi-variable with mixed assignment formats"""
+        line = 'password="pass123" token=xyz1234567890abcdef secret: "my_secret"'
+        findings = ContextualAnalyzer.analyze_line(line)
+        # Should detect password, token, and secret
+        assert len(findings) >= 3
+        var_names = {f[1] for f in findings}
+        assert "password" in var_names
+        assert "token" in var_names
+        assert "secret" in var_names
+
+    def test_multiple_variables_same_line(self):
+        """TIER 2.2: Multi-variable detection"""
+        line = 'username="admin" password="secret123" token="xyz1234567890"'
+        findings = ContextualAnalyzer.analyze_line(line)
+        # Should detect multiple secret variables: password, token
+        assert len(findings) >= 2
+        var_names = {f[1] for f in findings}
+        assert "password" in var_names
+        assert "token" in var_names
 
 
 class TestFileContextAnalyzer:
