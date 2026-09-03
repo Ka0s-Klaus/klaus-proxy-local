@@ -93,7 +93,8 @@ class TestAutoCertFlow:
         """Certs are detected or generated."""
         from Klaus_proxy_local.certs import ensure_mitmproxy_certs
 
-        with patch("Klaus_proxy_local.certs.mitmproxy_cert_file") as mock_cert:
+        fake_cert_path = Path("/home/user/.mitmproxy/mitmproxy-ca-cert.pem")
+        with patch("Klaus_proxy_local.certs.mitmproxy_cert_file", return_value=fake_cert_path):
             with patch("pathlib.Path.exists", return_value=True):
                 cert_file = ensure_mitmproxy_certs()
 
@@ -104,7 +105,8 @@ class TestAutoCertFlow:
         """Missing mitmproxy is handled gracefully."""
         from Klaus_proxy_local.certs import ensure_mitmproxy_certs
 
-        with patch("Klaus_proxy_local.certs.mitmproxy_cert_file") as mock_cert:
+        fake_cert_path = Path("/home/user/.mitmproxy/mitmproxy-ca-cert.pem")
+        with patch("Klaus_proxy_local.certs.mitmproxy_cert_file", return_value=fake_cert_path):
             with patch(
                 "Klaus_proxy_local.certs.is_mitmproxy_installed", return_value=False
             ):
@@ -121,20 +123,20 @@ class TestLauncherOrchestration:
         from Klaus_proxy_local.launcher import ProxyLauncher
 
         launcher = ProxyLauncher()
+        mock_process = MagicMock()
+        mock_process.wait.side_effect = KeyboardInterrupt
+        launcher.mitmdump_process = mock_process
 
         with patch.object(launcher, "ensure_prerequisites") as mock_prereq:
-            with patch.object(launcher, "launch_mitmdump") as mock_launch:
+            with patch.object(launcher, "launch_mitmdump"):
                 with patch.object(launcher, "show_dashboard"):
                     with patch("signal.signal"):
-                        with patch.object(
-                            launcher.mitmdump_process,
-                            "wait",
-                            side_effect=KeyboardInterrupt,
-                        ):
-                            try:
-                                launcher.run()
-                            except:
-                                pass
+                        try:
+                            launcher.run()
+                        except KeyboardInterrupt:
+                            pass
+                        except SystemExit:
+                            pass
 
                         # Verify prerequisites called before launch
                         mock_prereq.assert_called_once()

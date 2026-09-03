@@ -268,7 +268,7 @@ def run_setup() -> None:
         print("To use Klaus Proxy manually:")
         print("  Terminal 1: claude-proxy")
         print("  Terminal 2: claude-with-proxy 'your question'")
-        sys.exit(0)
+        return
 
     print()
 
