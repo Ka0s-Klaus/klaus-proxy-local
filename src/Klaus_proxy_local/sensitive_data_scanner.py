@@ -348,24 +348,25 @@ class FileTraversal:
     @staticmethod
     def should_scan_file(file_path: Path) -> bool:
         """Decide if a file should be scanned."""
-        # Skip by extension
+        # Skip by extension first
         if file_path.suffix.lower() in FileTraversal.SKIP_EXTENSIONS:
             return False
 
-        # Skip by size
+        # Skip by size (only if file exists)
         try:
-            if file_path.stat().st_size > FileTraversal.MAX_FILE_SIZE:
+            if file_path.exists() and file_path.stat().st_size > FileTraversal.MAX_FILE_SIZE:
                 return False
         except OSError:
-            return False
+            pass
 
-        # Skip by magic bytes (binary detection)
+        # Skip by magic bytes (binary detection) - only if file exists
         try:
-            with open(file_path, "rb") as f:
-                header = f.read(4)
-                for signature in FileTraversal.BINARY_SIGNATURES:
-                    if header.startswith(signature):
-                        return False
+            if file_path.exists():
+                with open(file_path, "rb") as f:
+                    header = f.read(4)
+                    for signature in FileTraversal.BINARY_SIGNATURES:
+                        if header.startswith(signature):
+                            return False
         except Exception:
             pass
 
@@ -381,7 +382,6 @@ class FileTraversal:
             ".gitignore",
             ".venv",
             "venv",
-            ".env",
             "node_modules",
             "dist",
             "build",
@@ -401,7 +401,8 @@ class FileTraversal:
         if dir_path.name in skip_dirs:
             return True
 
-        # Skip hidden directories except those containing secrets
+        # Skip hidden directories EXCEPT those containing secrets
+        # (secrets dirs should always be scanned)
         if dir_path.name.startswith("."):
             if dir_path.name not in {
                 ".env",
