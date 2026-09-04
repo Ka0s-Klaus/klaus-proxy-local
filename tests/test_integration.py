@@ -323,8 +323,8 @@ class TestDocumentationCompleteness:
         assert license_file.read_text()
 
     def test_fase1_docs_exist(self):
-        """FASE 1 documentation exists."""
-        doc = Path(__file__).parent.parent / "docs" / "FASE1_ZERO_CONFIG.md"
+        """FASE 1 documentation (Quick Start) exists."""
+        doc = Path(__file__).parent.parent / "docs" / "QUICK_START.md"
         assert doc.exists()
 
     def test_quick_start_exists(self):

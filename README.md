@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.2.0-green)](./docs/RELEASES.md)
+[![Version](https://img.shields.io/badge/version-0.3.0-green)](./docs/RELEASES.md)
 [![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
