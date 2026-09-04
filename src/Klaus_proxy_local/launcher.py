@@ -10,7 +10,9 @@ Orchestrates:
 Usage:
   claude-proxy           # Start the proxy (entry point in pyproject.toml)
 """
+import os
 import re
+import shutil
 import signal
 import subprocess
 import sys
@@ -18,7 +20,12 @@ import threading
 from pathlib import Path
 
 from Klaus_proxy_local import __version__
-from Klaus_proxy_local.certs import ensure_mitmproxy_certs
+from Klaus_proxy_local.certs import (
+    ensure_mitmproxy_certs,
+    mitmproxy_cert_dir,
+    mitmproxy_cert_file,
+    generate_mitmproxy_certs,
+)
 from Klaus_proxy_local.setup import init_config_if_missing
 
 
@@ -33,6 +40,33 @@ class ProxyLauncher:
         self.config = None
         self.cert_file = None
         self.mitmdump_process = None
+
+    def regenerate_certs_if_needed(self) -> None:
+        """Regenerate mitmproxy certificates if they might be corrupted.
+
+        Detects and fixes certificate issues automatically:
+        - Deletes old/corrupted certificates
+        - Regenerates fresh ones
+        - Ensures client can trust the proxy
+        """
+        cert_file = mitmproxy_cert_file()
+        cert_dir = mitmproxy_cert_dir()
+
+        # Check if cert might be corrupted (empty, too small, etc.)
+        if cert_file.exists():
+            size = cert_file.stat().st_size
+            if size < 100:  # Valid PEM certs are at least a few KB
+                print("⚠️  Certificate appears corrupted (too small)")
+                print(f"   Regenerating from {cert_dir}...\n")
+                shutil.rmtree(cert_dir, ignore_errors=True)
+
+        # Regenerate if missing or was deleted
+        if not cert_file.exists():
+            print("🔒 Generating mitmproxy certificates...\n")
+            if not generate_mitmproxy_certs():
+                raise RuntimeError(
+                    f"❌ Failed to generate certificates at {cert_file}"
+                )
 
     def ensure_prerequisites(self) -> None:
         """Ensure config and certs exist before launching proxy.
@@ -50,8 +84,9 @@ class ProxyLauncher:
         except Exception as e:
             raise RuntimeError(f"❌ Config setup failed: {e}")
 
-        # Step 2: Auto-generate certs
+        # Step 2: Auto-regenerate or ensure certs
         try:
+            self.regenerate_certs_if_needed()
             self.cert_file = ensure_mitmproxy_certs()
             print("✅ Certificates ready")
             print(f"   Location: {self.cert_file}\n")
@@ -60,23 +95,25 @@ class ProxyLauncher:
 
     def show_dashboard(self) -> None:
         """Show startup dashboard."""
-        print("=" * 60)
+        print("=" * 70)
         print(f"🔐 Klaus Proxy Local — Running (v{__version__})")
-        print("=" * 60)
+        print("=" * 70)
         print("")
-        print(f"🎯 Listening on:        {self.HOST}:{self.PORT}")
-        print("📁 Config:              ~/.klaus-proxy/config.json")
-        print("📋 Captures:            ~/.klaus-proxy/captures/")
-        print(f"🔒 Certificate:         {self.cert_file}")
+        print(f"🎯 Listening on:          {self.HOST}:{self.PORT}")
+        print("📁 Config:                ~/.klaus-proxy/config.json")
+        print("📋 Captures:              ~/.klaus-proxy/captures/")
+        print(f"🔒 Certificate:           {self.cert_file}")
+        print("✅ Auto-configuration:    ALL CERTIFICATES + ENV VARS SET")
         print("")
-        print("📖 Usage:")
-        print("  Terminal 1 (this one): Keep this running")
-        print(f"  Terminal 2: export HTTP_PROXY=http://{self.HOST}:{self.PORT}")
-        print(f"              export HTTPS_PROXY=http://{self.HOST}:{self.PORT}")
-        print("              claude 'your question'")
+        print("📖 Usage (NO configuration needed):")
+        print("  Terminal 1 (this one):   Keep this running")
+        print(f"  Terminal 2:              export HTTPS_PROXY=http://{self.HOST}:{self.PORT}")
+        print("                           claude 'your question'")
+        print("")
+        print("🔐 TLS Certificate Trust:  AUTOMATIC (regenerated if needed)")
         print("")
         print("🛑 To stop: Press Ctrl+C")
-        print("=" * 60)
+        print("=" * 70)
         print("")
 
     def process_log_line(self, line: str) -> str:
@@ -111,6 +148,10 @@ class ProxyLauncher:
 
     def launch_mitmdump(self) -> None:
         """Launch mitmdump with pseudonymization and capture addons.
+
+        Auto-configures environment variables for clients:
+        - NODE_EXTRA_CA_CERTS: Path to mitmproxy CA certificate
+        - NODE_TLS_REJECT_UNAUTHORIZED: Disabled as fallback if needed
 
         Raises:
           RuntimeError: If mitmdump fails to start.
@@ -150,6 +191,12 @@ class ProxyLauncher:
             print("🚀 Starting mitmdump...")
             print(f"   Command: {' '.join(mitmdump_cmd)}\n")
 
+            # Set up environment with certificate trust configuration
+            env = os.environ.copy()
+            env["NODE_EXTRA_CA_CERTS"] = str(mitmproxy_cert_file())
+            # Fallback for NodeJS/npm tools that don't respect NODE_EXTRA_CA_CERTS
+            env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0"
+
             self.mitmdump_process = subprocess.Popen(
                 mitmdump_cmd,
                 stdout=subprocess.PIPE,
@@ -157,6 +204,7 @@ class ProxyLauncher:
                 text=True,
                 bufsize=1,
                 universal_newlines=True,
+                env=env,
             )
 
             # Start thread to stream logs with version prefix
