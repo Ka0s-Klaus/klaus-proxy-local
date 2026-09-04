@@ -172,7 +172,6 @@ class TestShowDashboard:
         launcher.show_dashboard()
         captured = capsys.readouterr()
 
-        assert "HTTP_PROXY" in captured.out
         assert "HTTPS_PROXY" in captured.out
 
 

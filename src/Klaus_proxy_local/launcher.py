@@ -81,6 +81,13 @@ class ProxyLauncher:
             self.config = init_config_if_missing()
             print("✅ Configuration ready")
             print("   Location: ~/.klaus-proxy/config.json\n")
+
+            # Export SALT to environment if not already set
+            if "ANTHROPIC_PSEUDO_SALT" not in os.environ:
+                salt = self.config.get("salt")
+                if salt:
+                    os.environ["ANTHROPIC_PSEUDO_SALT"] = salt
+                    print(f"✅ Exported ANTHROPIC_PSEUDO_SALT from config\n")
         except Exception as e:
             raise RuntimeError(f"❌ Config setup failed: {e}")
 
@@ -196,6 +203,9 @@ class ProxyLauncher:
             env["NODE_EXTRA_CA_CERTS"] = str(mitmproxy_cert_file())
             # Fallback for NodeJS/npm tools that don't respect NODE_EXTRA_CA_CERTS
             env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0"
+            # Ensure ANTHROPIC_PSEUDO_SALT is set (from config or env)
+            if "ANTHROPIC_PSEUDO_SALT" in os.environ:
+                env["ANTHROPIC_PSEUDO_SALT"] = os.environ["ANTHROPIC_PSEUDO_SALT"]
 
             self.mitmdump_process = subprocess.Popen(
                 mitmdump_cmd,
