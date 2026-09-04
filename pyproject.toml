@@ -21,7 +21,7 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "anthropic>=1.0",
-    "mitmproxy>=11.0",
+    "mitmproxy>=11.0.2,<13",
 ]
 
 [project.optional-dependencies]
