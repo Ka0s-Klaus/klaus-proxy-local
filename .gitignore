@@ -235,6 +235,8 @@ CLAUDE.md
 # ─────────────────────────────────────────────────────────────────────────────
 # Evidencia capturada: prompts, system, contenido REAL de ficheros del repo auditado.
 captures/
+# Reportes de auditoría: contienen payloads sensibles (solo .gitkeep se versiona).
+informes/*.md
 # Vault de seudonimización: mapa real↔seudónimo (contiene los valores REALES).
 .pseudonym_vault.json
 **/.pseudonym_vault.json
