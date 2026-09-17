@@ -5,8 +5,8 @@ from datetime import datetime
 from typing import Optional
 
 from textual.app import ComposeResult, App
-from textual.containers import Container, Grid
-from textual.widgets import Footer
+from textual.containers import Grid
+from textual.widgets import Footer, Static
 from textual.binding import Binding
 
 from .data import DataSource
@@ -45,9 +45,10 @@ class KlausMonitorApp(App):
 
     #main-grid {
         layout: grid;
-        grid-size: 3 2;
+        grid-size: 3 3;
         grid-rows: 1fr 1fr 1fr;
         grid-columns: 1fr 2fr 1fr;
+        height: 1fr;
     }
 
     #stats-panel {
@@ -58,29 +59,24 @@ class KlausMonitorApp(App):
     #traffic-panel {
         border: solid $primary;
         padding: 1 2;
-        grid-column: 2;
-        grid-row: 1 / 3;
+        row-span: 2;
     }
 
     #vault-panel {
         border: solid $primary;
         padding: 1 2;
-        grid-column: 3;
-        grid-row: 1 / 3;
+        row-span: 2;
     }
 
     #audit-panel {
         border: solid $primary;
         padding: 1 2;
-        grid-column: 1 / 3;
-        grid-row: 3;
+        column-span: 2;
     }
 
     #alerts-panel {
         border: solid $primary;
         padding: 1 2;
-        grid-column: 3;
-        grid-row: 3;
     }
     """
 
@@ -105,40 +101,52 @@ class KlausMonitorApp(App):
     def on_mount(self) -> None:
         """Initialize and start polling."""
         # Set panel titles
-        self.query_one("#header-panel", HeaderPanel).border_title = "KLAUS MONITOR"
-        self.query_one("#stats-panel", StatsPanel).border_title = "📊 STATS"
-        self.query_one("#traffic-panel", TrafficPanel).border_title = "🔄 LIVE TRAFFIC"
-        self.query_one("#vault-panel", VaultPanel).border_title = "🔐 VAULT COVERAGE"
-        self.query_one("#audit-panel", AuditPanel).border_title = "📋 AUDIT STATUS"
-        self.query_one("#alerts-panel", AlertsPanel).border_title = "⚠️  ALERTS"
+        try:
+            self.query_one("#header-panel", HeaderPanel).border_title = "KLAUS MONITOR"
+            self.query_one("#stats-panel", StatsPanel).border_title = "📊 STATS"
+            self.query_one("#traffic-panel", TrafficPanel).border_title = "🔄 LIVE TRAFFIC"
+            self.query_one("#vault-panel", VaultPanel).border_title = "🔐 VAULT"
+            self.query_one("#audit-panel", AuditPanel).border_title = "📋 AUDIT"
+            self.query_one("#alerts-panel", AlertsPanel).border_title = "⚠️  ALERTS"
+        except Exception as e:
+            print(f"Error setting titles: {e}")
 
-        # Start polling
+        # Initial poll to load data
+        self.update_stats()
+
+        # Start polling every 0.8 seconds
         self.set_interval(0.8, self.update_stats)
 
     def update_stats(self) -> None:
         """Update all panels from data source."""
-        stats = self.data_source.poll()
+        try:
+            # Poll data source
+            stats = self.data_source.poll()
 
-        # Update header
-        header = self.query_one("#header-panel", HeaderPanel)
-        header.uptime = stats.uptime
+            # Update header
+            header = self.query_one("#header-panel", HeaderPanel)
+            header.uptime = stats.uptime
 
-        # Update stats panel
-        stats_panel = self.query_one("#stats-panel", StatsPanel)
-        stats_panel.stats = stats
+            # Update stats panel
+            stats_panel = self.query_one("#stats-panel", StatsPanel)
+            stats_panel.stats = stats
 
-        # Update vault panel
-        vault_panel = self.query_one("#vault-panel", VaultPanel)
-        vault_panel.stats = stats
+            # Update vault panel
+            vault_panel = self.query_one("#vault-panel", VaultPanel)
+            vault_panel.stats = stats
 
-        # Update audit panel
-        audit_panel = self.query_one("#audit-panel", AuditPanel)
-        audit_panel.last_audit_status = stats.last_audit_status
-        audit_panel.last_audit_time = stats.last_audit_time
+            # Update audit panel
+            audit_panel = self.query_one("#audit-panel", AuditPanel)
+            audit_panel.last_audit_status = stats.last_audit_status
+            audit_panel.last_audit_time = stats.last_audit_time
 
-        # Update alerts panel
-        alerts_panel = self.query_one("#alerts-panel", AlertsPanel)
-        alerts_panel.detected_leaks = stats.detected_leaks
+            # Update alerts panel
+            alerts_panel = self.query_one("#alerts-panel", AlertsPanel)
+            alerts_panel.detected_leaks = stats.detected_leaks
+
+        except Exception as e:
+            # Silently fail - don't crash the UI
+            pass
 
     def action_run_audit(self) -> None:
         """Run audit in background."""
@@ -161,11 +169,11 @@ class KlausMonitorApp(App):
                     self.notify("⚠️  Audit found leaks", timeout=3)
                 else:
                     self.data_source.stats.last_audit_status = "unknown"
-                    self.notify("❓ Audit completed with status", timeout=3)
+                    self.notify("Audit completed", timeout=3)
         except subprocess.TimeoutExpired:
-            self.notify("❌ Audit timeout", timeout=3)
+            self.notify("Audit timeout", timeout=3)
         except Exception as e:
-            self.notify(f"❌ Audit failed: {e}", timeout=3)
+            self.notify(f"Audit error: {e}", timeout=3)
 
     def action_refresh(self) -> None:
         """Force refresh."""
@@ -175,8 +183,6 @@ class KlausMonitorApp(App):
     def action_show_help(self) -> None:
         """Show help information."""
         help_text = """Klaus Monitor - htop-style TUI
-
-PANELS: 📊 STATS | 🔄 TRAFFIC | 🔐 VAULT | 📋 AUDIT | ⚠️ ALERTS
 
 [a]=Audit [r]=Refresh [q]=Quit [?]=Help"""
         self.notify(help_text, timeout=5)

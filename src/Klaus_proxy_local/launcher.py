@@ -6,10 +6,13 @@ Orchestrates:
 - Auto-cert generation (certs.py)
 - mitmdump launch with addons
 - Status dashboard
+- Optional: Klaus Monitor TUI
 
 Usage:
-  claude-proxy           # Start the proxy (entry point in pyproject.toml)
+  claude-proxy              # Start the proxy (entry point in pyproject.toml)
+  claude-proxy --monitor    # Start proxy + Klaus Monitor TUI
 """
+import argparse
 import os
 import re
 import shutil
@@ -17,6 +20,7 @@ import signal
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 
 from Klaus_proxy_local import __version__
@@ -35,11 +39,16 @@ class ProxyLauncher:
     HOST = "127.0.0.1"
     PORT = 8899
 
-    def __init__(self) -> None:
-        """Initialize launcher."""
+    def __init__(self, enable_monitor: bool = False) -> None:
+        """Initialize launcher.
+
+        Args:
+            enable_monitor: If True, launch Klaus Monitor TUI after proxy starts
+        """
         self.config = None
         self.cert_file = None
         self.mitmdump_process = None
+        self.enable_monitor = enable_monitor
 
     def regenerate_certs_if_needed(self) -> None:
         """Regenerate mitmproxy certificates if they might be corrupted.
@@ -269,7 +278,8 @@ class ProxyLauncher:
         1. Ensure prerequisites (config + certs)
         2. Show dashboard
         3. Launch mitmdump
-        4. Keep running until Ctrl+C
+        4. Optionally launch Klaus Monitor TUI
+        5. Keep running until Ctrl+C
         """
         try:
             # Phase 1: Setup
@@ -280,6 +290,11 @@ class ProxyLauncher:
 
             # Phase 3: Launch proxy
             self.launch_mitmdump()
+
+            # Phase 3b: Optionally launch Klaus Monitor
+            if self.enable_monitor:
+                print("\n📊 Launching Klaus Monitor TUI...\n")
+                self._launch_monitor()
 
             # Phase 4: Keep running
             signal.signal(signal.SIGINT, self.handle_signal)
@@ -299,10 +314,53 @@ class ProxyLauncher:
             self.shutdown()
             sys.exit(1)
 
+    def _launch_monitor(self) -> None:
+        """Launch Klaus Monitor TUI in the current process."""
+        try:
+            from Klaus_proxy_local.monitor.app import KlausMonitorApp
+
+            # Small delay to let proxy be fully ready
+            time.sleep(1)
+
+            print("🎮 Klaus Monitor v0.4.0 starting...")
+            app = KlausMonitorApp()
+            app.run()
+
+        except ImportError as e:
+            print(f"⚠️  Klaus Monitor requires 'textual': pip install textual>=0.70.0", file=sys.stderr)
+            print(f"   Error: {e}", file=sys.stderr)
+            print("   Proxy continues running without monitor.\n")
+        except Exception as e:
+            print(f"⚠️  Klaus Monitor error: {e}", file=sys.stderr)
+            print("   Proxy continues running without monitor.\n")
+
 
 def main() -> None:
     """Entry point for claude-proxy command."""
-    launcher = ProxyLauncher()
+    parser = argparse.ArgumentParser(
+        prog="claude-proxy",
+        description="Klaus Proxy Local - Privacy-first proxy for Anthropic API",
+        epilog="Examples:\n"
+               "  claude-proxy              # Start proxy only\n"
+               "  claude-proxy --monitor    # Start proxy + TUI dashboard",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    parser.add_argument(
+        "--monitor",
+        action="store_true",
+        help="Launch Klaus Monitor TUI dashboard after proxy starts (requires textual>=0.70.0)"
+    )
+
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}"
+    )
+
+    args = parser.parse_args()
+
+    launcher = ProxyLauncher(enable_monitor=args.monitor)
     launcher.run()
 
 
