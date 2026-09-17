@@ -162,6 +162,24 @@ class ProxyLauncher:
             except Exception:
                 pass
 
+    def _stream_logs_to_file(self, stream, log_file_path: Path) -> None:
+        """Stream logs from mitmdump to both terminal and file."""
+        try:
+            with open(log_file_path, "w") as log_file:
+                for line in iter(stream.readline, ""):
+                    if line:
+                        processed_line = self.process_log_line(line.rstrip())
+                        print(processed_line)
+                        log_file.write(processed_line + "\n")
+                        log_file.flush()
+        except Exception:
+            pass
+        finally:
+            try:
+                stream.close()
+            except Exception:
+                pass
+
     def launch_mitmdump(self) -> None:
         """Launch mitmdump with pseudonymization and capture addons.
 
@@ -221,6 +239,11 @@ class ProxyLauncher:
             elif self.config and "capture_dir" in self.config:
                 env["ANTHROPIC_CAPTURE_DIR"] = self.config["capture_dir"]
 
+            # Create log file path in captures dir
+            captures_dir = Path(env.get("ANTHROPIC_CAPTURE_DIR", str(Path.cwd() / "captures")))
+            captures_dir.mkdir(parents=True, exist_ok=True)
+            log_file_path = captures_dir / "proxy.log"
+
             self.mitmdump_process = subprocess.Popen(
                 mitmdump_cmd,
                 stdout=subprocess.PIPE,
@@ -231,9 +254,9 @@ class ProxyLauncher:
                 env=env,
             )
 
-            # Start thread to stream logs with version prefix
+            # Start thread to stream logs to both file and terminal
             log_thread = threading.Thread(
-                target=self.stream_logs, args=(self.mitmdump_process.stdout, False)
+                target=self._stream_logs_to_file, args=(self.mitmdump_process.stdout, log_file_path)
             )
             log_thread.daemon = True
             log_thread.start()

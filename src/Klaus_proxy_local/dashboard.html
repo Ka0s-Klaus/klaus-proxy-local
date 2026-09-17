@@ -289,6 +289,37 @@
             padding: 20px;
             font-style: italic;
         }
+
+        .log-list {
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+            background: #0f1419;
+            border: 1px solid #2d3e4f;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .log-line {
+            color: #9ca3af;
+            padding: 4px 0;
+            border-bottom: 1px solid #1e2a3a;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .log-line.error {
+            color: #ef4444;
+        }
+
+        .log-line.ok {
+            color: #10b981;
+        }
+
+        .log-line.warning {
+            color: #fbbf24;
+        }
     </style>
 </head>
 <body>
@@ -362,6 +393,13 @@
             <h2>⚠️ ALERTS</h2>
             <div class="alert-list" id="alerts-list">
                 <div class="waiting">No alerts</div>
+            </div>
+        </div>
+
+        <div class="panel logs" style="grid-column: 1 / -1;">
+            <h2>📡 PROXY LOGS</h2>
+            <div class="log-list" id="logs-list">
+                <div class="waiting">Waiting for logs...</div>
             </div>
         </div>
     </div>
@@ -449,6 +487,25 @@
                 ).join('');
             } else {
                 alertsList.innerHTML = '<div class="waiting">No alerts</div>';
+            }
+
+            // Update proxy logs
+            const logsList = document.getElementById('logs-list');
+            if (data.proxy_logs && data.proxy_logs.length > 0) {
+                logsList.innerHTML = data.proxy_logs.map(log => {
+                    let cssClass = 'log-line';
+                    if (log.includes('[ERROR]') || log.includes('❌') || log.includes('BLOQUEADA')) {
+                        cssClass += ' error';
+                    } else if (log.includes('[v')) {
+                        cssClass += ' ok';
+                    } else if (log.includes('WARNING') || log.includes('⚠️')) {
+                        cssClass += ' warning';
+                    }
+                    return `<div class="${cssClass}">${log}</div>`;
+                }).join('');
+                logsList.scrollTop = logsList.scrollHeight;
+            } else {
+                logsList.innerHTML = '<div class="waiting">Waiting for logs...</div>';
             }
         }
 

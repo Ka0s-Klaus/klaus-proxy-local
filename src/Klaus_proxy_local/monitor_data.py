@@ -193,3 +193,16 @@ class DataSource:
         """Get current stats snapshot."""
         with self._lock:
             return self.stats
+
+    def get_proxy_logs(self, limit: int = 30) -> list[str]:
+        """Get last N lines from proxy.log."""
+        log_path = Path(self.captures_dir) / "proxy.log"
+        if not log_path.exists():
+            return []
+
+        try:
+            with open(log_path) as f:
+                lines = f.readlines()
+                return [line.rstrip() for line in lines[-limit:]]
+        except Exception:
+            return []
