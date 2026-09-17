@@ -56,8 +56,11 @@ async def get_stats():
         "traffic": [
             {
                 "time": req.timestamp.strftime("%H:%M:%S"),
+                "client": f"{req.client_addr}:{req.client_port}" if req.client_addr and req.client_port else "unknown",
                 "method": req.method,
                 "endpoint": req.endpoint,
+                "host": req.host,
+                "status": req.status_code or "?",
                 "pseudonymized": req.pseudonymized,
                 "blocked": req.blocked,
             }
@@ -93,8 +96,11 @@ async def websocket_endpoint(websocket: WebSocket):
                 "traffic": [
                     {
                         "time": req.timestamp.strftime("%H:%M:%S"),
+                        "client": f"{req.client_addr}:{req.client_port}" if req.client_addr and req.client_port else "unknown",
                         "method": req.method,
                         "endpoint": req.endpoint[:40],
+                        "host": req.host,
+                        "status": req.status_code or "?",
                         "pseudonymized": req.pseudonymized,
                         "blocked": req.blocked,
                     }

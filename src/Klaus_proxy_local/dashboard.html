@@ -109,17 +109,24 @@
         }
 
         .traffic-list {
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
-            font-size: 12px;
+            font-size: 11px;
             font-family: 'Courier New', monospace;
         }
 
         .traffic-row {
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
             padding: 8px 0;
             border-bottom: 1px solid #2d3e4f;
+            gap: 4px;
+        }
+
+        .traffic-line1 {
+            display: flex;
+            gap: 12px;
+            align-items: center;
         }
 
         .traffic-time {
@@ -128,10 +135,31 @@
             flex-shrink: 0;
         }
 
+        .traffic-client {
+            color: #ec4899;
+            width: 140px;
+            flex-shrink: 0;
+            font-size: 10px;
+        }
+
         .traffic-method {
             color: #60a5fa;
             width: 50px;
             flex-shrink: 0;
+        }
+
+        .traffic-line2 {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding-left: 65px;
+        }
+
+        .traffic-host {
+            color: #a78bfa;
+            min-width: 200px;
+            flex-shrink: 0;
+            font-size: 10px;
         }
 
         .traffic-endpoint {
@@ -143,9 +171,10 @@
         }
 
         .traffic-status {
-            width: 30px;
+            width: 50px;
             flex-shrink: 0;
             text-align: right;
+            font-weight: 600;
         }
 
         .status-ok {
@@ -372,13 +401,19 @@
             } else {
                 trafficList.innerHTML = data.traffic.map(req => `
                     <div class="traffic-row">
-                        <div class="traffic-time">${req.time}</div>
-                        <div class="traffic-method">${req.method}</div>
-                        <div class="traffic-endpoint">${req.endpoint}</div>
-                        <div class="traffic-status ${
-                            req.blocked ? 'status-blocked' : req.pseudonymized ? 'status-pseudo' : 'status-ok'
-                        }">
-                            ${req.blocked ? '❌' : req.pseudonymized ? '✓' : '–'}
+                        <div class="traffic-line1">
+                            <div class="traffic-time">${req.time}</div>
+                            <div class="traffic-client">${req.client}</div>
+                            <div class="traffic-method">${req.method}</div>
+                            <div class="traffic-endpoint">${req.endpoint}</div>
+                            <div class="traffic-status ${
+                                req.blocked ? 'status-blocked' : req.pseudonymized ? 'status-pseudo' : 'status-ok'
+                            }">
+                                ${req.status} ${req.blocked ? '❌' : req.pseudonymized ? '✓' : '–'}
+                            </div>
+                        </div>
+                        <div class="traffic-line2">
+                            <div class="traffic-host">${req.host}</div>
                         </div>
                     </div>
                 `).join('');
