@@ -215,6 +215,11 @@ class ProxyLauncher:
             # Ensure ANTHROPIC_PSEUDO_SALT is set (from config or env)
             if "ANTHROPIC_PSEUDO_SALT" in os.environ:
                 env["ANTHROPIC_PSEUDO_SALT"] = os.environ["ANTHROPIC_PSEUDO_SALT"]
+            # Ensure ANTHROPIC_CAPTURE_DIR is set for the capture addon
+            if "ANTHROPIC_CAPTURE_DIR" in os.environ:
+                env["ANTHROPIC_CAPTURE_DIR"] = os.environ["ANTHROPIC_CAPTURE_DIR"]
+            elif self.config and "capture_dir" in self.config:
+                env["ANTHROPIC_CAPTURE_DIR"] = self.config["capture_dir"]
 
             self.mitmdump_process = subprocess.Popen(
                 mitmdump_cmd,
