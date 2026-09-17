@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "Klaus-proxy-local"
-version = "0.3.0"
+version = "0.4.0"
 description = "HTTP proxy and toolkit for the Anthropic API"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -22,6 +22,7 @@ dependencies = [
     "uvicorn[standard]>=0.32",
     "anthropic>=1.0",
     "mitmproxy>=11.0.2,<13",
+    "textual>=0.70.0",
 ]
 
 [project.optional-dependencies]
@@ -39,6 +40,7 @@ dev = [
 [project.scripts]
 Klaus-proxy = "Klaus_proxy_local.main:main"
 claude-proxy = "Klaus_proxy_local.launcher:main"
+claude-proxy-monitor = "Klaus_proxy_local.monitor_main:main"
 klaus-install-wrappers = "Klaus_proxy_local.install_wrappers:main"
 klaus-setup = "Klaus_proxy_local.setup_shell:main"
 klaus-scan = "Klaus_proxy_local.scan:main"
