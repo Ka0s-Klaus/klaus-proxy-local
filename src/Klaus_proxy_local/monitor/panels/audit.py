@@ -9,20 +9,23 @@ from textual.reactive import reactive
 class AuditPanel(Static):
     """Panel showing last audit status."""
 
-    last_audit_status: str = reactive("unknown")
-    last_audit_time: Optional[datetime] = reactive(None)
+    last_audit_status: str = reactive("unknown", recompose=True)
+    last_audit_time: Optional[datetime] = reactive(None, recompose=True)
 
     def render(self) -> str:
         if self.last_audit_time:
-            time_str = self.last_audit_time.strftime("%Y-%m-%d %H:%M:%S")
+            time_str = self.last_audit_time.strftime("%H:%M:%S")
         else:
             time_str = "Never"
 
-        status_icon = "✅" if self.last_audit_status == "ok" else "⚠️" if self.last_audit_status == "leaks" else "❓"
-        status_text = {
-            "ok": "No CRITICAL leaks detected",
-            "leaks": "LEAKS DETECTED - Review required",
-            "unknown": "Not run yet"
-        }.get(self.last_audit_status, "Unknown status")
+        if self.last_audit_status == "ok":
+            status_icon = "OK"
+            status_text = "No leaks detected"
+        elif self.last_audit_status == "leaks":
+            status_icon = "!!"
+            status_text = "Leaks found!"
+        else:
+            status_icon = "??"
+            status_text = "Not run yet"
 
-        return f"{status_icon} {status_text}\nLast run: {time_str}\n\n[a] Run audit now"
+        return f"[{status_icon}] {status_text}\nLast: {time_str}\n\nPress [a] to audit"

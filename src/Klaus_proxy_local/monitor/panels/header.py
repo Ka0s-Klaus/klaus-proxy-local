@@ -8,13 +8,13 @@ from textual.reactive import reactive
 class HeaderPanel(Static):
     """Header showing proxy status and uptime."""
 
-    proxy_status: str = reactive("RUNNING")
-    uptime: timedelta = reactive(timedelta(0))
+    proxy_status: str = reactive("RUNNING", recompose=True)
+    uptime: timedelta = reactive(timedelta(0), recompose=True)
 
     def render(self) -> str:
-        status_icon = "🟢" if self.proxy_status == "RUNNING" else "🔴"
+        status_icon = "[GREEN]●[/GREEN]" if self.proxy_status == "RUNNING" else "[RED]●[/RED]"
         uptime_str = self._format_timedelta(self.uptime)
-        return f"{status_icon} Proxy: {self.proxy_status:8}  Port: 8899  Uptime: {uptime_str}  Captures: captures/"
+        return f"{status_icon} Proxy: {self.proxy_status:8}  Port: 8899  Uptime: {uptime_str}"
 
     @staticmethod
     def _format_timedelta(td: timedelta) -> str:

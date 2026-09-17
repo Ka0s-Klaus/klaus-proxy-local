@@ -7,14 +7,15 @@ from textual.reactive import reactive
 class AlertsPanel(Static):
     """Panel showing detected alerts/leaks."""
 
-    detected_leaks: list = reactive([])
+    detected_leaks: list = reactive([], recompose=True)
 
     def render(self) -> str:
         if not self.detected_leaks:
-            return "No alerts"
+            return "OK - No alerts"
 
-        lines = ["⚠️  ALERTS:"]
-        for leak in self.detected_leaks[-5:]:  # Show last 5
-            lines.append(f"  • {leak}")
+        lines = ["ALERTS:"]
+        for leak in self.detected_leaks[-3:]:
+            leak_short = str(leak)[:35]
+            lines.append(f"  {leak_short}")
 
         return "\n".join(lines)

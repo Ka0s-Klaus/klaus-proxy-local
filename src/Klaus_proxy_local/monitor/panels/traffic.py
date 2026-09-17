@@ -1,7 +1,6 @@
 """Traffic panel showing live requests."""
 
-from textual.widgets import Static, RichLog
-from rich.text import Text
+from textual.widgets import Static
 from ..data import DataSource
 
 
@@ -13,23 +12,26 @@ class TrafficPanel(Static):
         self.data_source = data_source
 
     def render(self) -> str:
-        requests = self.data_source.get_recent_requests(limit=15)
+        requests = self.data_source.get_recent_requests(limit=12)
+
+        if not requests:
+            return "Waiting for requests...\n\n(Send API calls\nvia proxy)"
 
         lines = []
         for req in requests:
             time_str = req.timestamp.strftime("%H:%M:%S")
             method_str = f"{req.method:4}"
-            endpoint_str = req.endpoint[:30].ljust(30)
+            endpoint_short = req.endpoint[:25] if len(req.endpoint) > 25 else req.endpoint
+            endpoint_str = endpoint_short.ljust(25)
 
-            # Status indicator
             if req.blocked:
-                status = "❌"
+                status = "X"
             elif req.pseudonymized:
-                status = "✅"
+                status = "*"
             else:
-                status = "—"
+                status = "-"
 
-            line = f"{time_str} {method_str} {endpoint_str} {status}"
+            line = f"{time_str} {method_str} {endpoint_str} [{status}]"
             lines.append(line)
 
-        return "\n".join(lines) if lines else "Waiting for requests..."
+        return "\n".join(lines)
