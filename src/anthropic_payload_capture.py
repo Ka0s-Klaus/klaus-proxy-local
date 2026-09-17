@@ -303,7 +303,8 @@ class AnthropicPayloadCapture:
         except Exception:
             print(out)
 
-    def request(self, flow: Any) -> None:  # pragma: no cover - requiere mitmproxy
+    def response(self, flow: Any) -> None:  # pragma: no cover - requiere mitmproxy
+        """Captura request cuando ya tenemos la response (para status_code)."""
         req = flow.request
         if not is_anthropic_host(req.pretty_host):
             return
