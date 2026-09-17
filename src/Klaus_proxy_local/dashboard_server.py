@@ -39,6 +39,7 @@ async def get_stats():
     """Get current statistics."""
     stats = data_source.poll()
     requests = data_source.get_recent_requests(limit=15)
+    logs = data_source.get_proxy_logs(limit=30)
 
     return {
         "stats": {
@@ -67,6 +68,7 @@ async def get_stats():
             for req in requests
         ],
         "detected_leaks": stats.detected_leaks[:5],
+        "proxy_logs": logs,
     }
 
 
@@ -81,6 +83,7 @@ async def websocket_endpoint(websocket: WebSocket):
             # Poll data every 0.8 seconds
             stats = data_source.poll()
             requests = data_source.get_recent_requests(limit=15)
+            logs = data_source.get_proxy_logs(limit=30)
 
             data = {
                 "stats": {
@@ -106,6 +109,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     }
                     for req in requests
                 ],
+                "proxy_logs": logs,
             }
 
             await websocket.send_json(data)
