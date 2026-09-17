@@ -202,6 +202,9 @@ def build_record(
     pseudonymized: bool = False,
     counterpart: str | None = None,
     blocked: bool = False,
+    client_addr: str | None = None,
+    client_port: int | None = None,
+    status_code: int | None = None,
 ) -> dict[str, Any]:
     """Construye el registro de auditoría de una request.
 
@@ -211,6 +214,8 @@ def build_record(
     el cuerpo. ``counterpart`` es el nombre del fichero pareja en el subdir
     hermano, para localizar el par a comparar. ``blocked`` marca las requests que
     el seudonimizador abortó (fail-closed) y que por tanto NO salieron del equipo.
+    ``client_addr`` y ``client_port`` son la IP y puerto del cliente.
+    ``status_code`` es el código de respuesta HTTP.
     """
     hdrs = redact_headers(headers) if redact else dict(headers)
     return {
@@ -223,6 +228,9 @@ def build_record(
         "url": url,
         "host": host,
         "path": path,
+        "client_addr": client_addr,
+        "client_port": client_port,
+        "status_code": status_code,
         "secrets_redacted": redact,
         "headers": hdrs,
         "payload": parse_body(body),
@@ -315,6 +323,16 @@ class AnthropicPayloadCapture:
         # seudonimizar: no salieron, así que su cuerpo NO se registra como enviado.
         blocked = bool(meta.get("anthropic_blocked"))
 
+        # Capturar información del cliente y respuesta
+        client_addr = None
+        client_port = None
+        status_code = None
+        if flow.client_conn:
+            client_addr = flow.client_conn.peername[0] if flow.client_conn.peername else None
+            client_port = flow.client_conn.peername[1] if flow.client_conn.peername else None
+        if flow.response:
+            status_code = flow.response.status_code
+
         s_dir = sent_dir()
         o_dir = original_dir()
         s_dir.mkdir(parents=True, exist_ok=True)
@@ -330,6 +348,9 @@ class AnthropicPayloadCapture:
             pseudonymized=pseudonymized,
             counterpart=name,
             blocked=blocked,
+            client_addr=client_addr,
+            client_port=client_port,
+            status_code=status_code,
         )
         # `sent`: destino y cabeceras seudonimizados con el vault del cuerpo, para
         # que no se filtre el host del gateway ni otros valores nuestros. Si la

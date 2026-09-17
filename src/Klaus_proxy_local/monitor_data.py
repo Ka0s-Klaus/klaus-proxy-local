@@ -20,6 +20,9 @@ class RequestInfo:
     pseudonymized: bool
     blocked: bool
     host: str = "api.anthropic.com"
+    client_addr: Optional[str] = None
+    client_port: Optional[int] = None
+    status_code: Optional[int] = None
 
 
 @dataclass
@@ -103,6 +106,9 @@ class DataSource:
             pseudonymized = data.get("pseudonymized", False)
             blocked = data.get("blocked", False)
             host = data.get("host", "api.anthropic.com")
+            client_addr = data.get("client_addr")
+            client_port = data.get("client_port")
+            status_code = data.get("status_code")
 
             endpoint = path[:30] + "..." if len(path) > 30 else path
 
@@ -114,6 +120,9 @@ class DataSource:
                 pseudonymized=pseudonymized,
                 blocked=blocked,
                 host=host,
+                client_addr=client_addr,
+                client_port=client_port,
+                status_code=status_code,
             )
         except Exception:
             return None
