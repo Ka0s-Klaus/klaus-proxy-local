@@ -7,22 +7,26 @@ name = "Klaus-proxy-local"
 version = "0.4.0"
 description = "HTTP proxy and toolkit for the Anthropic API"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.9"
 license = { text = "MIT" }
 keywords = ["anthropic", "claude", "proxy", "llm"]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "httpx>=0.28",
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.32",
-    "anthropic>=1.0",
-    "mitmproxy>=11.0.2,<13",
-    "textual>=0.70.0",
+    "httpx",
+    "fastapi",
+    "uvicorn[standard]",
+    "anthropic",
+    "mitmproxy>=9.0.0",
+    "textual",
 ]
 
 [project.optional-dependencies]
@@ -58,7 +62,7 @@ where = ["src"]
 Klaus_proxy_local = []  # No package data; scripts are at root level
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py39"
 line-length = 88
 # Los addons/CLIs viven sueltos en src/ (no como paquete); declararlo como raíz
 # de fuentes hace que isort los trate como first-party y no los mezcle con
@@ -71,7 +75,7 @@ ignore = ["E501"]
 
 [tool.black]
 line-length = 88
-target-version = ["py313"]
+target-version = ["py39"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
