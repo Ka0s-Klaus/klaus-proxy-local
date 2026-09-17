@@ -1,0 +1,29 @@
+{
+  "id": "klaus-proxy-local",
+  "name": "Klaus Proxy Local",
+  "version": "0.3.0",
+  "category": "Auditoría & Privacidad",
+  "tags": ["proxy", "auditoría", "HTTPS", "Anthropic", "privacidad", "mitmproxy"],
+  "shortDescription": "Proxy local que intercepta, audita y pseudonimiza el tráfico HTTPS hacia la API de Anthropic, protegiendo identidad, rutas y datos sensibles.",
+  "icon": "🔌",
+  "status": "production",
+  "language": "Python 3.13+",
+  "tests": "465/465 ✅",
+  "github": "https://github.com/Ka0s-Klaus/ka0s",
+  "pypi": "https://pypi.org/project/Klaus-proxy-local/",
+  "documentation": "https://docs.ka0s.io/",
+  "featuredDocs": [
+    "USER_GUIDE.md",
+    "EXECUTIVE_SUMMARY.md",
+    "ARCHITECTURE_DEEP_DIVE.md",
+    "TROUBLESHOOTING.md",
+    "AUDIT_QUICK_START.md"
+  ],
+  "hideDocs": [
+    "AUDIT_RESULTS_20260905.md",
+    "FIX_SUMMARY.md",
+    "RELEASE_INSTRUCTIONS.md",
+    "com.customer1.anthropic-audit-proxy.plist.template",
+    "setup.md"
+  ]
+}
