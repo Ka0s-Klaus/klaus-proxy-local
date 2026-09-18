@@ -60,19 +60,201 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 # Instalar
 pip install Klaus-proxy-local==0.3.0
 
-# Terminal 1: arrancar el proxy (auto-genera config + certs + SALT)
+# Terminal 1: arrancar el proxy (auto-genera config + certs + SALT + variables SSL/TLS)
 claude-proxy
 
-# Terminal 2: usar Claude Code
+# Terminal 2: usar Claude Code (SSL/TLS configurado automáticamente)
+source ~/.klaus-proxy/klaus-env.sh
 export HTTPS_PROXY=http://127.0.0.1:8899
-export NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem
 claude "tu pregunta"
 
 # Terminal 3: auditar payloads y corregir fugas automáticamente
 python full_audit_with_fixes.py --auto
 ```
 
+**Alternativamente, configuración automática al arrancar el shell:**
+```bash
+# Setup de una vez (auto-startup en nuevos terminales)
+klaus-setup
+# Selecciona 'y' para auto-startup, luego: exec $SHELL
+```
+
 ✨ **Eso es todo.** Todo es automático: configuración, certificados, SALT, auditoría y corrección de fugas.
+
+---
+
+## 🔐 SSL/TLS Certificate Trust (v0.3.0+)
+
+Klaus Proxy now **automatically configures** SSL/TLS certificate trust for all your tools. No more "Client TLS handshake failed" errors.
+
+### How It Works
+
+When you start `claude-proxy`, it automatically generates `~/.klaus-proxy/klaus-env.sh` containing:
+
+```bash
+export GIT_SSL_CAINFO="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+export CURL_CA_BUNDLE="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+export SSL_CERT_FILE="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+export REQUESTS_CA_BUNDLE="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+```
+
+This tells your tools (git, curl, Python, Node.js) to trust the proxy's certificate automatically.
+
+### Setup Options
+
+#### Option 1: Auto-Startup (Recommended)
+
+```bash
+# Interactive setup (one-time)
+klaus-setup
+
+# Follow prompts:
+# • Shell detected: zsh (or your shell)
+# • Enable auto-startup? [y/N]: y
+# • Reload shell
+exec $SHELL
+```
+
+Now every time you open a terminal:
+- ✅ Proxy starts automatically
+- ✅ SSL/TLS variables are loaded
+- ✅ Git/curl/all HTTPS tools trust the proxy
+
+#### Option 2: Manual (Quick Test)
+
+```bash
+# Terminal 1: Start proxy
+claude-proxy
+
+# Terminal 2: Load SSL/TLS variables
+source ~/.klaus-proxy/klaus-env.sh
+export HTTPS_PROXY=http://127.0.0.1:8899
+
+# Now use git, curl, or Claude Code
+git clone https://github.com/your-repo
+curl https://api.github.com
+claude "your question"
+```
+
+#### Option 3: Persistent in Shell Config
+
+Add to `~/.zshrc` or `~/.bashrc`:
+
+```bash
+# Load Klaus Proxy SSL/TLS configuration
+[ -f ~/.klaus-proxy/klaus-env.sh ] && source ~/.klaus-proxy/klaus-env.sh
+
+# Set proxy for HTTPS connections
+export HTTPS_PROXY=http://127.0.0.1:8899
+```
+
+Then reload:
+```bash
+exec $SHELL
+```
+
+### Usage Examples
+
+**Git Clone (HTTPS)**
+```bash
+source ~/.klaus-proxy/klaus-env.sh
+export HTTPS_PROXY=http://127.0.0.1:8899
+
+git clone https://github.com/anthropics/anthropic-cli.git
+# ✅ Works without certificate errors
+```
+
+**Git Push with Proxy**
+```bash
+source ~/.klaus-proxy/klaus-env.sh
+export HTTPS_PROXY=http://127.0.0.1:8899
+
+git push origin main
+# ✅ All HTTPS git operations work
+```
+
+**Curl (HTTPS)**
+```bash
+source ~/.klaus-proxy/klaus-env.sh
+export HTTPS_PROXY=http://127.0.0.1:8899
+
+curl https://api.github.com
+# ✅ Proxy's certificate is trusted automatically
+```
+
+**Python Requests**
+```bash
+source ~/.klaus-proxy/klaus-env.sh
+export HTTPS_PROXY=http://127.0.0.1:8899
+
+python -c "import requests; print(requests.get('https://api.github.com').status_code)"
+# ✅ REQUESTS_CA_BUNDLE is set automatically
+```
+
+**Node.js Tools**
+```bash
+source ~/.klaus-proxy/klaus-env.sh
+export HTTPS_PROXY=http://127.0.0.1:8899
+
+# NODE_EXTRA_CA_CERTS is set automatically by proxy launcher
+npm install
+# ✅ Works through proxy
+```
+
+### What Gets Configured
+
+| Tool | Variable | Configured | Status |
+|------|----------|-----------|--------|
+| **git** | `GIT_SSL_CAINFO` | ✅ Auto | Works |
+| **curl** | `CURL_CA_BUNDLE` | ✅ Auto | Works |
+| **OpenSSL** | `SSL_CERT_FILE` | ✅ Auto | Works |
+| **Python** | `REQUESTS_CA_BUNDLE` | ✅ Auto | Works |
+| **Node.js** | `NODE_EXTRA_CA_CERTS` | ✅ By proxy | Works |
+
+### Disable Auto-Startup (If Needed)
+
+If you enabled auto-startup but want to disable it:
+
+1. Remove the Klaus Proxy hook from your shell config:
+   - Edit `~/.zshrc` (or `~/.bashrc`)
+   - Find the section: `🔐 Klaus Proxy Local — Auto-startup`
+   - Delete those lines
+   - Save and reload: `exec $SHELL`
+
+2. Or keep the hook but manually start/stop the proxy:
+   ```bash
+   # Start manually when needed
+   claude-proxy
+   ```
+
+### Troubleshooting
+
+**"Still getting TLS handshake errors?"**
+
+1. Ensure environment variables are loaded:
+   ```bash
+   source ~/.klaus-proxy/klaus-env.sh
+   env | grep SSL
+   # Should show: GIT_SSL_CAINFO, CURL_CA_BUNDLE, SSL_CERT_FILE
+   ```
+
+2. Verify certificate exists:
+   ```bash
+   file ~/.mitmproxy/mitmproxy-ca-cert.pem
+   # Should be: PEM certificate
+   ```
+
+3. Check proxy is running:
+   ```bash
+   pgrep -f mitmdump
+   # Should show a PID
+   ```
+
+4. Test with verbose output:
+   ```bash
+   GIT_TRACE=1 git ls-remote https://github.com/anthropics/anthropic-cli.git
+   # Should succeed without SSL errors
+   ```
 
 ---
 
@@ -117,6 +299,7 @@ python full_audit_with_fixes.py --auto
 | Guía | Tiempo | Descripción |
 |------|--------|-------------|
 | **[QUICK_START.md](./docs/QUICK_START.md)** | 2 min | Instalación y uso básico |
+| **SSL/TLS Setup** (README) | 3 min | Configurar certificados para Git/curl/tools |
 | **[AUDIT_QUICK_START.md](./docs/AUDIT_QUICK_START.md)** | 5 min | Auditoría rápida de payloads |
 | **[THREAT_MODEL.md](./docs/THREAT_MODEL.md)** | 10 min | Qué protegemos y qué no |
 
@@ -180,6 +363,8 @@ ANTHROPIC_PSEUDO_SALT=your-salt mitmdump \
 
 ## ⚙️ Configuración (variables de entorno)
 
+### Proxy & Auditoría
+
 | Variable | Efecto | Por defecto |
 | --- | --- | --- |
 | `ANTHROPIC_CAPTURE_HOSTS` | Hosts a auditar (coma-separada) | `api.anthropic.com,llm.tools.cloud.customer1.es` |
@@ -189,7 +374,20 @@ ANTHROPIC_PSEUDO_SALT=your-salt mitmdump \
 | `ANTHROPIC_PSEUDO_PROJECT_ROOT` | Raíz del proyecto **auditado** (palanca de rutas + git) | `cwd` del proceso |
 | `ANTHROPIC_PSEUDO_VAULT` | Ruta del vault de seudonimización | `captures/.pseudonym_vault.json` |
 
-> Tabla completa de flags en [`docs/anthropic-audit-proxy.md`](./docs/anthropic-audit-proxy.md).
+### SSL/TLS (Auto-Exportadas)
+
+| Variable | Efecto | Status |
+| --- | --- | --- |
+| `GIT_SSL_CAINFO` | Certificado CA para `git` | ✅ Auto-generada |
+| `CURL_CA_BUNDLE` | Certificado CA para `curl` | ✅ Auto-generada |
+| `SSL_CERT_FILE` | Certificado CA para OpenSSL | ✅ Auto-generada |
+| `REQUESTS_CA_BUNDLE` | Certificado CA para Python | ✅ Auto-generada |
+| `NODE_EXTRA_CA_CERTS` | Certificado CA para Node.js | ✅ Auto-generada |
+| `HTTPS_PROXY` | Dirección del proxy (usuario) | Manual: `http://127.0.0.1:8899` |
+
+> ℹ️ Las variables SSL/TLS se generan automáticamente en `~/.klaus-proxy/klaus-env.sh` cuando inicia `claude-proxy`. Usa `source ~/.klaus-proxy/klaus-env.sh` para cargarlas.
+
+> 📖 Tabla completa de flags en [`docs/anthropic-audit-proxy.md`](./docs/anthropic-audit-proxy.md).
 
 ---
 
