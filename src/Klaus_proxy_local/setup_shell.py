@@ -113,6 +113,7 @@ def get_shell_hook() -> str:
     """Get shell-specific hook code for Klaus Proxy startup.
 
     The hook:
+    - Sources SSL/TLS environment variables (GIT_SSL_CAINFO, CURL_CA_BUNDLE, etc.)
     - Starts Klaus Proxy in background (if not already running)
     - Runs once per shell session
     - Non-blocking (doesn't slow down shell startup)
@@ -129,6 +130,9 @@ def get_shell_hook() -> str:
     if shell in ("bash", "zsh"):
         return (
             "\n# 🔐 Klaus Proxy Local — Auto-startup (FASE 1.5)\n"
+            "# Load SSL/TLS variables for git, curl, etc.\n"
+            "[ -f ~/.klaus-proxy/klaus-env.sh ] && source ~/.klaus-proxy/klaus-env.sh\n"
+            "# Start proxy if not running\n"
             "if ! pgrep -f 'claude-proxy|mitmdump' > /dev/null 2>&1; then\n"
             "  (claude-proxy > ~/.klaus-proxy/proxy.log 2>&1 &)\n"
             "fi\n"
@@ -138,6 +142,9 @@ def get_shell_hook() -> str:
     elif shell == "fish":
         return (
             "\n# 🔐 Klaus Proxy Local — Auto-startup (FASE 1.5)\n"
+            "# Load SSL/TLS variables for git, curl, etc.\n"
+            "[ -f ~/.klaus-proxy/klaus-env.sh ] && source ~/.klaus-proxy/klaus-env.sh\n"
+            "# Start proxy if not running\n"
             "if not pgrep -f 'claude-proxy|mitmdump' > /dev/null 2>&1\n"
             "  (claude-proxy > ~/.klaus-proxy/proxy.log 2>&1 &)\n"
             "end\n"
@@ -147,6 +154,10 @@ def get_shell_hook() -> str:
     elif shell == "powershell":
         return (
             "\n# 🔐 Klaus Proxy Local — Auto-startup (FASE 1.5)\n"
+            "$EnvFile = \"$HOME\\.klaus-proxy\\klaus-env.sh\"\n"
+            "if (Test-Path $EnvFile) {\n"
+            "  & \"$EnvFile\"\n"
+            "}\n"
             "$ProcessCheck = Get-Process -Name mitmdump -ErrorAction SilentlyContinue\n"
             "if (-not $ProcessCheck) {\n"
             "  Start-Process -WindowStyle Hidden -FilePath claude-proxy\n"
@@ -267,7 +278,10 @@ def run_setup() -> None:
         print()
         print("To use Klaus Proxy manually:")
         print("  Terminal 1: claude-proxy")
-        print("  Terminal 2: claude-with-proxy 'your question'")
+        print()
+        print("  Terminal 2: source ~/.klaus-proxy/klaus-env.sh")
+        print("              export HTTPS_PROXY=http://127.0.0.1:8899")
+        print("              claude 'your question'")
         return
 
     print()
@@ -306,8 +320,15 @@ def run_setup() -> None:
     print()
     print("  2. Proxy will start automatically on next shell open")
     print()
-    print("  3. Use Claude Code as normal:")
+    print("  3. SSL/TLS certificates will be automatically configured")
+    print("     (git, curl, and other tools will trust the proxy)")
+    print()
+    print("  4. Use Claude Code as normal:")
+    print("     export HTTPS_PROXY=http://127.0.0.1:8899")
     print("     claude 'your question'")
+    print()
+    print("📝 Manual SSL/TLS configuration (if needed):")
+    print("   source ~/.klaus-proxy/klaus-env.sh")
     print()
     print("To disable auto-startup, remove the Klaus Proxy hook from:")
     print(f"  {config_file}")
