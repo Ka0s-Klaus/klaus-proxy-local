@@ -29,6 +29,7 @@ from Klaus_proxy_local.certs import (
     mitmproxy_cert_dir,
     mitmproxy_cert_file,
     generate_mitmproxy_certs,
+    generate_env_vars_file,
 )
 from Klaus_proxy_local.setup import init_config_if_missing
 
@@ -106,11 +107,17 @@ class ProxyLauncher:
             self.cert_file = ensure_mitmproxy_certs()
             print("✅ Certificates ready")
             print(f"   Location: {self.cert_file}\n")
+
+            # Step 2b: Generate environment variables file for SSL/TLS trust
+            env_file = generate_env_vars_file(self.cert_file)
+            print("✅ Environment variables file generated")
+            print(f"   Location: {env_file}\n")
         except RuntimeError as e:
             raise RuntimeError(f"❌ Cert setup failed: {e}")
 
     def show_dashboard(self) -> None:
         """Show startup dashboard."""
+        env_file = Path.home() / ".klaus-proxy" / "klaus-env.sh"
         print("=" * 70)
         print(f"🔐 Klaus Proxy Local — Running (v{__version__})")
         print("=" * 70)
@@ -123,10 +130,12 @@ class ProxyLauncher:
         print("")
         print("📖 Usage (NO configuration needed):")
         print("  Terminal 1 (this one):   Keep this running")
-        print(f"  Terminal 2:              export HTTPS_PROXY=http://{self.HOST}:{self.PORT}")
+        print(f"  Terminal 2:              source ~/.klaus-proxy/klaus-env.sh")
+        print(f"                           export HTTPS_PROXY=http://{self.HOST}:{self.PORT}")
         print("                           claude 'your question'")
         print("")
-        print("🔐 TLS Certificate Trust:  AUTOMATIC (regenerated if needed)")
+        print("🔐 TLS Certificate Trust:  AUTOMATIC")
+        print(f"   Use: source {env_file}")
         print("")
         print("🛑 To stop: Press Ctrl+C")
         print("=" * 70)
