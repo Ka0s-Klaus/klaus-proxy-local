@@ -24,6 +24,7 @@ show_menu() {
     echo ""
     echo -e "${BOLD}Select an option:${RESET}"
     echo ""
+    echo -e "  ${CYAN}0)${RESET} ⚙️  ${BOLD}CONFIG${RESET}               - Show installation configuration"
     echo -e "  ${CYAN}1)${RESET} 🔍 ${BOLD}SCAN${RESET}                 - Find secrets/sensitive data in project"
     echo -e "  ${CYAN}2)${RESET} 📊 ${BOLD}AUDIT${RESET}                - Audit captured payloads"
     echo -e "  ${CYAN}3)${RESET} 🔧 ${BOLD}FIX${RESET}                  - Diagnose pseudonymization issues"
@@ -91,6 +92,45 @@ EOF
 }
 
 # Command handlers
+
+cmd_config() {
+    echo ""
+    echo -e "${BOLD}⚙️  CONFIG - Installation Configuration${RESET}"
+    echo -e "${YELLOW}──────────────────────────────────────${RESET}"
+    echo ""
+
+    # Klaus Menu version
+    echo -e "${BOLD}Klaus Menu:${RESET}"
+    echo "  Version:        v${VERSION}"
+    echo "  Location:       $(which klaus 2>/dev/null || echo 'Not in PATH')"
+    echo ""
+
+    # Klaus Proxy version
+    echo -e "${BOLD}Klaus Proxy Local:${RESET}"
+    if command -v python3 &> /dev/null; then
+        proxy_version=$(python3 -c "from Klaus_proxy_local import __version__; print(__version__)" 2>/dev/null || echo "Not installed")
+        echo "  Version:        v${proxy_version}"
+    else
+        echo "  Version:        Unable to determine"
+    fi
+    echo ""
+
+    # Configuration paths
+    echo -e "${BOLD}Paths:${RESET}"
+    echo "  Config:         ~/.klaus-proxy/config.json"
+    echo "  Captures:       ~/.klaus-proxy/captures/"
+    echo "  Vault:          ~/.klaus-proxy/captures/.pseudonym_vault.json"
+    echo ""
+
+    # Configuration file content
+    if [ -f ~/.klaus-proxy/config.json ]; then
+        echo -e "${BOLD}Configuration File:${RESET}"
+        cat ~/.klaus-proxy/config.json | sed 's/^/  /'
+    else
+        echo -e "${RED}Configuration file not found. Run 'claude-proxy' to initialize.${RESET}"
+    fi
+    echo ""
+}
 
 cmd_scan() {
     echo ""
@@ -278,10 +318,13 @@ main() {
 
     while true; do
         show_menu
-        read -p "$(echo -e ${BOLD}Enter choice${RESET} [1-5]: )" choice
+        read -p "$(echo -e ${BOLD}Enter choice${RESET} [0-5]: )" choice
         echo ""
 
         case $choice in
+            0)
+                cmd_config
+                ;;
             1)
                 cmd_scan
                 ;;
@@ -301,7 +344,7 @@ main() {
                 exit 0
                 ;;
             *)
-                echo -e "${RED}❌ Invalid choice. Please select 1-5.${RESET}"
+                echo -e "${RED}❌ Invalid choice. Please select 0-5.${RESET}"
                 ;;
         esac
 
