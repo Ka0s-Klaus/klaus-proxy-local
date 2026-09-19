@@ -311,20 +311,33 @@ class ProxyLauncher:
 
     def handle_signal(self, signum, frame) -> None:
         """Handle Ctrl+C gracefully."""
+        # Ignore further signals during shutdown to prevent recursion
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+
         print("\n\n🛑 Stopping Klaus Proxy Local...")
         self.shutdown()
+        print("✅ Proxy stopped")
         sys.exit(0)
 
     def shutdown(self) -> None:
-        """Shutdown proxy cleanly."""
+        """Shutdown proxy cleanly and quickly."""
         if self.mitmdump_process:
             try:
+                # Try gentle terminate first with short timeout
                 self.mitmdump_process.terminate()
-                self.mitmdump_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.mitmdump_process.kill()
-                self.mitmdump_process.wait()
-            print("✅ Proxy stopped")
+                try:
+                    self.mitmdump_process.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    # If still running, kill it forcefully
+                    self.mitmdump_process.kill()
+                    self.mitmdump_process.wait(timeout=1)
+            except Exception:
+                # If anything goes wrong, just force kill
+                try:
+                    self.mitmdump_process.kill()
+                except Exception:
+                    pass
 
     def run(self) -> None:
         """Run the proxy (entry point).
