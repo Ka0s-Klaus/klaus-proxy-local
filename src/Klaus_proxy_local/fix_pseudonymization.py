@@ -22,10 +22,17 @@ class PseudonymizationDiagnostic:
         """Initialize diagnostic.
 
         Args:
-            captures_dir: Path to captures directory
+            captures_dir: Path to captures directory.
+                         Defaults to project root captures/ or ~/.klaus-proxy/captures/
         """
         if captures_dir is None:
-            captures_dir = Path.home() / ".klaus-proxy" / "captures"
+            # Try project root first (when running from project directory)
+            project_root = Path.cwd() / "captures"
+            if project_root.exists():
+                captures_dir = project_root
+            else:
+                # Fallback to user home .klaus-proxy
+                captures_dir = Path.home() / ".klaus-proxy" / "captures"
 
         self.captures_dir = captures_dir
         self.sent_dir = captures_dir / "sent"
