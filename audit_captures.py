@@ -33,7 +33,7 @@ PATTERNS = {
     "path": r"(?:/[\w\-\.]+)+(?:/)?",
 }
 
-CAPTURES_DIR = Path.cwd() / "captures"
+CAPTURES_DIR = Path.home() / ".klaus-proxy" / "captures"
 ORIGINAL_DIR = CAPTURES_DIR / "original"
 SENT_DIR = CAPTURES_DIR / "sent"
 VAULT_PATH = CAPTURES_DIR / ".pseudonym_vault.json"

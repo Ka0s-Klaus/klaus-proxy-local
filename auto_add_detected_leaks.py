@@ -26,7 +26,7 @@ import secrets
 from pathlib import Path
 from typing import Optional
 
-CAPTURES_DIR = Path.cwd() / "captures"
+CAPTURES_DIR = Path.home() / ".klaus-proxy" / "captures"
 SENT_DIR = CAPTURES_DIR / "sent"
 VAULT_PATH = CAPTURES_DIR / ".pseudonym_vault.json"
 

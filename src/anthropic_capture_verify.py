@@ -34,11 +34,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-
 # --- Configuración ------------------------------------------------------------
 
-DEFAULT_ANTHROPIC_DIR = REPO_ROOT / "captures"
+DEFAULT_ANTHROPIC_DIR = Path.home() / ".klaus-proxy" / "captures"
 # La verificación se hace sobre lo que REALMENTE salió del equipo → subdir sent/.
 # El subdir original/ contiene datos reales A PROPÓSITO (para comparar), así que
 # verificarlo dispararía (correctamente) el fallo de fuga: nunca es el objetivo.

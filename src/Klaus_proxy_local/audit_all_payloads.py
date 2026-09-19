@@ -30,16 +30,10 @@ class PayloadAuditor:
 
         Args:
             captures_dir: Path to captures directory.
-                         Defaults to project root captures/ or ~/.klaus-proxy/captures/
+                         Defaults to ~/.klaus-proxy/captures/
         """
         if captures_dir is None:
-            # Try project root first (when running from project directory)
-            project_root = Path.cwd() / "captures"
-            if project_root.exists():
-                captures_dir = project_root
-            else:
-                # Fallback to user home .klaus-proxy
-                captures_dir = Path.home() / ".klaus-proxy" / "captures"
+            captures_dir = Path.home() / ".klaus-proxy" / "captures"
 
         self.captures_dir = captures_dir
         self.original_dir = captures_dir / "original"

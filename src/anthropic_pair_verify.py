@@ -67,11 +67,9 @@ from anthropic_payload_pseudonymize import (
     build_rules,
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-
 # --- Configuración ------------------------------------------------------------
 
-DEFAULT_ANTHROPIC_DIR = REPO_ROOT / "captures"
+DEFAULT_ANTHROPIC_DIR = Path.home() / ".klaus-proxy" / "captures"
 DEFAULT_ORIGINAL_DIR = DEFAULT_ANTHROPIC_DIR / "original"
 DEFAULT_SENT_DIR = DEFAULT_ANTHROPIC_DIR / "sent"
 DEFAULT_VAULT = DEFAULT_ANTHROPIC_DIR / ".pseudonym_vault.json"

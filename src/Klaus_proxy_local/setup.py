@@ -118,6 +118,48 @@ def init_config_if_missing() -> dict:
     return config
 
 
+def migrate_config_paths() -> None:
+    """Migrate stale capture paths in existing config.json.
+
+    On upgrade, config.json may have absolute paths pointing to the project repo
+    instead of ~/.klaus-proxy/. This function detects and fixes them.
+
+    Fixes:
+      - capture_dir pointing to /Users/.../proyectos/klaus-proxy-local/captures → ~/.klaus-proxy/captures
+      - vault_path pointing outside ~/.klaus-proxy → ~/.klaus-proxy/captures/.vault.json
+    """
+    cfg_file = config_file()
+    if not cfg_file.exists():
+        return
+
+    try:
+        config = json.loads(cfg_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return
+
+    needs_save = False
+
+    # Fix capture_dir if it's not ~/.klaus-proxy/captures
+    expected_capture_dir = str(capture_dir())
+    current_capture_dir = config.get("capture_dir")
+    if current_capture_dir != expected_capture_dir:
+        config["capture_dir"] = expected_capture_dir
+        needs_save = True
+
+    # Fix vault_path if it's not under ~/.klaus-proxy/captures
+    expected_vault_path = str(vault_path())
+    current_vault_path = config.get("vault_path")
+    if current_vault_path != expected_vault_path:
+        config["vault_path"] = expected_vault_path
+        needs_save = True
+
+    if needs_save:
+        cfg_file.write_text(
+            json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        os.chmod(cfg_file, 0o600)
+
+
 def load_config() -> dict:
     """Load configuration from ~/.klaus-proxy/config.json.
 
@@ -130,4 +172,5 @@ def load_config() -> dict:
       OSError: If config file can't be read
       json.JSONDecodeError: If config is invalid JSON
     """
+    migrate_config_paths()
     return init_config_if_missing()
