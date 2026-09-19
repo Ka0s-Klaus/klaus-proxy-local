@@ -22,7 +22,7 @@ claude-proxy-monitor  # Terminal 2
 ## 📺 Layout de Paneles
 
 ```
-┌─────────────────── KLAUS MONITOR v0.4.0 ─────────────────────┐
+┌─────────────────── KLAUS MONITOR ─────────────────────┐
 │ 🟢 Proxy: RUNNING  Port: 8899  Uptime: 00:02:34  Captures: captures/
 ├────────┬─────────────────────────────┬──────────────────────┤
 │ 📊     │ 🔄 LIVE TRAFFIC             │ 🔐 VAULT COVERAGE    │

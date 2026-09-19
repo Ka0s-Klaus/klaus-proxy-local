@@ -208,7 +208,7 @@ python scripts/add_to_vault.py /path/to/proyecto --dry-run
 
 ---
 
-## 🔮 Futuro (v0.4.0+)
+## 🔮 Futuro (Próximas Versiones)
 
 - [ ] Auto-generación transparente de SALT
 - [ ] UI web para inspeccionar vault
