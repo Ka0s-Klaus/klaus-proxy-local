@@ -6,9 +6,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13%2B-blue)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.3.1-green)](./docs/RELEASE_v0.3.1_NOTES.md)
+[![Version](https://img.shields.io/badge/version-0.3.2-green)](./docs/RELEASE_v0.3.2_NOTES.md)
 [![Tests](https://img.shields.io/badge/tests-465%2F465-brightgreen)](./docs/FIX_SUMMARY.md)
-[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.3.1_NOTES.md)
+[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.3.2_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
 
@@ -54,21 +54,24 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.3.1)
+## 🚀 Inicio rápido (v0.3.2)
 
 ```bash
 # Instalar
-pip install Klaus-proxy-local==0.3.1
+pip install Klaus-proxy-local==0.3.2
 
 # Terminal 1: arrancar el proxy (auto-genera config + certs + SALT + variables SSL/TLS)
 claude-proxy
+# ✅ Captures guardadas en ~/.klaus-proxy/captures/ (no repo)
+# ✅ Logs con COLORES (verde = OK, rojo = error)
+# ✅ Ctrl+C responde al instante
 
 # Terminal 2: usar Claude Code (SSL/TLS configurado automáticamente)
 source ~/.klaus-proxy/klaus-env.sh
 export HTTPS_PROXY=http://127.0.0.1:8899
 claude "tu pregunta"
 
-# Terminal 3: auditar payloads (NUEVO en v0.3.1)
+# Terminal 3: auditar payloads
 klaus-audit-payloads
 ```
 
@@ -88,7 +91,7 @@ klaus-setup
 # Selecciona 'y' para auto-startup, luego: exec $SHELL
 ```
 
-✨ **Eso es todo.** Todo es automático: configuración, certificados, SALT, auditoría y corrección de fugas.
+✨ **Eso es todo.** Todo es automático: configuración, certificados, SALT, auditoría, corrección de fugas, **y ahora con captura en usuario-local + colores + Ctrl+C rápido**.
 
 ---
 
@@ -267,6 +270,47 @@ If you enabled auto-startup but want to disable it:
 
 ---
 
+## ✨ What's New in v0.3.2
+
+### 🐛 Critical Bugs Fixed
+
+| Issue | Before | After |
+|-------|--------|-------|
+| **Captures location** | `/repo/captures/` ❌ | `~/.klaus-proxy/captures/` ✅ |
+| **Log colors** | Disabled (no colors) ❌ | Full ANSI support ✅ |
+| **Ctrl+C response** | 5 second hang ❌ | Instant (<100ms) ✅ |
+
+### 🔧 Changes
+
+1. **Captures Migration**
+   - All scripts now use `~/.klaus-proxy/captures/` by default
+   - Auto-migrates existing `config.json` on startup
+   - 13 files updated (capture, analyze, verify, audit scripts)
+
+2. **ANSI Colors Restored**
+   - Removed `subprocess.PIPE` that forced mitmproxy to disable colors
+   - mitmproxy now inherits parent TTY → detects terminal → enables colors natively
+   - Logs show with full color support (green requests, red errors)
+
+3. **Instant Ctrl+C**
+   - Removed log reader thread holding file descriptor
+   - Process exits in <100ms (was 5 seconds)
+   - No hanging on shutdown
+
+### 📖 Documentation
+
+- **[RELEASE_v0.3.2_NOTES.md](./docs/RELEASE_v0.3.2_NOTES.md)** — Complete bugfix details + testing results
+
+### ✅ Backward Compatibility
+
+- ✅ Fully compatible with v0.3.1 and earlier
+- ✅ Auto-migrates old `config.json` paths
+- ✅ No breaking changes to API or scripts
+
+[📖 Release Notes](./docs/RELEASE_v0.3.2_NOTES.md)
+
+---
+
 ## ✨ What's New in v0.3.1
 
 ### 🆕 New Commands
@@ -317,6 +361,16 @@ If you enabled auto-startup but want to disable it:
 
 ## 📦 Releases
 
+### v0.3.2 — Critical Bugfixes ✅
+- ✅ **Captures directory migration** — All files now stored in `~/.klaus-proxy/captures/` (not repo)
+- ✅ **ANSI colors restored** — Full color support in mitmproxy logs (green requests, red errors)
+- ✅ **Instant Ctrl+C** — Response time <100ms (was 5 seconds)
+- ✅ **Auto-config migration** — Existing `config.json` auto-updated on startup
+- ✅ **13 scripts updated** — All capture, analyze, verify, audit tools use user-local paths
+- ✅ **Fully backward compatible** — No breaking changes
+
+[📖 Release Notes](./docs/RELEASE_v0.3.2_NOTES.md) | [📋 What's New](#-whats-new-in-v032)
+
 ### v0.3.1 — Comprehensive Audit & Diagnostics System ✅
 - 🔍 **Automatic payload audit** (`klaus-audit-payloads`) with summary, detailed, CSV export
 - 🔧 **Pseudonymization diagnostics** (`klaus-fix-pseudonymization`) to identify & fix issues
@@ -326,7 +380,7 @@ If you enabled auto-startup but want to disable it:
 - ✅ **465/465 tests passing** + new features tested
 - 🚀 **Zero-config SSL/TLS** for Git, curl, Python, Node.js
 
-[📖 Release Notes](./docs/RELEASE_v0.3.1_NOTES.md) | [📋 What's New](#-whats-new-in-v031)
+[📖 Release Notes](./docs/RELEASE_v0.3.1_NOTES.md)
 
 ### v0.3.0 — Complete Audit & Auto-Fix System ✅
 - ✅ **465/465 tests passing** (fixed 23 failing)
