@@ -257,6 +257,10 @@ class ProxyLauncher:
             env["NODE_EXTRA_CA_CERTS"] = str(mitmproxy_cert_file())
             # Fallback for NodeJS/npm tools that don't respect NODE_EXTRA_CA_CERTS
             env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0"
+            # Force colors in mitmproxy even when stdout is piped (important!)
+            env["FORCE_COLOR"] = "1"
+            # Unbuffered output for immediate log streaming
+            env["PYTHONUNBUFFERED"] = "1"
             # Ensure ANTHROPIC_PSEUDO_SALT is set (from config or env)
             if "ANTHROPIC_PSEUDO_SALT" in os.environ:
                 env["ANTHROPIC_PSEUDO_SALT"] = os.environ["ANTHROPIC_PSEUDO_SALT"]
