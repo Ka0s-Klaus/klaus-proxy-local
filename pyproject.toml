@@ -46,6 +46,7 @@ klaus-setup = "Klaus_proxy_local.setup_shell:main"
 klaus-scan = "Klaus_proxy_local.scan:main"
 klaus-install-python = "Klaus_proxy_local.install_python:main"
 klaus-audit-payloads = "Klaus_proxy_local.audit_all_payloads:main"
+klaus-fix-pseudonymization = "Klaus_proxy_local.fix_pseudonymization:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
