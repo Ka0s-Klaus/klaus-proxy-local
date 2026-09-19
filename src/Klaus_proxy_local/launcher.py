@@ -148,27 +148,32 @@ class ProxyLauncher:
         print("")
 
     def process_log_line(self, line: str) -> str:
-        """Add version prefix to log lines with timestamps.
+        """Add version prefix to log lines with timestamps, preserving ANSI colors.
 
         Transforms: [14:18:53.157][anthropic-pseudo] message
-        Into:       [v0.1.0][14:18:53.157][anthropic-pseudo] message
+        Into:       [v0.3.1][14:18:53.157][anthropic-pseudo] message
+
+        Preserves ANSI color codes from mitmproxy.
         """
         # Match lines starting with a timestamp in format [HH:MM:SS.mmm]
         # Handles variations: [HH:MM:SS], [HH:MM:SS.m], [HH:MM:SS.mm], [HH:MM:SS.mmm], etc.
+        # Use cyan color for version prefix
         if re.match(r"^\[\d{2}:\d{2}:\d{2}(\.\d+)?\]", line):
-            return f"[v{__version__}]{line}"
+            return f"\033[36m[v{__version__}]\033[0m{line}"
         return line
 
     def stream_logs(self, stream, is_stderr: bool = False) -> None:
-        """Stream logs from mitmdump process, adding version prefix."""
+        """Stream logs from mitmdump process, adding version prefix and preserving colors."""
         try:
             for line in iter(stream.readline, ""):
                 if line:
-                    processed_line = self.process_log_line(line.rstrip())
+                    # Remove only trailing newline, preserve ANSI codes
+                    line_clean = line.rstrip("\n\r")
+                    processed_line = self.process_log_line(line_clean)
                     if is_stderr:
-                        print(processed_line, file=sys.stderr)
+                        print(processed_line, file=sys.stderr, flush=True)
                     else:
-                        print(processed_line)
+                        print(processed_line, flush=True)
         except Exception:
             pass
         finally:
@@ -178,14 +183,21 @@ class ProxyLauncher:
                 pass
 
     def _stream_logs_to_file(self, stream, log_file_path: Path) -> None:
-        """Stream logs from mitmdump to both terminal and file."""
+        """Stream logs from mitmdump to both terminal and file, preserving colors in terminal."""
         try:
             with open(log_file_path, "w") as log_file:
                 for line in iter(stream.readline, ""):
                     if line:
-                        processed_line = self.process_log_line(line.rstrip())
-                        print(processed_line)
-                        log_file.write(processed_line + "\n")
+                        # Remove only trailing newline, preserve ANSI codes
+                        line_clean = line.rstrip("\n\r")
+                        # For terminal: keep ANSI codes
+                        processed_line = self.process_log_line(line_clean)
+                        print(processed_line, flush=True)
+                        # For file: strip ANSI codes before writing
+                        # Remove ANSI escape sequences for cleaner log files
+                        ansi_escape = re.compile(r"\033\[[0-9;]*m")
+                        clean_line = ansi_escape.sub("", processed_line)
+                        log_file.write(clean_line + "\n")
                         log_file.flush()
         except Exception:
             pass
