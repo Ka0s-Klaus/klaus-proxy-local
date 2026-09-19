@@ -6,9 +6,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.13%2B-blue)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.3.0-green)](./docs/RELEASE_v0.3.0_NOTES.md)
+[![Version](https://img.shields.io/badge/version-0.3.1-green)](./docs/RELEASE_v0.3.1_NOTES.md)
 [![Tests](https://img.shields.io/badge/tests-465%2F465-brightgreen)](./docs/FIX_SUMMARY.md)
-[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.3.0_NOTES.md)
+[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.3.1_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
 
@@ -54,11 +54,11 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.3.0)
+## 🚀 Inicio rápido (v0.3.1)
 
 ```bash
 # Instalar
-pip install Klaus-proxy-local==0.3.0
+pip install Klaus-proxy-local==0.3.1
 
 # Terminal 1: arrancar el proxy (auto-genera config + certs + SALT + variables SSL/TLS)
 claude-proxy
@@ -68,8 +68,17 @@ source ~/.klaus-proxy/klaus-env.sh
 export HTTPS_PROXY=http://127.0.0.1:8899
 claude "tu pregunta"
 
-# Terminal 3: auditar payloads y corregir fugas automáticamente
-python full_audit_with_fixes.py --auto
+# Terminal 3: auditar payloads (NUEVO en v0.3.1)
+klaus-audit-payloads
+```
+
+**Auditoría avanzada:**
+```bash
+# Ver payloads específicos que no están pseudonimizados
+klaus-fix-pseudonymization --show-payloads
+
+# Exportar audit a CSV
+klaus-audit-payloads --export=csv
 ```
 
 **Alternativamente, configuración automática al arrancar el shell:**
@@ -258,7 +267,66 @@ If you enabled auto-startup but want to disable it:
 
 ---
 
+## ✨ What's New in v0.3.1
+
+### 🆕 New Commands
+
+| Command | Purpose | Usage |
+|---------|---------|-------|
+| **`klaus-audit-payloads`** | Audit all captured payloads | `klaus-audit-payloads` |
+| **`klaus-fix-pseudonymization`** | Diagnose pseudonymization issues | `klaus-fix-pseudonymization --show-payloads` |
+
+### 🆕 New Features
+
+1. **Automatic Payload Auditing**
+   - Executive summary with security assessment
+   - Pseudonymization effectiveness metrics
+   - Secret redaction verification
+   - Breakdown by HTTP method, host, status code
+   - CSV export for compliance
+   - Security rating: EXCELLENT / GOOD / NEEDS REVIEW
+
+2. **Pseudonymization Diagnostics**
+   - Identifies why payloads aren't pseudonymized
+   - Shows non-pseudonymized payloads with details
+   - Reviews configuration (patterns, SALT, enabled flag)
+   - Provides actionable remediation steps
+   - Distinguishes safe-to-skip hosts (monitoring) vs. critical (APIs)
+
+3. **SSL/TLS Auto-Configuration**
+   - Auto-generates `~/.klaus-proxy/klaus-env.sh`
+   - Exports GIT_SSL_CAINFO, CURL_CA_BUNDLE, SSL_CERT_FILE
+   - Shell hook auto-loads variables on startup
+   - Fixes "Client TLS handshake failed" errors
+   - Works with git, curl, Python, Node.js
+
+### 📖 New Documentation
+
+- **[AUDIT_ALL_PAYLOADS.md](./docs/AUDIT_ALL_PAYLOADS.md)** — Complete audit guide (400+ lines)
+- **[FIX_PSEUDONYMIZATION.md](./docs/FIX_PSEUDONYMIZATION.md)** — Remediation guide (500+ lines)
+- SSL/TLS setup in README with examples for git, curl, Python, Node.js
+
+### 🔧 Improvements
+
+- Capture directory auto-detection (project root or home directory)
+- Beautiful unicode-boxed output with status indicators
+- Comprehensive error handling and recommendations
+- Decision matrix for quick host classification
+
+---
+
 ## 📦 Releases
+
+### v0.3.1 — Comprehensive Audit & Diagnostics System ✅
+- 🔍 **Automatic payload audit** (`klaus-audit-payloads`) with summary, detailed, CSV export
+- 🔧 **Pseudonymization diagnostics** (`klaus-fix-pseudonymization`) to identify & fix issues
+- 🔐 **SSL/TLS auto-configuration** (GIT_SSL_CAINFO, CURL_CA_BUNDLE auto-exported)
+- 📊 **Security assessment** with actionable recommendations
+- 📚 **Comprehensive documentation** (audit + remediation guides)
+- ✅ **465/465 tests passing** + new features tested
+- 🚀 **Zero-config SSL/TLS** for Git, curl, Python, Node.js
+
+[📖 Release Notes](./docs/RELEASE_v0.3.1_NOTES.md) | [📋 What's New](#-whats-new-in-v031)
 
 ### v0.3.0 — Complete Audit & Auto-Fix System ✅
 - ✅ **465/465 tests passing** (fixed 23 failing)
