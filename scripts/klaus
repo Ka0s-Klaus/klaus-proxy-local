@@ -278,7 +278,7 @@ main() {
                 if command -v klaus-scan &> /dev/null; then
                     klaus-scan "$@"
                 else
-                    python -m Klaus_proxy_local.scan "$@"
+                    python3 -m Klaus_proxy_local.scan "$@"
                 fi
                 ;;
             audit|audit-payloads)
@@ -286,7 +286,7 @@ main() {
                 if command -v klaus-audit-payloads &> /dev/null; then
                     klaus-audit-payloads "$@"
                 else
-                    python -m Klaus_proxy_local.audit_all_payloads "$@"
+                    python3 -m Klaus_proxy_local.audit_all_payloads "$@"
                 fi
                 ;;
             fix|fix-pseudonymization)
@@ -294,7 +294,7 @@ main() {
                 if command -v klaus-fix-pseudonymization &> /dev/null; then
                     klaus-fix-pseudonymization "$@"
                 else
-                    python -m Klaus_proxy_local.fix_pseudonymization "$@"
+                    python3 -m Klaus_proxy_local.fix_pseudonymization "$@"
                 fi
                 ;;
             --help|-h|help)
