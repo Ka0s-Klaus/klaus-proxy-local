@@ -16,11 +16,8 @@ RESET='\033[0m'
 VERSION="0.3.3"
 
 show_banner() {
-    cat << 'EOF'
-╔════════════════════════════════════════════════════════════════╗
-║          🔐 Klaus Proxy Local — Audit & Scan Menu             ║
-╚════════════════════════════════════════════════════════════════╝
-EOF
+    echo "🔐 Klaus Proxy Local v${VERSION}"
+    echo ""
 }
 
 show_menu() {
@@ -278,7 +275,6 @@ main() {
 
     # Interactive menu mode
     show_banner
-    show_help
 
     while true; do
         show_menu
