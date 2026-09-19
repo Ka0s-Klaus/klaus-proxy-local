@@ -178,9 +178,13 @@ cmd_scan() {
     echo ""
 
     if command -v klaus-scan &> /dev/null; then
-        klaus-scan "${cmd_args[@]:-}"
+        set +u
+        klaus-scan "${cmd_args[@]}"
+        set -u
     else
-        python3 -m Klaus_proxy_local.scan "${cmd_args[@]:-}"
+        set +u
+        python3 -m Klaus_proxy_local.scan "${cmd_args[@]}"
+        set -u
     fi
 }
 
@@ -219,9 +223,13 @@ cmd_audit() {
     echo ""
 
     if command -v klaus-audit-payloads &> /dev/null; then
-        klaus-audit-payloads "${cmd_args[@]:-}"
+        set +u
+        klaus-audit-payloads "${cmd_args[@]}"
+        set -u
     else
-        python3 -m Klaus_proxy_local.audit_all_payloads "${cmd_args[@]:-}"
+        set +u
+        python3 -m Klaus_proxy_local.audit_all_payloads "${cmd_args[@]}"
+        set -u
     fi
 }
 
@@ -260,9 +268,13 @@ cmd_fix() {
     echo ""
 
     if command -v klaus-fix-pseudonymization &> /dev/null; then
-        klaus-fix-pseudonymization "${cmd_args[@]:-}"
+        set +u
+        klaus-fix-pseudonymization "${cmd_args[@]}"
+        set -u
     else
-        python3 -m Klaus_proxy_local.fix_pseudonymization "${cmd_args[@]:-}"
+        set +u
+        python3 -m Klaus_proxy_local.fix_pseudonymization "${cmd_args[@]}"
+        set -u
     fi
 }
 
