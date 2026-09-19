@@ -29,30 +29,14 @@ from typing import Dict, Any
 
 
 def get_vault_path() -> Path:
-    """Obtiene la ruta del vault."""
-    # Primero intentar en la carpeta del proyecto (donde está este script)
-    script_dir = Path(__file__).parent.parent  # Subir desde scripts/ a raíz del proyecto
-    project_vault = script_dir / "captures" / ".pseudonym_vault.json"
-
-    if project_vault.exists():
-        return project_vault
-
-    # Fallback: buscar en ~/.klaus-proxy/captures/
+    """Obtiene la ruta del vault desde ~/.klaus-proxy/captures/."""
     home = Path.home()
     vault_path = home / ".klaus-proxy" / "captures" / ".pseudonym_vault.json"
     return vault_path.resolve()
 
 
 def get_captures_path(direction: str = "original") -> Path:
-    """Obtiene la ruta de las capturas."""
-    # Primero intentar en la carpeta del proyecto
-    script_dir = Path(__file__).parent.parent  # Subir desde scripts/ a raíz del proyecto
-    project_captures = script_dir / "captures" / direction
-
-    if project_captures.exists():
-        return project_captures
-
-    # Fallback: buscar en ~/.klaus-proxy/captures/
+    """Obtiene la ruta de las capturas desde ~/.klaus-proxy/captures/."""
     home = Path.home()
     captures_path = home / ".klaus-proxy" / "captures" / direction
     return captures_path.resolve()

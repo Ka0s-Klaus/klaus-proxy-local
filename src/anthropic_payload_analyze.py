@@ -25,11 +25,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-TOOL_ROOT = Path(__file__).resolve().parents[1]
 # Raíz del proyecto AUDITADO para detectar sus rutas en los payloads
 # (cwd del proceso, u override). Independiente de dónde viva el tooling.
 PROJECT_ROOT = Path(os.environ.get("ANTHROPIC_PSEUDO_PROJECT_ROOT") or Path.cwd())
-CAPTURE_DIR = TOOL_ROOT / "captures"
+CAPTURE_DIR = Path.home() / ".klaus-proxy" / "captures"
 
 # Detecta rutas absolutas dentro del repo o rutas relativas típicas del proyecto.
 _ABS_PATH_RE = re.compile(re.escape(str(PROJECT_ROOT)) + r"/[^\s\"'`)]+")

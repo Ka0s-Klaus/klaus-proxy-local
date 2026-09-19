@@ -108,9 +108,9 @@ REDACTION = "«REDACTED»"
 # enviado. El cuerpo real (secretos redactados) queda en `original/`.
 BLOCKED_SENT_MARKER = "«BLOCKED: request no enviada (fail-closed) — ver original/»"
 
-# Directorio de salida: captures/ relativo a la raíz del proyecto (tooling).
+# Directorio de salida: ~/.klaus-proxy/captures/.
 # Permite override por env var para tests / rutas alternativas.
-_DEFAULT_OUTPUT = Path(__file__).resolve().parents[1] / "captures"
+_DEFAULT_OUTPUT = Path.home() / ".klaus-proxy" / "captures"
 
 
 def output_dir() -> Path:

@@ -40,7 +40,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
-TOOL_ROOT = Path(__file__).resolve().parents[1]
+# TOOL_ROOT no se usa más; rutas de usuario se encuentran bajo ~/.klaus-proxy/
 
 
 # --- Coloreado de logs --------------------------------------------------------
@@ -229,7 +229,7 @@ def vault_path() -> Path:
     override = os.environ.get("ANTHROPIC_PSEUDO_VAULT")
     if override:
         return Path(override)
-    return TOOL_ROOT / "captures" / ".pseudonym_vault.json"
+    return Path.home() / ".klaus-proxy" / "captures" / ".pseudonym_vault.json"
 
 
 # --- Generación de seudónimos ------------------------------------------------

@@ -147,65 +147,6 @@ class ProxyLauncher:
         print("╚" + "═" * 68 + "╝")
         print("")
 
-    def process_log_line(self, line: str) -> str:
-        """Add version prefix to log lines with timestamps, preserving ANSI colors.
-
-        Transforms: [14:18:53.157][anthropic-pseudo] message
-        Into:       [v0.3.1][14:18:53.157][anthropic-pseudo] message
-
-        Preserves ANSI color codes from mitmproxy.
-        """
-        # Match lines starting with a timestamp in format [HH:MM:SS.mmm]
-        # Handles variations: [HH:MM:SS], [HH:MM:SS.m], [HH:MM:SS.mm], [HH:MM:SS.mmm], etc.
-        # Use cyan color for version prefix
-        if re.match(r"^\[\d{2}:\d{2}:\d{2}(\.\d+)?\]", line):
-            return f"\033[36m[v{__version__}]\033[0m{line}"
-        return line
-
-    def stream_logs(self, stream, is_stderr: bool = False) -> None:
-        """Stream logs from mitmdump process, adding version prefix and preserving colors."""
-        try:
-            for line in iter(stream.readline, ""):
-                if line:
-                    # Remove only trailing newline, preserve ANSI codes
-                    line_clean = line.rstrip("\n\r")
-                    processed_line = self.process_log_line(line_clean)
-                    if is_stderr:
-                        print(processed_line, file=sys.stderr, flush=True)
-                    else:
-                        print(processed_line, flush=True)
-        except Exception:
-            pass
-        finally:
-            try:
-                stream.close()
-            except Exception:
-                pass
-
-    def _stream_logs_to_file(self, stream, log_file_path: Path) -> None:
-        """Stream logs from mitmdump to both terminal and file, preserving colors in terminal."""
-        try:
-            with open(log_file_path, "w") as log_file:
-                for line in iter(stream.readline, ""):
-                    if line:
-                        # Remove only trailing newline, preserve ANSI codes
-                        line_clean = line.rstrip("\n\r")
-                        # For terminal: keep ANSI codes
-                        processed_line = self.process_log_line(line_clean)
-                        print(processed_line, flush=True)
-                        # For file: strip ANSI codes before writing
-                        # Remove ANSI escape sequences for cleaner log files
-                        ansi_escape = re.compile(r"\033\[[0-9;]*m")
-                        clean_line = ansi_escape.sub("", processed_line)
-                        log_file.write(clean_line + "\n")
-                        log_file.flush()
-        except Exception:
-            pass
-        finally:
-            try:
-                stream.close()
-            except Exception:
-                pass
 
     def launch_mitmdump(self) -> None:
         """Launch mitmdump with pseudonymization and capture addons.
@@ -257,10 +198,6 @@ class ProxyLauncher:
             env["NODE_EXTRA_CA_CERTS"] = str(mitmproxy_cert_file())
             # Fallback for NodeJS/npm tools that don't respect NODE_EXTRA_CA_CERTS
             env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0"
-            # Force colors in mitmproxy even when stdout is piped (important!)
-            env["FORCE_COLOR"] = "1"
-            # Unbuffered output for immediate log streaming
-            env["PYTHONUNBUFFERED"] = "1"
             # Ensure ANTHROPIC_PSEUDO_SALT is set (from config or env)
             if "ANTHROPIC_PSEUDO_SALT" in os.environ:
                 env["ANTHROPIC_PSEUDO_SALT"] = os.environ["ANTHROPIC_PSEUDO_SALT"]
@@ -269,28 +206,16 @@ class ProxyLauncher:
                 env["ANTHROPIC_CAPTURE_DIR"] = os.environ["ANTHROPIC_CAPTURE_DIR"]
             elif self.config and "capture_dir" in self.config:
                 env["ANTHROPIC_CAPTURE_DIR"] = self.config["capture_dir"]
+            else:
+                env["ANTHROPIC_CAPTURE_DIR"] = str(Path.home() / ".klaus-proxy" / "captures")
 
-            # Create log file path in captures dir
-            captures_dir = Path(env.get("ANTHROPIC_CAPTURE_DIR", str(Path.cwd() / "captures")))
-            captures_dir.mkdir(parents=True, exist_ok=True)
-            log_file_path = captures_dir / "proxy.log"
-
+            # Launch mitmdump without PIPE to preserve colors and enable fast Ctrl+C
+            # mitmproxy inherits parent stdout/stderr → ANSI colors work natively
+            # No log reader thread → no blocking on Ctrl+C
             self.mitmdump_process = subprocess.Popen(
                 mitmdump_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                universal_newlines=True,
                 env=env,
             )
-
-            # Start thread to stream logs to both file and terminal
-            log_thread = threading.Thread(
-                target=self._stream_logs_to_file, args=(self.mitmdump_process.stdout, log_file_path)
-            )
-            log_thread.daemon = True
-            log_thread.start()
 
             # Small delay to let mitmdump start
             import time
@@ -335,7 +260,11 @@ class ProxyLauncher:
                 except subprocess.TimeoutExpired:
                     # If still running, kill it forcefully
                     self.mitmdump_process.kill()
-                    self.mitmdump_process.wait(timeout=1)
+                    try:
+                        self.mitmdump_process.wait(timeout=1)
+                    except subprocess.TimeoutExpired:
+                        # Process will be cleaned up by OS
+                        pass
             except Exception:
                 # If anything goes wrong, just force kill
                 try:
