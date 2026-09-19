@@ -110,14 +110,14 @@ python -m twine upload dist/Klaus_proxy_local-0.3.0*
 - Update project website/blog
 - Announce in Slack/Teams (if applicable)
 
-### 4. Start v0.4.0 Planning
+### 4. Start Next Version Planning
 ```bash
 # Create branch for next version
-git checkout -b feat/v0.4.0
+git checkout -b feat/next-version
 
 # Update version in pyproject.toml
 # Add to CHANGELOG
-# Commit: "chore: bump version to 0.4.0-dev"
+# Commit: "chore: bump version to X.X.X-dev"
 ```
 
 ---

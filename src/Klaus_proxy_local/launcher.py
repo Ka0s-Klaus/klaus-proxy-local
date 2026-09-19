@@ -323,7 +323,7 @@ class ProxyLauncher:
             # Small delay to let proxy be fully ready
             time.sleep(1)
 
-            print("🎮 Klaus Monitor v0.4.0 starting...")
+            print("🎮 Klaus Monitor starting...")
             app = KlausMonitorApp()
             app.run()
 
