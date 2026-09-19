@@ -1,0 +1,317 @@
+#!/bin/bash
+# Klaus Proxy Local - Unified CLI Menu
+# Menú interactivo para: scan, audit-payloads, fix-pseudonymization
+
+set -euo pipefail
+
+# Colors
+CYAN='\033[36m'
+GREEN='\033[32m'
+YELLOW='\033[33m'
+RED='\033[31m'
+BOLD='\033[1m'
+RESET='\033[0m'
+
+# Version
+VERSION="0.3.2"
+
+show_banner() {
+    cat << 'EOF'
+╔════════════════════════════════════════════════════════════════╗
+║          🔐 Klaus Proxy Local — Audit & Scan Menu             ║
+╚════════════════════════════════════════════════════════════════╝
+EOF
+}
+
+show_menu() {
+    echo ""
+    echo -e "${BOLD}Select an option:${RESET}"
+    echo ""
+    echo -e "  ${CYAN}1)${RESET} 🔍 ${BOLD}SCAN${RESET}                 - Find secrets/sensitive data in project"
+    echo -e "  ${CYAN}2)${RESET} 📊 ${BOLD}AUDIT${RESET}                - Audit captured payloads"
+    echo -e "  ${CYAN}3)${RESET} 🔧 ${BOLD}FIX${RESET}                  - Diagnose pseudonymization issues"
+    echo -e "  ${CYAN}4)${RESET} ❓ ${BOLD}HELP${RESET}                 - Show help"
+    echo -e "  ${CYAN}5)${RESET} ❌ ${BOLD}EXIT${RESET}                 - Exit"
+    echo ""
+}
+
+show_help() {
+    cat << EOF
+${BOLD}Klaus Proxy Local v${VERSION}${RESET}
+Interactive CLI for security auditing and scanning
+
+${BOLD}COMMANDS:${RESET}
+
+1. ${CYAN}SCAN${RESET} - Find secrets in a project directory
+   Usage: klaus scan <path> [options]
+   Options:
+     --min-confidence CRITICAL|HIGH|MEDIUM|LOW  (default: CRITICAL)
+     --approve-all                              (skip manual review)
+     --enable-contextual                        (enable variable-based detection)
+     --enable-heuristic                         (enable entropy analysis)
+     --json                                     (JSON output)
+   Example: klaus scan ~/my-project --min-confidence HIGH
+
+2. ${CYAN}AUDIT${RESET} - Audit captured payloads for security
+   Usage: klaus audit-payloads [options]
+   Options:
+     --detailed                                 (detailed per-payload analysis)
+     --export csv                               (export to CSV file)
+     --captures-dir /path/to/captures           (custom captures directory)
+   Example: klaus audit-payloads --detailed
+
+3. ${CYAN}FIX${RESET} - Diagnose pseudonymization problems
+   Usage: klaus fix-pseudonymization [options]
+   Options:
+     --show-payloads                            (show non-pseudonymized payloads)
+     --show-config                              (show configuration)
+     --captures-dir /path/to/captures           (custom captures directory)
+   Example: klaus fix-pseudonymization --show-payloads
+
+${BOLD}EXAMPLES:${RESET}
+
+  # Scan current directory for critical secrets
+  $ klaus
+  1
+  [enter: .  for current directory]
+
+  # Audit payloads with detailed report
+  $ klaus
+  2
+
+  # Show non-pseudonymized payloads
+  $ klaus
+  3
+  2
+
+${BOLD}ENVIRONMENT:${RESET}
+
+  Captures directory:  ~/.klaus-proxy/captures/
+  Config file:        ~/.klaus-proxy/config.json
+  Vault:              ~/.klaus-proxy/captures/.pseudonym_vault.json
+
+EOF
+}
+
+# Command handlers
+
+cmd_scan() {
+    echo ""
+    echo -e "${BOLD}🔍 SCAN - Find Secrets in Project${RESET}"
+    echo -e "${YELLOW}────────────────────────────────────${RESET}"
+    echo ""
+    read -p "Enter path to scan (default: .): " scan_path
+    scan_path=${scan_path:-.}
+
+    if [ ! -d "$scan_path" ]; then
+        echo -e "${RED}❌ Directory not found: $scan_path${RESET}"
+        return 1
+    fi
+
+    echo ""
+    echo "Confidence level options:"
+    echo "  1) CRITICAL (default)"
+    echo "  2) HIGH"
+    echo "  3) MEDIUM"
+    echo "  4) LOW"
+    read -p "Select confidence level (1-4, default: 1): " conf_choice
+    conf_choice=${conf_choice:-1}
+
+    case $conf_choice in
+        1) confidence="CRITICAL" ;;
+        2) confidence="HIGH" ;;
+        3) confidence="MEDIUM" ;;
+        4) confidence="LOW" ;;
+        *) confidence="CRITICAL" ;;
+    esac
+
+    read -p "Approve all findings without review? (y/N): " approve_all
+
+    cmd_args=(
+        "$scan_path"
+        "--min-confidence" "$confidence"
+    )
+
+    if [[ "$approve_all" =~ ^[Yy]$ ]]; then
+        cmd_args+=("--approve-all")
+    fi
+
+    echo ""
+    echo -e "${CYAN}Running: klaus-scan ${cmd_args[*]}${RESET}"
+    echo ""
+
+    if command -v klaus-scan &> /dev/null; then
+        klaus-scan "${cmd_args[@]}"
+    else
+        python -m Klaus_proxy_local.scan "${cmd_args[@]}"
+    fi
+}
+
+cmd_audit() {
+    echo ""
+    echo -e "${BOLD}📊 AUDIT - Audit Captured Payloads${RESET}"
+    echo -e "${YELLOW}──────────────────────────────────${RESET}"
+    echo ""
+
+    echo "Report mode options:"
+    echo "  1) Summary (default)"
+    echo "  2) Detailed (per-payload)"
+    echo "  3) Export to CSV"
+    read -p "Select mode (1-3, default: 1): " audit_choice
+    audit_choice=${audit_choice:-1}
+
+    cmd_args=()
+
+    case $audit_choice in
+        1)
+            echo -e "${CYAN}Running: klaus-audit-payloads (summary)${RESET}"
+            ;;
+        2)
+            cmd_args+=("--detailed")
+            echo -e "${CYAN}Running: klaus-audit-payloads --detailed${RESET}"
+            ;;
+        3)
+            cmd_args+=("--export" "csv")
+            echo -e "${CYAN}Running: klaus-audit-payloads --export csv${RESET}"
+            ;;
+        *)
+            echo -e "${CYAN}Running: klaus-audit-payloads (summary)${RESET}"
+            ;;
+    esac
+
+    echo ""
+
+    if command -v klaus-audit-payloads &> /dev/null; then
+        klaus-audit-payloads "${cmd_args[@]}"
+    else
+        python -m Klaus_proxy_local.audit_all_payloads "${cmd_args[@]}"
+    fi
+}
+
+cmd_fix() {
+    echo ""
+    echo -e "${BOLD}🔧 FIX - Diagnose Pseudonymization Issues${RESET}"
+    echo -e "${YELLOW}─────────────────────────────────────────${RESET}"
+    echo ""
+
+    echo "Diagnostic options:"
+    echo "  1) Summary report (default)"
+    echo "  2) Show non-pseudonymized payloads"
+    echo "  3) Show configuration"
+    read -p "Select option (1-3, default: 1): " fix_choice
+    fix_choice=${fix_choice:-1}
+
+    cmd_args=()
+
+    case $fix_choice in
+        1)
+            echo -e "${CYAN}Running: klaus-fix-pseudonymization${RESET}"
+            ;;
+        2)
+            cmd_args+=("--show-payloads")
+            echo -e "${CYAN}Running: klaus-fix-pseudonymization --show-payloads${RESET}"
+            ;;
+        3)
+            cmd_args+=("--show-config")
+            echo -e "${CYAN}Running: klaus-fix-pseudonymization --show-config${RESET}"
+            ;;
+        *)
+            echo -e "${CYAN}Running: klaus-fix-pseudonymization${RESET}"
+            ;;
+    esac
+
+    echo ""
+
+    if command -v klaus-fix-pseudonymization &> /dev/null; then
+        klaus-fix-pseudonymization "${cmd_args[@]}"
+    else
+        python -m Klaus_proxy_local.fix_pseudonymization "${cmd_args[@]}"
+    fi
+}
+
+# Main loop
+
+main() {
+    # Check if running in non-interactive mode with arguments
+    if [ $# -gt 0 ]; then
+        case "$1" in
+            scan)
+                shift
+                # Direct call: klaus scan <path> [args...]
+                if command -v klaus-scan &> /dev/null; then
+                    klaus-scan "$@"
+                else
+                    python -m Klaus_proxy_local.scan "$@"
+                fi
+                ;;
+            audit|audit-payloads)
+                shift
+                if command -v klaus-audit-payloads &> /dev/null; then
+                    klaus-audit-payloads "$@"
+                else
+                    python -m Klaus_proxy_local.audit_all_payloads "$@"
+                fi
+                ;;
+            fix|fix-pseudonymization)
+                shift
+                if command -v klaus-fix-pseudonymization &> /dev/null; then
+                    klaus-fix-pseudonymization "$@"
+                else
+                    python -m Klaus_proxy_local.fix_pseudonymization "$@"
+                fi
+                ;;
+            --help|-h|help)
+                show_banner
+                show_help
+                ;;
+            --version|-v|version)
+                echo "Klaus Proxy Local v${VERSION}"
+                ;;
+            *)
+                echo -e "${RED}Unknown command: $1${RESET}"
+                echo "Use 'klaus --help' for usage information"
+                exit 1
+                ;;
+        esac
+        return $?
+    fi
+
+    # Interactive menu mode
+    show_banner
+    show_help
+
+    while true; do
+        show_menu
+        read -p "$(echo -e ${BOLD}Enter choice${RESET} [1-5]: )" choice
+        echo ""
+
+        case $choice in
+            1)
+                cmd_scan
+                ;;
+            2)
+                cmd_audit
+                ;;
+            3)
+                cmd_fix
+                ;;
+            4)
+                show_banner
+                show_help
+                ;;
+            5)
+                echo -e "${GREEN}Goodbye! 👋${RESET}"
+                echo ""
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}❌ Invalid choice. Please select 1-5.${RESET}"
+                ;;
+        esac
+
+        echo ""
+        read -p "$(echo -e ${BOLD}Press Enter to continue...${RESET})" -r
+    done
+}
+
+main "$@"
