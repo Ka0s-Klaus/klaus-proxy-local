@@ -417,10 +417,11 @@ class FileTraversal:
         return False
 
     @staticmethod
-    def walk(root_path: Path) -> list[Path]:
+    def walk(root_path: Path, progress_callback: Callable[[int], None] | None = None) -> list[Path]:
         """Walk directory tree, yielding scannable files."""
         files = []
         queue = [root_path]
+        count = 0
 
         while queue:
             current = queue.pop(0)
@@ -435,6 +436,9 @@ class FileTraversal:
                     elif entry.is_file():
                         if FileTraversal.should_scan_file(entry):
                             files.append(entry)
+                            count += 1
+                            if progress_callback and count % 100 == 0:
+                                progress_callback(count)
             except (PermissionError, OSError):
                 # Skip directories we can't read
                 continue
@@ -1207,9 +1211,13 @@ class SensitiveDataScanner:
         start_time = time.time()
         result = ScanResult()
 
-        # Get all files to scan
-        all_files = FileTraversal.walk(root_path)
+        # Callback for file indexing progress
+        def indexing_progress(count: int) -> None:
+            print(f"\r🔍 Indexing files... {count} found", end="", flush=True)
+
+        all_files = FileTraversal.walk(root_path, indexing_progress)
         result.total_files_scanned = len(all_files)
+        print(f"\r📁 Found {len(all_files)} files to scan{' ' * 40}", flush=True)
 
         for idx, file_path in enumerate(all_files):
             if progress_callback:
