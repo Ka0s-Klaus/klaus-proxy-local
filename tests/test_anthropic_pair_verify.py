@@ -134,6 +134,68 @@ def test_diff_leaks_clean_when_pseudonymized():
     assert pv.diff_leaks(spans, sent) == []
 
 
+# --- falsos positivos de contexto (#59) ---------------------------------------
+
+
+def _ip(*parts: int) -> str:
+    """Construye una cadena con forma de IPv4 sin escribirla literal."""
+    return ".".join(str(p) for p in parts)
+
+
+def _verify(original_text, sent_text, vault=None, rules=None):
+    rules = rules or Rules()
+    spans = pv.sensitive_spans(_record(_msg_payload(original_text)), vault or {}, rules)
+    return pv.diff_leaks(spans, _record(_msg_payload(sent_text), variant="sent"))
+
+
+def test_ip_kept_in_non_ip_context_is_not_a_leak():
+    """La IP se seudonimizó; la misma cifra dentro de una versión queda intacta."""
+    ip = _ip(1, 2, 3, 4)
+    original = f"host {ip} y release {ip}.5 y cc_version={ip}"
+    sent = f"host ip_deadbeef y release {ip}.5 y cc_version={ip}"
+    assert _verify(original, sent) == []
+
+
+def test_ip_still_in_ip_context_is_a_leak():
+    ip = _ip(10, 20, 30, 40)
+    leaks = _verify(f"host {ip}", f"host {ip}")
+    assert [(s.value, s.category) for s in leaks] == [(ip, "ipv4")]
+
+
+def test_escaped_newline_before_decorator_is_not_an_email():
+    """En JSON serializado ``\\n@pytest.fixture`` parecería ``n@pytest.fixture``."""
+    code = "import pytest\n@pytest.fixture\ndef f(): pass"
+    rec = _record(_msg_payload(code))
+    assert not [
+        s for s in pv.sensitive_spans(rec, {}, Rules()) if s.category == "email"
+    ]
+
+
+def test_real_email_still_detected_and_leaks():
+    email = "dev" + "@" + "corp.example"
+    leaks = _verify(f"mail {email}\nfin", f"mail {email}\nfin")
+    assert [(s.value, s.category) for s in leaks] == [(email, "email")]
+
+
+def test_regex_layers_run_on_headers_too():
+    ip = _ip(10, 1, 2, 3)
+    rec = _record(_msg_payload("nada"), headers={"X-Forwarded-For": ip})
+    assert ip in {s.value for s in pv.sensitive_spans(rec, {}, Rules())}
+
+
+def test_stale_ip_vault_entry_is_not_a_leak():
+    """Entrada antigua del vault que el regex actual ya no considera IP (#57)."""
+    version = _ip(2, 1, 312, 625)
+    text = f"cc_version={version}"
+    assert _verify(text, text, vault={version: "ip_a1f04bd1"}) == []
+
+
+def test_non_regex_vault_entry_still_checked_by_substring():
+    text = "ruta secreto-largo aqui"
+    leaks = _verify(text, text, vault={"secreto-largo": "proj_deadbeef"})
+    assert [(s.value, s.category) for s in leaks] == [("secreto-largo", "vault")]
+
+
 # --- secrets_in_sent ----------------------------------------------------------
 
 

@@ -48,7 +48,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from anthropic_capture_verify import (
     _MIN_LEAK_LEN,
@@ -75,6 +75,16 @@ DEFAULT_SENT_DIR = DEFAULT_ANTHROPIC_DIR / "sent"
 DEFAULT_VAULT = DEFAULT_ANTHROPIC_DIR / ".pseudonym_vault.json"
 
 _CAPTURE_GLOB = "*_anthropic_payload*.json"
+
+# Capas que se comprueban con el MISMO regex del seudonimizador y en contexto:
+# un valor solo es fuga si vuelve a encajar con el regex en el sent. Que la
+# misma cifra aparezca dentro de ``1.2.3.4.5`` o tras ``version=`` no lo es (#59).
+_REGEX_LAYERS = {"email": _EMAIL_RE, "ipv4": _IPV4_RE}
+
+# Seudónimos del vault acuñados por esas capas. Sus valores reales los cubre la
+# comprobación con contexto; buscarlos como substring da falsos positivos con
+# entradas que el regex ya no considera IP (``2.1.312.625``, #57).
+_REGEX_PSEUDO_PREFIXES = ("ip_", "email_")
 
 # Slug con guion (``org-repo``, ``acme-global-delivery``, ``Ka0s-Klaus``): forma
 # de alto valor para identificadores privados y rara en el andamiaje de la API
@@ -195,6 +205,28 @@ def _record_text(record: dict[str, Any]) -> str:
     return _serialize(record.get("payload")) + "\n" + _serialize(record.get("headers"))
 
 
+def _string_leaves(obj: Any) -> Iterator[str]:
+    """Cadenas hoja DECODIFICADAS de un JSON (sin escapes ``\\n`` de json.dumps)."""
+    if isinstance(obj, str):
+        yield obj
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            yield from _string_leaves(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _string_leaves(v)
+
+
+def regex_matches(record: dict[str, Any], regex: re.Pattern) -> set[str]:
+    """Coincidencias de ``regex`` en cada cadena de cuerpo + cabeceras.
+
+    Se aplica sobre el texto decodificado, como el seudonimizador: sobre el JSON
+    serializado ``\\n@pytest.fixture`` se leería como el email ``n@pytest.fixture``.
+    """
+    leaves = _string_leaves([record.get("payload"), record.get("headers")])
+    return {m for leaf in leaves for m in regex.findall(leaf)}
+
+
 def sensitive_spans(
     record: dict[str, Any], vault: dict[str, str], rules: Rules
 ) -> list[Span]:
@@ -217,10 +249,10 @@ def sensitive_spans(
         seen.add(value)
         spans.append(Span(value, category))
 
-    # 1) Regex de forma reconocible.
-    for m in _EMAIL_RE.findall(text):
+    # 1) Regex de forma reconocible, sobre el texto decodificado.
+    for m in sorted(regex_matches(record, _EMAIL_RE)):
         add(m, "email")
-    for m in _IPV4_RE.findall(text):
+    for m in sorted(regex_matches(record, _IPV4_RE)):
         if m not in LOW_SENSITIVITY_LEAKS:
             add(m, "ipv4")
 
@@ -232,17 +264,35 @@ def sensitive_spans(
     for word in rules.word_literals:
         add(word, "org")
 
-    # 3) Valores reales del vault presentes en el original.
-    for real in vault:
+    # 3) Valores reales del vault presentes en el original. Los de email/IPv4
+    # ya los cubre la capa 1 con contexto.
+    for real, pseudo in vault.items():
+        if pseudo.startswith(_REGEX_PSEUDO_PREFIXES):
+            continue
         add(real, "vault")
 
     return spans
 
 
 def diff_leaks(spans: list[Span], sent_record: dict[str, Any]) -> list[Span]:
-    """Spans sensibles del original que reaparecen VERBATIM en el sent (= fuga)."""
+    """Spans sensibles del original que reaparecen VERBATIM en el sent (= fuga).
+
+    Email/IPv4 solo cuentan si vuelven a encajar con su regex en el sent; el
+    resto basta con que aparezca como substring.
+    """
     haystack = _record_text(sent_record)
-    return [s for s in spans if s.value in haystack]
+    sent_matches = {
+        cat: regex_matches(sent_record, rx) for cat, rx in _REGEX_LAYERS.items()
+    }
+    return [
+        s
+        for s in spans
+        if (
+            s.value in sent_matches[s.category]
+            if s.category in sent_matches
+            else s.value in haystack
+        )
+    ]
 
 
 def secrets_in_sent(sent_record: dict[str, Any]) -> list[str]:
