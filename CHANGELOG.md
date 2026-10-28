@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Logs del proxy en disco** (#55) — Nuevo addon `src/klaus_file_log.py`, cargado por `claude-proxy`, que guarda en `~/.klaus-proxy/logs/proxy.log` los logs de mitmproxy y de los addons, más una línea por petición (método, host+ruta sin query, status, bytes, duración). Rotación 5 MB × 5, sin ANSI, permisos `0600`. Directorio configurable con `KLAUS_LOG_DIR`. La terminal no cambia.
+
 ### Fixed
 - **Claude Code fallaba con `UNABLE_TO_VERIFY_LEAF_SIGNATURE`** (#51) — `klaus-env.sh` dejaba `NODE_EXTRA_CA_CERTS` comentado y el launcher solo lo ponía en el entorno de `mitmdump`, no en el del cliente. Ahora `klaus-env.sh` lo exporta. Se elimina `NODE_TLS_REJECT_UNAUTHORIZED=0`, que no tenía efecto.
 - **Ctrl+C dejaba `claude-proxy` colgado** (#51) — El handler de señales esperaba al hijo mientras el hilo principal ya estaba en `Popen.wait()` con su lock no reentrante (interbloqueo en Python 3.15). Además, un SIGTERM durante el arranque dejaba `mitmdump` huérfano. El apagado se hace ahora fuera del handler y SIGTERM se captura desde el inicio.

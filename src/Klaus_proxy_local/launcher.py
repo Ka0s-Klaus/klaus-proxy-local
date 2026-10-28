@@ -125,6 +125,7 @@ class ProxyLauncher:
         print(f"🎯 Listening on:          {self.HOST}:{self.PORT}")
         print("📁 Config:                ~/.klaus-proxy/config.json")
         print("📋 Captures:              ~/.klaus-proxy/captures/")
+        print("📝 Logs:                  ~/.klaus-proxy/logs/proxy.log")
         print(f"🔒 Certificate:           {self.cert_file}")
         print("✅ Auto-configuration:    ALL CERTIFICATES + ENV VARS SET")
         print("")
@@ -159,6 +160,7 @@ class ProxyLauncher:
         addons_dir = Path(__file__).resolve().parents[2] / "src"
         pseudonymize_addon = addons_dir / "anthropic_payload_pseudonymize.py"
         capture_addon = addons_dir / "anthropic_payload_capture.py"
+        file_log_addon = addons_dir / "klaus_file_log.py"
 
         # Verify addons exist
         if not pseudonymize_addon.exists():
@@ -171,13 +173,21 @@ class ProxyLauncher:
                 f"❌ Capture addon not found: {capture_addon}\n"
                 f"   Make sure Klaus Proxy is installed in development mode: pip install -e ."
             )
+        if not file_log_addon.exists():
+            raise RuntimeError(
+                f"❌ File log addon not found: {file_log_addon}\n"
+                f"   Make sure Klaus Proxy is installed in development mode: pip install -e ."
+            )
 
         # Build mitmdump command
         # Addons must come BEFORE port: pseudonymize (request rewrite)
-        # then capture (evidence collection)
+        # then capture (evidence collection). File log goes first so it is
+        # already attached when the other addons log on load (#55)
         # NOTE: No -q flag to show all logs with version prefix
         mitmdump_cmd = [
             mitm_executable("mitmdump"),
+            "-s",
+            str(file_log_addon),
             "-s",
             str(pseudonymize_addon),
             "-s",
