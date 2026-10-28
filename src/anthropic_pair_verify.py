@@ -44,6 +44,7 @@ Ver docs/anthropic-audit-proxy.md §"Validación diferencial por pares".
 from __future__ import annotations
 
 import argparse
+import functools
 import re
 import sys
 from dataclasses import dataclass
@@ -80,6 +81,8 @@ _CAPTURE_GLOB = "*_anthropic_payload*.json"
 # un valor solo es fuga si vuelve a encajar con el regex en el sent. Que la
 # misma cifra aparezca dentro de ``1.2.3.4.5`` o tras ``version=`` no lo es (#59).
 _REGEX_LAYERS = {"email": _EMAIL_RE, "ipv4": _IPV4_RE}
+# Carácter sin el que cada regex no puede encajar: prefiltro barato (#73).
+_REGEX_REQUIRES = {"email": "@", "ipv4": "."}
 
 # Seudónimos del vault acuñados por esas capas. Sus valores reales los cubre la
 # comprobación con contexto; buscarlos como substring da falsos positivos con
@@ -206,23 +209,57 @@ def _record_text(record: dict[str, Any]) -> str:
 
 
 def _string_leaves(obj: Any) -> Iterator[str]:
-    """Cadenas hoja DECODIFICADAS de un JSON (sin escapes ``\\n`` de json.dumps)."""
-    if isinstance(obj, str):
-        yield obj
-    elif isinstance(obj, dict):
-        for v in obj.values():
-            yield from _string_leaves(v)
-    elif isinstance(obj, list):
-        for v in obj:
-            yield from _string_leaves(v)
+    """Cadenas hoja DECODIFICADAS de un JSON (sin escapes ``\\n`` de json.dumps).
+
+    Iterativo y sin orden garantizado (quien lo usa acumula en conjuntos): los
+    payloads de sesiones largas anidan miles de bloques.
+    """
+    stack = [obj]
+    while stack:
+        cur = stack.pop()
+        if isinstance(cur, str):
+            yield cur
+        elif isinstance(cur, dict):
+            stack.extend(cur.values())
+        elif isinstance(cur, list):
+            stack.extend(cur)
+
+
+@functools.lru_cache(maxsize=262_144)
+def _leaf_layer_matches(leaf: str) -> tuple[tuple[str, ...], ...] | None:
+    """Coincidencias de cada capa regex en una cadena hoja, en orden de
+    ``_REGEX_LAYERS``; ``None`` si no hay ninguna (el caso casi siempre).
+
+    En caché: el historial de una sesión se reenvía en cada petición, así que en
+    un barrido solo ~2 % de las hojas son distintas (#73).
+    """
+    found = tuple(
+        tuple(rx.findall(leaf)) if _REGEX_REQUIRES[cat] in leaf else ()
+        for cat, rx in _REGEX_LAYERS.items()
+    )
+    return found if any(found) else None
+
+
+def layer_matches(record: dict[str, Any]) -> dict[str, set[str]]:
+    """Coincidencias email/IPv4 de cuerpo + cabeceras, en un solo recorrido.
+
+    Se aplican sobre el texto decodificado, como el seudonimizador: sobre el JSON
+    serializado ``\\n@pytest.fixture`` se leería como el email ``n@pytest.fixture``.
+    """
+    found: dict[str, set[str]] = {cat: set() for cat in _REGEX_LAYERS}
+    for leaf in _string_leaves([record.get("payload"), record.get("headers")]):
+        per_layer = _leaf_layer_matches(leaf)
+        if per_layer is not None:
+            for cat, matches in zip(_REGEX_LAYERS, per_layer):
+                found[cat].update(matches)
+    return found
 
 
 def regex_matches(record: dict[str, Any], regex: re.Pattern) -> set[str]:
-    """Coincidencias de ``regex`` en cada cadena de cuerpo + cabeceras.
-
-    Se aplica sobre el texto decodificado, como el seudonimizador: sobre el JSON
-    serializado ``\\n@pytest.fixture`` se leería como el email ``n@pytest.fixture``.
-    """
+    """Coincidencias de ``regex`` en cada cadena de cuerpo + cabeceras."""
+    for cat, rx in _REGEX_LAYERS.items():
+        if rx is regex:
+            return layer_matches(record)[cat]
     leaves = _string_leaves([record.get("payload"), record.get("headers")])
     return {m for leaf in leaves for m in regex.findall(leaf)}
 
@@ -250,9 +287,10 @@ def sensitive_spans(
         spans.append(Span(value, category))
 
     # 1) Regex de forma reconocible, sobre el texto decodificado.
-    for m in sorted(regex_matches(record, _EMAIL_RE)):
+    matches = layer_matches(record)
+    for m in sorted(matches["email"]):
         add(m, "email")
-    for m in sorted(regex_matches(record, _IPV4_RE)):
+    for m in sorted(matches["ipv4"]):
         if m not in LOW_SENSITIVITY_LEAKS:
             add(m, "ipv4")
 
@@ -274,16 +312,17 @@ def sensitive_spans(
     return spans
 
 
-def diff_leaks(spans: list[Span], sent_record: dict[str, Any]) -> list[Span]:
+def diff_leaks(
+    spans: list[Span], sent_record: dict[str, Any], haystack: str | None = None
+) -> list[Span]:
     """Spans sensibles del original que reaparecen VERBATIM en el sent (= fuga).
 
     Email/IPv4 solo cuentan si vuelven a encajar con su regex en el sent; el
     resto basta con que aparezca como substring.
     """
-    haystack = _record_text(sent_record)
-    sent_matches = {
-        cat: regex_matches(sent_record, rx) for cat, rx in _REGEX_LAYERS.items()
-    }
+    if haystack is None:
+        haystack = _record_text(sent_record)
+    sent_matches = layer_matches(sent_record)
     return [
         s
         for s in spans
@@ -295,9 +334,18 @@ def diff_leaks(spans: list[Span], sent_record: dict[str, Any]) -> list[Span]:
     ]
 
 
-def secrets_in_sent(sent_record: dict[str, Any]) -> list[str]:
-    """Etiquetas de secretos Tier-1 que viajan EN CLARO (sin redactar) en el sent."""
-    haystack = _serialize(sent_record.get("payload"))
+def secrets_in_sent(
+    sent_record: dict[str, Any], payload_text: str | None = None
+) -> list[str]:
+    """Etiquetas de secretos Tier-1 que viajan EN CLARO (sin redactar) en el sent.
+
+    ``payload_text``: el payload ya serializado, si el llamador lo tiene (#73).
+    """
+    haystack = (
+        payload_text
+        if payload_text is not None
+        else _serialize(sent_record.get("payload"))
+    )
     found: list[str] = []
     for regex, label in _SECRET_RES:
         if regex.search(haystack) and label not in found:
@@ -429,8 +477,14 @@ def verify_pair(
         )
 
     # 2) Fugas HARD (valores sensibles del original que reaparecen en el sent).
+    # El payload del sent se serializa una sola vez para las capas 2 y 3 (#73).
+    sent_payload_text = _serialize(sent_record.get("payload"))
     spans = sensitive_spans(original_record, vault, rules)
-    leaks = diff_leaks(spans, sent_record)
+    leaks = diff_leaks(
+        spans,
+        sent_record,
+        sent_payload_text + "\n" + _serialize(sent_record.get("headers")),
+    )
     if leaks:
         by_cat: dict[str, list[str]] = {}
         for s in leaks:
@@ -450,7 +504,7 @@ def verify_pair(
         )
 
     # 3) Secretos Tier-1 sin redactar en el sent.
-    secs = secrets_in_sent(sent_record)
+    secs = secrets_in_sent(sent_record, sent_payload_text)
     if secs:
         results.append(
             Result(
