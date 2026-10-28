@@ -319,16 +319,90 @@ class TestMitmExecutable:
 
 
 class TestGenerateEnvVarsFile:
-    """Test klaus-env.sh generation."""
+    """Test klaus-env.sh and ca-bundle.pem generation."""
 
-    def test_exports_node_extra_ca_certs(self, tmp_path):
-        """Claude Code only trusts the proxy CA via NODE_EXTRA_CA_CERTS (#51)."""
+    PROXY_CA = "-----BEGIN CERTIFICATE-----\nPROXY\n-----END CERTIFICATE-----\n"
+    SYSTEM_CA = "-----BEGIN CERTIFICATE-----\nSYSTEM\n-----END CERTIFICATE-----\n"
+
+    @pytest.fixture
+    def env(self, tmp_path):
+        """Fake home with a proxy CA and a system CA bundle."""
         cert = tmp_path / "mitmproxy-ca-cert.pem"
-        with patch.object(Path, "home", return_value=tmp_path):
-            env_file = certs.generate_env_vars_file(cert)
-        exports = [
+        cert.write_text(self.PROXY_CA)
+        system = tmp_path / "system-cert.pem"
+        system.write_text(self.SYSTEM_CA)
+        with (
+            patch.object(Path, "home", return_value=tmp_path),
+            patch.object(certs, "system_ca_file", return_value=system),
+        ):
+            yield tmp_path, cert
+
+    @staticmethod
+    def _exports(env_file):
+        return [
             line
             for line in env_file.read_text().splitlines()
             if line.startswith("export ")
         ]
-        assert f'export NODE_EXTRA_CA_CERTS="{cert}"' in exports
+
+    def test_exports_node_extra_ca_certs(self, env):
+        """Claude Code only trusts the proxy CA via NODE_EXTRA_CA_CERTS (#51)."""
+        _, cert = env
+        env_file = certs.generate_env_vars_file(cert)
+        assert f'export NODE_EXTRA_CA_CERTS="{cert}"' in self._exports(env_file)
+
+    def test_trust_store_vars_point_at_bundle(self, env):
+        """Store-replacing vars must point at the combined bundle (#53)."""
+        home, cert = env
+        env_file = certs.generate_env_vars_file(cert)
+        bundle = home / ".klaus-proxy" / "ca-bundle.pem"
+        exports = self._exports(env_file)
+        for var in (
+            "GIT_SSL_CAINFO",
+            "CURL_CA_BUNDLE",
+            "SSL_CERT_FILE",
+            "REQUESTS_CA_BUNDLE",
+        ):
+            assert f'export {var}="{bundle}"' in exports
+
+    def test_bundle_has_system_and_proxy_cas(self, env):
+        """The bundle keeps the system CAs and adds the proxy CA."""
+        home, cert = env
+        certs.generate_env_vars_file(cert)
+        bundle = (home / ".klaus-proxy" / "ca-bundle.pem").read_text()
+        assert "SYSTEM" in bundle and "PROXY" in bundle
+
+    def test_bundle_does_not_grow_on_restart(self, env):
+        """Regenerating the bundle is idempotent."""
+        home, cert = env
+        certs.generate_env_vars_file(cert)
+        bundle = home / ".klaus-proxy" / "ca-bundle.pem"
+        first = bundle.read_text()
+        certs.generate_env_vars_file(cert)
+        assert bundle.read_text() == first
+
+    def test_bundle_without_system_ca_still_has_proxy_ca(self, env):
+        """Without a system bundle, fall back to the proxy CA alone."""
+        home, cert = env
+        with patch.object(certs, "system_ca_file", return_value=None):
+            certs.generate_env_vars_file(cert)
+        bundle = (home / ".klaus-proxy" / "ca-bundle.pem").read_text()
+        assert bundle == self.PROXY_CA
+
+
+class TestSystemCaFile:
+    """Test system CA bundle discovery."""
+
+    def test_ignores_ssl_cert_file(self, tmp_path, monkeypatch):
+        """SSL_CERT_FILE points at our own bundle once klaus-env.sh is loaded."""
+        monkeypatch.setenv("SSL_CERT_FILE", str(tmp_path / "ca-bundle.pem"))
+        found = certs.system_ca_file()
+        assert found is None or found != tmp_path / "ca-bundle.pem"
+
+    def test_falls_back_to_certifi(self, tmp_path):
+        """Uses certifi when OpenSSL's default bundle doesn't exist."""
+        paths = MagicMock(openssl_cafile=str(tmp_path / "missing.pem"))
+        with patch("ssl.get_default_verify_paths", return_value=paths):
+            import certifi
+
+            assert certs.system_ca_file() == Path(certifi.where())
