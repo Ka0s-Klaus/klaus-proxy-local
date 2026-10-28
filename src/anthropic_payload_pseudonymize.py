@@ -802,16 +802,125 @@ def redact_secrets_body(raw: str, rules: Rules) -> str:
     return json.dumps(new, ensure_ascii=False, separators=(",", ":"))
 
 
+# Campo con el fragmento de texto de cada tipo de delta SSE de /v1/messages.
+_SSE_DELTA_FIELDS = {
+    "text_delta": "text",
+    "input_json_delta": "partial_json",
+    "thinking_delta": "thinking",
+}
+_SSE_EVENT_SEP = re.compile(r"(\r?\n\r?\n)")
+_SSE_DATA_LINE = re.compile(r"^data: ?(.*)$", re.M)
+
+
+def _restore_partial_json(full: str, vault: Vault) -> str:
+    """Revierte el JSON de un tool_use reconstruido; re-serializa para escapar
+    bien valores reales con ``"`` o ``\\``. Si no parsea, texto plano."""
+    try:
+        obj = json.loads(full)
+    except (json.JSONDecodeError, ValueError):
+        return restore_text(full, vault)
+    new = _transform_json_strings(obj, lambda s: restore_text(s, vault))
+    return json.dumps(new, ensure_ascii=False)
+
+
+def restore_sse(raw: str, vault: Vault) -> str | None:
+    """Revierte una response SSE de /v1/messages a nivel de bloque (#67).
+
+    El texto, los argumentos de tool_use y el thinking viajan troceados en
+    ``content_block_delta`` y el cliente los concatena, así que un seudónimo
+    puede quedar partido entre dos deltas y un ``replace`` sobre el cuerpo no lo
+    ve. Aquí se concatena cada bloque, se restaura completo y se emite entero en
+    su primer delta (los demás quedan vacíos): el cliente obtiene el mismo
+    resultado al concatenar. El resto de eventos se revierte como JSON.
+
+    Devuelve ``None`` si no parece SSE o algún evento no se puede interpretar,
+    para que el llamador use el camino de siempre.
+    """
+    parts = _SSE_EVENT_SEP.split(raw)
+    events: list[dict[str, Any]] = []  # {"text", "obj", "line"}
+    groups: dict[tuple[Any, str], list[int]] = {}
+    for i in range(0, len(parts), 2):
+        text = parts[i]
+        lines = _SSE_DATA_LINE.findall(text)
+        if not lines:
+            events.append({"text": text, "obj": None})
+            continue
+        if len(lines) > 1:
+            return None
+        try:
+            obj = json.loads(lines[0])
+        except (json.JSONDecodeError, ValueError):
+            return None
+        events.append({"text": text, "obj": obj})
+        delta = obj.get("delta") if isinstance(obj, dict) else None
+        if obj.get("type") == "content_block_delta" and isinstance(delta, dict):
+            field = _SSE_DELTA_FIELDS.get(delta.get("type"))
+            if field and isinstance(delta.get(field), str):
+                groups.setdefault((obj.get("index"), field), []).append(len(events) - 1)
+    if not any(e["obj"] is not None for e in events):
+        return None
+
+    in_group = {i for idxs in groups.values() for i in idxs}
+    for (_, field), idxs in groups.items():
+        full = "".join(events[i]["obj"]["delta"][field] for i in idxs)
+        restored = (
+            _restore_partial_json(full, vault)
+            if field == "partial_json"
+            else restore_text(full, vault)
+        )
+        if restored == full:
+            continue
+        for n, i in enumerate(idxs):
+            events[i]["obj"]["delta"][field] = restored if n == 0 else ""
+            events[i]["dirty"] = True
+    for i, ev in enumerate(events):
+        if ev["obj"] is None or i in in_group:
+            continue
+        new = _transform_json_strings(ev["obj"], lambda s: restore_text(s, vault))
+        if new != ev["obj"]:
+            ev["obj"], ev["dirty"] = new, True
+
+    out: list[str] = []
+    for n, ev in enumerate(events):
+        text = ev["text"]
+        if ev.get("dirty"):
+            data = json.dumps(ev["obj"], ensure_ascii=False, separators=(",", ":"))
+            text = _SSE_DATA_LINE.sub(lambda _m: "data: " + data, text, count=1)
+        out.append(text)
+        if 2 * n + 1 < len(parts):
+            out.append(parts[2 * n + 1])
+    return "".join(out)
+
+
+def sse_block_text(raw: str) -> str:
+    """Texto de los deltas de una response SSE ya concatenado por bloque.
+
+    Para buscar seudónimos que siguen partidos entre deltas; ``""`` si no es SSE.
+    """
+    blocks: dict[tuple[Any, str], list[str]] = {}
+    for line in _SSE_DATA_LINE.findall(raw):
+        try:
+            obj = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        delta = obj.get("delta") if isinstance(obj, dict) else None
+        if obj.get("type") == "content_block_delta" and isinstance(delta, dict):
+            field = _SSE_DELTA_FIELDS.get(delta.get("type"))
+            if field and isinstance(delta.get(field), str):
+                blocks.setdefault((obj.get("index"), field), []).append(delta[field])
+    return "\n".join("".join(chunks) for chunks in blocks.values())
+
+
 def restore_body(raw: str, vault: Vault) -> str:
-    """Revierte el cuerpo de una response. JSON → estructural; si no, texto plano
-    (respuestas SSE en streaming caen aquí; los seudónimos no llevan chars JSON
-    especiales, así que la reversión en texto plano es segura)."""
+    """Revierte el cuerpo de una response. JSON → estructural; SSE → por bloque
+    (seudónimos partidos entre deltas, #67); si no, texto plano."""
     if not raw:
         return raw
     try:
         obj = json.loads(raw)
     except (json.JSONDecodeError, ValueError):
-        return restore_text(raw, vault)
+        sse = restore_sse(raw, vault)
+        return sse if sse is not None else restore_text(raw, vault)
     new = _transform_json_strings(obj, lambda s: restore_text(s, vault))
     return json.dumps(new, ensure_ascii=False, separators=(",", ":"))
 
@@ -831,8 +940,13 @@ def _find_unreversed_pseudonyms(text: str, vault: Vault) -> list[str]:
     pseudo_pattern = re.compile(r"\b[a-z]+_[0-9a-f]{8}z*\b")
     found = pseudo_pattern.findall(text)
 
-    # Filter out false positives: only report if pseudonym is actually in vault
-    unreversed = [p for p in set(found) if p in vault.pseudo_to_real]
+    # Filter out false positives: only report if pseudonym is actually in vault.
+    # Path pseudonyms are stored with their leading slash (/proj_…, #67).
+    unreversed = [
+        p
+        for p in set(found)
+        if p in vault.pseudo_to_real or "/" + p in vault.pseudo_to_real
+    ]
     return sorted(unreversed)
 
 
@@ -1069,7 +1183,9 @@ class AnthropicPseudonymizer:
         new = restore_body(text, vault)
 
         # Sanity check: detect unreversed pseudonyms (vault corruption, reversal bug)
-        unreversed = _find_unreversed_pseudonyms(new, vault)
+        unreversed = _find_unreversed_pseudonyms(
+            new + "\n" + sse_block_text(new), vault
+        )
         if unreversed:
             self._log(
                 f"[anthropic-pseudo] WARN unreversed pseudonyms in response {req.path}: {unreversed}",
