@@ -72,7 +72,7 @@ flowchart LR
 
 1. **Arrancar el proxy con el addon:**
    ```bash
-   mitmdump -s src/anthropic_payload_capture.py -p 8899
+   mitmdump -s src/anthropic_payload_capture.py --listen-host 127.0.0.1 -p 8899
    ```
 
 2. **Enrutar Claude Code a través del proxy** (en OTRA terminal). Node no usa el keychain del sistema, de ahí `NODE_EXTRA_CA_CERTS`:
@@ -254,7 +254,7 @@ Verifica las **tres garantías** de la auditoría y avisa si la seudonimización
 > `claude` por él; el proxy manual equivale a:
 > ```bash
 > mitmdump -s src/anthropic_payload_pseudonymize.py \
->          -s src/anthropic_payload_capture.py -p 8899
+>          -s src/anthropic_payload_capture.py --listen-host 127.0.0.1 -p 8899
 > ```
 
 > 🧪 Tests en [`tests/test_anthropic_capture_verify.py`](../tests/test_anthropic_capture_verify.py) (30):
@@ -373,7 +373,7 @@ El orden importa: el seudonimizador debe reescribir **antes** de que la captura 
 
 ```bash
 mitmdump -s src/anthropic_payload_pseudonymize.py \
-         -s src/anthropic_payload_capture.py -p 8899
+         -s src/anthropic_payload_capture.py --listen-host 127.0.0.1 -p 8899
 ```
 
 ### Configuración por entorno

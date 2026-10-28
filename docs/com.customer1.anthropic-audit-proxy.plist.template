@@ -24,6 +24,8 @@
         <string>{{TOOL}}/src/anthropic_payload_pseudonymize.py</string>
         <string>-s</string>
         <string>{{TOOL}}/src/anthropic_payload_capture.py</string>
+        <string>--listen-host</string>
+        <string>127.0.0.1</string>
         <string>-p</string>
         <string>8899</string>
     </array>

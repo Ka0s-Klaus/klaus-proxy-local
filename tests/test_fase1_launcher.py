@@ -235,6 +235,22 @@ class TestLaunchMitmdump:
                 call_args = mock_popen.call_args[0][0]
                 assert "8899" in str(call_args)
 
+    def test_launch_mitmdump_binds_loopback_only(self):
+        """launch_mitmdump() binds 127.0.0.1, never all interfaces (#47)."""
+        launcher = ProxyLauncher()
+        with patch("subprocess.Popen") as mock_popen:
+            with patch("pathlib.Path.exists", return_value=True):
+                mock_process = MagicMock()
+                mock_process.poll.return_value = None
+                mock_popen.return_value = mock_process
+
+                with patch("time.sleep"):
+                    launcher.launch_mitmdump()
+
+                call_args = mock_popen.call_args[0][0]
+                host_idx = call_args.index("--listen-host")
+                assert call_args[host_idx + 1] == "127.0.0.1"
+
     def test_launch_mitmdump_raises_if_pseudonymize_addon_missing(self):
         """launch_mitmdump() raises if pseudonymization addon not found."""
         launcher = ProxyLauncher()
