@@ -318,3 +318,61 @@ def test_build_record_blocked_true_is_recorded():
     assert rec["blocked"] is True
     # El cuerpo `sent` de una request bloqueada es el marcador, no datos reales.
     assert rec["payload"] == cap.BLOCKED_SENT_MARKER
+
+
+def test_build_record_pseudo_ran_defaults_false():
+    """pseudo_ran defaults to False (backward compat with old captures)."""
+    rec = cap.build_record(
+        method="POST",
+        url="https://api.anthropic.com/v1/messages",
+        host="api.anthropic.com",
+        path="/v1/messages",
+        headers={},
+        body="{}",
+        captured_at=datetime(2026, 7, 24, 13, 0, 0),
+    )
+    assert rec["pseudo_ran"] is False
+
+
+def test_build_record_pseudo_ran_true():
+    """pseudo_ran=True is written to the record."""
+    rec = cap.build_record(
+        method="POST",
+        url="https://api.anthropic.com/v1/messages",
+        host="api.anthropic.com",
+        path="/v1/messages",
+        headers={},
+        body="{}",
+        captured_at=datetime(2026, 7, 24, 13, 0, 0),
+        pseudo_ran=True,
+    )
+    assert rec["pseudo_ran"] is True
+
+
+def test_build_record_unknown_host_none_by_default():
+    """unknown_host defaults to None."""
+    rec = cap.build_record(
+        method="POST",
+        url="https://api.anthropic.com/v1/messages",
+        host="api.anthropic.com",
+        path="/v1/messages",
+        headers={},
+        body="{}",
+        captured_at=datetime(2026, 7, 24, 13, 0, 0),
+    )
+    assert rec["unknown_host"] is None
+
+
+def test_build_record_unknown_host_set():
+    """unknown_host is written for path-based detection catches."""
+    rec = cap.build_record(
+        method="POST",
+        url="https://llm.tools.cloud.newgateway.es/v1/messages",
+        host="llm.tools.cloud.newgateway.es",
+        path="/v1/messages",
+        headers={},
+        body="{}",
+        captured_at=datetime(2026, 7, 24, 13, 0, 0),
+        unknown_host="llm.tools.cloud.newgateway.es",
+    )
+    assert rec["unknown_host"] == "llm.tools.cloud.newgateway.es"
