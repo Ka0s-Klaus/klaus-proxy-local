@@ -21,7 +21,14 @@ fi
 
 # Install/upgrade package if in development mode
 echo "📦 Installing Klaus Proxy Local..."
-pip install -e . > /dev/null 2>&1 || {
+VENV_PIP="${HOME}/.local/share/klaus/venv/bin/pip"
+if [ -x "$VENV_PIP" ]; then
+    "$VENV_PIP" install -e . > /dev/null 2>&1
+elif [ -f "$PROJECT_DIR/.venv/bin/pip" ]; then
+    "$PROJECT_DIR/.venv/bin/pip" install -e . > /dev/null 2>&1
+else
+    python3 -m pip install -e . > /dev/null 2>&1
+fi || {
     echo "❌ Failed to install package"
     exit 1
 }
