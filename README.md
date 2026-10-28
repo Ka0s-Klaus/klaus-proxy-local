@@ -221,7 +221,7 @@ python -c "import requests; print(requests.get('https://api.github.com').status_
 source ~/.klaus-proxy/klaus-env.sh
 export HTTPS_PROXY=http://127.0.0.1:8899
 
-# NODE_EXTRA_CA_CERTS is set automatically by proxy launcher
+# NODE_EXTRA_CA_CERTS is exported by klaus-env.sh
 npm install
 # ✅ Works through proxy
 ```
@@ -234,7 +234,7 @@ npm install
 | **curl** | `CURL_CA_BUNDLE` | ✅ Auto | Works |
 | **OpenSSL** | `SSL_CERT_FILE` | ✅ Auto | Works |
 | **Python** | `REQUESTS_CA_BUNDLE` | ✅ Auto | Works |
-| **Node.js** | `NODE_EXTRA_CA_CERTS` | ✅ By proxy | Works |
+| **Node.js / Claude Code** | `NODE_EXTRA_CA_CERTS` | ✅ Auto | Works |
 
 ### Disable Auto-Startup (If Needed)
 
