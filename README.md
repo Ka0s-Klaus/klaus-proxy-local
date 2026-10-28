@@ -71,8 +71,11 @@ source ~/.klaus-proxy/klaus-env.sh
 export HTTPS_PROXY=http://127.0.0.1:8899
 claude "tu pregunta"
 
-# Terminal 3: auditar payloads
+# Terminal 3: auditar payloads (CLI)
 klaus-audit-payloads
+
+# Terminal 3 alternativo: dashboard visual en el navegador
+klaus-audit-dashboard --open
 ```
 
 **Auditoría avanzada:**
@@ -431,6 +434,7 @@ If you enabled auto-startup but want to disable it:
 |---|---|
 | [⚡ Quick Start](./docs/QUICK_START.md) | Instalación y primer uso en 2 min |
 | [🔎 Audit Quick Start](./docs/AUDIT_QUICK_START.md) | Primera auditoría en 5 min |
+| [🌐 Audit Dashboard](./docs/reports/web/README.md) | Dashboard HTML interactivo de auditoría |
 | [🛠️ Troubleshooting](./docs/TROUBLESHOOTING.md) | Solución de problemas comunes |
 | [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
 | [📊 Executive Summary](./docs/EXECUTIVE_SUMMARY.md) | Estado actual del sistema |

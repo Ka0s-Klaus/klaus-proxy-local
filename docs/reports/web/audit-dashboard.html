@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Klaus Proxy — Audit Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --surface-page: #f9f9f7;
+    --surface-card: #fcfcfb;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --border: #e1e0d9;
+    --baseline: #c3c2b7;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+    --s4: #eda100; --s5: #e87ba4; --s6: #008300;
+    --good: #0ca30c; --warning: #fab219;
+    --serious: #ec835a; --critical: #d03b3b;
+    --radius: 8px; --gap: 16px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --surface-page: #0d0d0d; --surface-card: #1a1a19;
+      --text-primary: #f0efec; --text-secondary: #c3c2b7;
+      --text-muted: #898781; --border: #2c2c2a; --baseline: #383835;
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+      --s4: #c98500; --s5: #d55181; --s6: #008300;
+    }
+  }
+  :root[data-theme="dark"] {
+    --surface-page: #0d0d0d; --surface-card: #1a1a19;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7;
+    --text-muted: #898781; --border: #2c2c2a; --baseline: #383835;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+    --s4: #c98500; --s5: #d55181; --s6: #008300;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--surface-page); color: var(--text-primary); min-height: 100vh;
+  }
+  .header {
+    background: var(--surface-card); border-bottom: 1px solid var(--border);
+    padding: 20px var(--gap) 16px;
+  }
+  .header-top {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+  }
+  .header h1 { font-size: 1.25rem; font-weight: 700; }
+  .header .meta { font-size: 0.78rem; color: var(--text-muted); }
+  .theme-btn {
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 10px; cursor: pointer; color: var(--text-secondary); font-size: 0.82rem;
+  }
+  .summary-cards { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .summary-card {
+    background: var(--surface-page); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 10px 14px; min-width: 130px;
+    cursor: pointer; transition: border-color .15s;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .summary-card:hover, .summary-card.active { border-color: var(--s1); background: var(--surface-card); }
+  .summary-card .card-title { font-size: 0.72rem; color: var(--text-muted); }
+  .summary-card .card-status { font-size: 1rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .tabs {
+    display: flex; overflow-x: auto; padding: 0 var(--gap);
+    background: var(--surface-card); border-bottom: 1px solid var(--border);
+  }
+  .tab-btn {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    padding: 10px 14px; cursor: pointer; font-size: 0.85rem;
+    color: var(--text-secondary); white-space: nowrap; transition: color .12s, border-color .12s;
+  }
+  .tab-btn:hover { color: var(--text-primary); }
+  .tab-btn.active { color: var(--s1); border-bottom-color: var(--s1); font-weight: 600; }
+  .main { padding: var(--gap); max-width: 1100px; margin: 0 auto; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .section-header { margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+  .section-header h2 { font-size: 1.05rem; font-weight: 700; }
+  .status-badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 20px; color: #fff; font-weight: 600; }
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--gap); }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--gap); }
+  .card {
+    background: var(--surface-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: var(--gap);
+  }
+  .card h3 {
+    font-size: 0.82rem; color: var(--text-muted); margin-bottom: 8px;
+    font-weight: 500; text-transform: uppercase; letter-spacing: .04em;
+  }
+  .stat-tile {
+    background: var(--surface-card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px var(--gap);
+  }
+  .stat-tile .stat-label { font-size: 0.75rem; color: var(--text-muted); }
+  .stat-tile .stat-value { font-size: 1.8rem; font-weight: 700; line-height: 1.15; }
+  .stat-tile .stat-sub { font-size: 0.78rem; color: var(--text-secondary); }
+  .chart-wrap { position: relative; height: 220px; }
+  .chart-wrap-tall { position: relative; height: 280px; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .data-table th {
+    text-align: left; padding: 6px 8px; color: var(--text-muted);
+    border-bottom: 1px solid var(--border); font-weight: 500;
+  }
+  .data-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--surface-page); }
+  .checklist { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .check-item {
+    display: flex; align-items: flex-start; gap: 10px; padding: 8px;
+    border-radius: 6px; background: var(--surface-page); border: 1px solid var(--border);
+  }
+  .check-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+  .check-label { font-size: 0.85rem; font-weight: 600; }
+  .check-desc { font-size: 0.75rem; color: var(--text-muted); }
+  .check-detail { font-size: 0.72rem; color: var(--text-secondary); margin-top: 1px; }
+  .progress-bar { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width .4s; }
+  .mt8  { margin-top:  8px; }
+  .mt12 { margin-top: 12px; }
+  .mt16 { margin-top: 16px; }
+  .mb8  { margin-bottom:  8px; }
+  .mb12 { margin-bottom: 12px; }
+  code {
+    font-family: "Menlo","Consolas",monospace; font-size: .8em;
+    background: var(--border); padding: 1px 4px; border-radius: 3px;
+  }
+  @media (max-width: 600px) {
+    .header h1 { font-size: 1rem; }
+    .summary-card { min-width: 100px; }
+    .tab-btn { padding: 10px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <h1>🔌 Klaus Proxy &mdash; Audit Dashboard</h1>
+      <div class="meta">Generado: 2026-10-28 13:44 &middot; Capturas totales: 11,921 &middot; Periodo: 2026-07-22 → 2026-10-28</div>
+    </div>
+    <button class="theme-btn" onclick="toggleTheme()">🌙 Modo oscuro</button>
+  </div>
+  <div class="summary-cards" id="summary-cards">
+    <div class="summary-card" data-tab="security"><div class="card-title">🔐 Seguridad</div><div class="card-status"><span class="status-dot" style="background:#0ca30c"></span>✅ OK</div></div><div class="summary-card" data-tab="pseudo"><div class="card-title">📊 Pseudonimización</div><div class="card-status"><span class="status-dot" style="background:#fab219"></span>⚠️ Revisar</div></div><div class="summary-card" data-tab="perf"><div class="card-title">⚡ Actividad</div><div class="card-status"><span class="status-dot" style="background:#0ca30c"></span>✅ OK</div></div><div class="summary-card" data-tab="tests"><div class="card-title">🧪 Tests</div><div class="card-status"><span class="status-dot" style="background:#0ca30c"></span>✅ OK</div></div><div class="summary-card" data-tab="efdef"><div class="card-title">📋 EFDEF</div><div class="card-status"><span class="status-dot" style="background:#0ca30c"></span>✅ OK</div></div>
+  </div>
+</div>
+
+<nav class="tabs" id="tabs">
+  <button class="tab-btn active" data-tab="security">🔐 Seguridad</button>
+  <button class="tab-btn" data-tab="pseudo">📊 Pseudonimización</button>
+  <button class="tab-btn" data-tab="perf">⚡ Actividad</button>
+  <button class="tab-btn" data-tab="tests">🧪 Tests</button>
+  <button class="tab-btn" data-tab="efdef">📋 EFDEF</button>
+</nav>
+
+<main class="main">
+
+<!-- ── Seguridad ── -->
+<div id="panel-security" class="panel active">
+  <div class="section-header">
+    <h2>🔐 Auditoría de Seguridad</h2>
+    <span class="status-badge" style="background:#0ca30c">✅ OK</span>
+  </div>
+  <div class="grid-3 mb12">
+    <div class="stat-tile">
+      <div class="stat-label">Capturas totales</div>
+      <div class="stat-value">11,921</div>
+      <div class="stat-sub">todos los endpoints</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Secretos redactados</div>
+      <div class="stat-value">100.0%</div>
+      <div class="stat-sub">11,921 de 11,921</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Hosts inesperados</div>
+      <div class="stat-value" style="color:#0ca30c">0</div>
+      <div class="stat-sub">se espera solo api.anthropic.com</div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <h3>Distribución de hosts</h3>
+      <div class="chart-wrap"><canvas id="chart-hosts"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Hosts capturados</h3>
+      <table class="data-table mt8">
+        <thead><tr><th>Host</th><th>Capturas</th><th>Estado</th></tr></thead>
+        <tbody id="hosts-table-body"></tbody>
+      </table>
+      <div class="mt12" style="font-size:.8rem;color:#0ca30c">✅ Sin patrones de prompt injection detectados.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Pseudonimización ── -->
+<div id="panel-pseudo" class="panel">
+  <div class="section-header">
+    <h2>📊 Calidad de Pseudonimización</h2>
+    <span class="status-badge" style="background:#fab219">⚠️ Revisar</span>
+  </div>
+  <div class="grid-3 mb12">
+    <div class="stat-tile">
+      <div class="stat-label">Peticiones LLM pseudonimizadas</div>
+      <div class="stat-value" style="color:#fab219">75.7%</div>
+      <div class="stat-sub">548 de 724 /v1/messages</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Entradas en el vault</div>
+      <div class="stat-value">271</div>
+      <div class="stat-sub">pares real &rarr; pseudónimo</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Literales protegidas</div>
+      <div class="stat-value">5</div>
+      <div class="stat-sub">4 word + 1 literales</div>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <h3>% Pseudonimización diaria (últimos 90 días)</h3>
+      <div class="chart-wrap"><canvas id="chart-pseudo-daily"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Modelos LLM utilizados</h3>
+      <div class="chart-wrap"><canvas id="chart-models"></canvas></div>
+    </div>
+  </div>
+  <div class="card mt12">
+    <h3>Peticiones LLM diarias (últimos 90 días)</h3>
+    <div class="chart-wrap-tall"><canvas id="chart-pseudo-volume"></canvas></div>
+  </div>
+</div>
+
+<!-- ── Actividad ── -->
+<div id="panel-perf" class="panel">
+  <div class="section-header">
+    <h2>⚡ Actividad del Proxy</h2>
+    <span class="status-badge" style="background:#0ca30c">✅ OK</span>
+  </div>
+  <div class="grid-3 mb12">
+    <div class="stat-tile">
+      <div class="stat-label">Capturas últimos 30 días</div>
+      <div class="stat-value">363</div>
+      <div class="stat-sub">5 días activos</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Promedio por día activo</div>
+      <div class="stat-value">72.6</div>
+      <div class="stat-sub">capturas / día</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Total histórico</div>
+      <div class="stat-value">11,921</div>
+      <div class="stat-sub">desde el primer día</div>
+    </div>
+  </div>
+  <div class="card mb12">
+    <h3>Actividad diaria (últimos 30 días)</h3>
+    <div class="chart-wrap"><canvas id="chart-activity"></canvas></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <h3>Top endpoints capturados</h3>
+      <table class="data-table mt8">
+        <thead><tr><th>Path</th><th>Capturas</th></tr></thead>
+        <tbody id="paths-table-body"></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Capturas recientes</h3>
+      <table class="data-table mt8">
+        <thead><tr><th>Timestamp</th><th>Host</th><th>Path</th></tr></thead>
+        <tbody id="recent-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tests ── -->
+<div id="panel-tests" class="panel">
+  <div class="section-header">
+    <h2>🧪 Cobertura de Tests</h2>
+    <span class="status-badge" style="background:#0ca30c">✅ OK</span>
+  </div>
+  <div class="grid-3 mb12">
+    <div class="stat-tile">
+      <div class="stat-label">Tests totales</div>
+      <div class="stat-value">464</div>
+      <div class="stat-sub">colectados por pytest</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Tests pasando</div>
+      <div class="stat-value" style="color:var(--good)">464</div>
+      <div class="stat-sub">100.0% pass rate</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Tests fallando</div>
+      <div class="stat-value" style="color:var(--critical)">0</div>
+      <div class="stat-sub">0 errores</div>
+    </div>
+  </div>
+  <div class="card mb12">
+    <h3>Pass rate</h3>
+    <div class="progress-bar mt8" style="height:12px">
+      <div class="progress-fill" style="width:100.0%;background:#0ca30c"></div>
+    </div>
+    <div style="font-size:.78rem;color:var(--text-secondary);margin-top:4px">
+      100.0% &mdash; 464 passed / 0 failed / 0 errors
+    </div>
+  </div>
+  <div class="card">
+    <h3>Salida de pytest</h3>
+    <pre id="pytest-output" style="font-size:.78rem;color:var(--text-secondary);background:var(--surface-page);border-radius:6px;padding:12px;margin-top:8px;overflow-x:auto;white-space:pre-wrap"></pre>
+  </div>
+</div>
+
+<!-- ── EFDEF ── -->
+<div id="panel-efdef" class="panel">
+  <div class="section-header">
+    <h2>📋 Compliance EFDEF</h2>
+    <span class="status-badge" style="background:#0ca30c">✅ OK</span>
+  </div>
+  <div class="grid-3 mb12">
+    <div class="stat-tile">
+      <div class="stat-label">Checks superados</div>
+      <div class="stat-value">13 / 13</div>
+      <div class="stat-sub">100.0% cumplimiento</div>
+    </div>
+    <div class="stat-tile" style="grid-column:span 2">
+      <div class="stat-label">Progreso general</div>
+      <div class="progress-bar mt8" style="height:10px">
+        <div class="progress-fill" style="width:100.0%;background:#0ca30c"></div>
+      </div>
+      <div style="font-size:.78rem;color:var(--text-secondary);margin-top:4px">
+        100.0% &mdash; 13 superados de 13
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Checklist de compliance</h3>
+    <ul class="checklist mt8" id="efdef-checklist"></ul>
+  </div>
+</div>
+
+</main>
+
+<script>
+const DATA = {"security": {"status": "good", "total": 11921, "secrets_redacted": 11921, "secrets_redacted_pct": 100.0, "blocked": 163, "unexpected_hosts": [], "unexpected_count": 0, "injection_hits": [], "injection_count": 0, "host_distribution": [["api.anthropic.com", 11200], ["llm.tools.cloud.cliente-x.example", 721]]}, "pseudonymization": {"status": "warning", "total_llm": 724, "pseudo_yes": 548, "pseudo_no": 176, "pct": 75.7, "daily_dates": ["2026-07-31", "2026-09-04", "2026-10-19"], "daily_pct": [57.5, 100.0, 50.0], "daily_totals": [400, 1, 2], "vault_entries": 271, "literals_count": 1, "word_literals_count": 4, "model_distribution": [["claude-haiku-4-5-20251001", 400], ["claude-opus-4-8", 320], ["claude-haiku-5-5", 2], ["claude-sonnet-4-6", 1], ["claude-3-5-sonnet-20241022", 1]]}, "performance": {"status": "good", "total_all": 11921, "total_last30": 363, "active_days": 5, "avg_per_active_day": 72.6, "daily_dates": ["2026-09-28", "2026-09-29", "2026-10-08", "2026-10-19", "2026-10-28"], "daily_counts": [121, 52, 5, 3, 182], "path_distribution": [["/api/event_logging/v2/batch", 10800], ["/v1/messages?beta=true", 714], ["/api/eval/...", 221], ["/mcp-registry/...", 158], ["/api/web/domain_info", 17], ["/v1/messages/count_tokens?beta=true", 9], ["/v1/messages", 1], ["/v1/models", 1]], "status_distribution": [["no_status", 10285], ["200", 1633], ["401", 3]], "recent": [{"ts": "2026-10-28T13:44:12", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}, {"ts": "2026-10-28T13:43:41", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}, {"ts": "2026-10-28T13:43:11", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}, {"ts": "2026-10-28T13:42:37", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}, {"ts": "2026-10-28T13:42:02", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}]}, "tests": {"status": "good", "test_count": 464, "passed": 464, "failed": 0, "errors": 0, "pass_rate": 100.0, "output_summary": ["........................................................................ [ 15%]", "........................................................................ [ 30%]", "........................................................................ [ 46%]", "........................................................................ [ 61%]", ".................................s...................................... [ 77%]", "......s................................................................. [ 92%]", "..................................                                       [100%]", "464 passed, 2 skipped in 3.18s"]}, "efdef": {"status": "good", "checks": [{"label": "config.json", "description": "Archivo de configuración existe", "passed": true, "detail": ""}, {"label": "Vault existe", "description": "Vault de pseudonimización creado y accesible", "passed": true, "detail": "271 entradas"}, {"label": "Salt configurado", "description": "ANTHROPIC_PSEUDO_SALT generado (>=16 chars)", "passed": true, "detail": "salt de 32 chars"}, {"label": "pseudo_literals key", "description": "config.json contiene pseudo_literals para persistencia", "passed": true, "detail": ""}, {"label": "pseudo_word_literals key", "description": "config.json contiene pseudo_word_literals", "passed": true, "detail": ""}, {"label": "Certificado CA", "description": "Certificado mitmproxy generado y disponible", "passed": true, "detail": ""}, {"label": "Klaus env file", "description": "~/.klaus-proxy/klaus-env.sh con vars SSL/TLS", "passed": true, "detail": ""}, {"label": "docs/architecture/", "description": "Carpeta docs/architecture/ existe (EFDEF Sección 23)", "passed": true, "detail": ""}, {"label": "docs/guides/", "description": "Carpeta docs/guides/ existe (EFDEF Sección 23)", "passed": true, "detail": ""}, {"label": "docs/reports/", "description": "Carpeta docs/reports/ existe (EFDEF Sección 23)", "passed": true, "detail": ""}, {"label": "docs/decisions/", "description": "Carpeta docs/decisions/ existe (EFDEF Sección 23)", "passed": true, "detail": ""}, {"label": "README docs section", "description": "README.md tiene sección Documentación como mapa del proyecto", "passed": true, "detail": ""}, {"label": "Workflow CLAUDE.md", "description": "CLAUDE.md documenta flujo Issue→Rama→PR (Sección 22)", "passed": true, "detail": ""}], "passed": 13, "total": 13, "pct": 100.0}};
+
+function toggleTheme() {
+  const r = document.documentElement;
+  r.setAttribute('data-theme', r.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  buildCharts();
+}
+
+// Tab navigation
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + tab).classList.add('active');
+  });
+});
+document.querySelectorAll('.summary-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const tab = card.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.summary-card').forEach(c => c.classList.remove('active'));
+    document.getElementById('panel-' + tab).classList.add('active');
+    card.classList.add('active');
+  });
+});
+
+// Hosts table
+(function() {
+  const tbody = document.getElementById('hosts-table-body');
+  if (!tbody) return;
+  const expected = new Set(['api.anthropic.com']);
+  DATA.security.host_distribution.forEach(function(item) {
+    const host = item[0], count = item[1];
+    const ok = expected.has(host);
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td><code>' + host + '</code></td><td>' + count.toLocaleString() + '</td><td>' + (ok ? '✅ Esperado' : '⚠️ Inesperado') + '</td>';
+    tbody.appendChild(tr);
+  });
+})();
+
+// Paths table
+(function() {
+  const tbody = document.getElementById('paths-table-body');
+  if (!tbody) return;
+  DATA.performance.path_distribution.forEach(function(item) {
+    const path = item[0], count = item[1];
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td><code>' + path + '</code></td><td>' + count.toLocaleString() + '</td>';
+    tbody.appendChild(tr);
+  });
+})();
+
+// Recent captures table
+(function() {
+  const tbody = document.getElementById('recent-table-body');
+  if (!tbody) return;
+  DATA.performance.recent.forEach(function(r) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td style="white-space:nowrap">' + r.ts + '</td><td><code>' + r.host + '</code></td><td style="font-size:.75rem;color:var(--text-muted)">' + r.path + '</td>';
+    tbody.appendChild(tr);
+  });
+})();
+
+// pytest output
+(function() {
+  const el = document.getElementById('pytest-output');
+  if (!el) return;
+  el.textContent = DATA.tests.output_summary.join('\n') || '(sin salida)';
+})();
+
+// EFDEF checklist
+(function() {
+  const ul = document.getElementById('efdef-checklist');
+  if (!ul) return;
+  DATA.efdef.checks.forEach(function(c) {
+    const li = document.createElement('li');
+    li.className = 'check-item';
+    li.innerHTML = '<span class="check-icon">' + (c.passed ? '✅' : '❌') + '</span>' +
+      '<div><div class="check-label">' + c.label + '</div>' +
+      '<div class="check-desc">' + c.description + '</div>' +
+      (c.detail ? '<div class="check-detail">' + c.detail + '</div>' : '') + '</div>';
+    ul.appendChild(li);
+  });
+})();
+
+// Charts
+const CHARTS = {};
+function isDark() {
+  const t = document.documentElement.getAttribute('data-theme');
+  if (t === 'dark') return true;
+  if (t === 'light') return false;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function buildCharts() {
+  const dark = isDark();
+  const textColor = dark ? '#c3c2b7' : '#52514e';
+  const gridColor = dark ? '#2c2c2a' : '#e1e0d9';
+  const baseColor = dark ? '#383835' : '#c3c2b7';
+  const surfaceColor = dark ? '#1a1a19' : '#fcfcfb';
+  const catColors = dark
+    ? ['#3987e5','#d95926','#199e70','#c98500','#d55181','#008300','#9085e9','#e66767']
+    : ['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300','#6250d6','#e34948'];
+
+  Chart.defaults.color = textColor;
+  Chart.defaults.borderColor = gridColor;
+
+  function mk(id, config) {
+    if (CHARTS[id]) { CHARTS[id].destroy(); }
+    const el = document.getElementById(id);
+    if (!el) return;
+    CHARTS[id] = new Chart(el, config);
+  }
+
+  const axisOpts = {
+    x: { grid: { color: gridColor }, border: { color: baseColor }, ticks: { maxTicksLimit: 8 } },
+    y: { grid: { color: gridColor }, border: { color: baseColor }, beginAtZero: true }
+  };
+
+  // Hosts donut
+  mk('chart-hosts', {
+    type: 'doughnut',
+    data: {
+      labels: DATA.security.host_distribution.map(function(i) { return i[0]; }),
+      datasets: [{ data: DATA.security.host_distribution.map(function(i) { return i[1]; }),
+        backgroundColor: catColors, borderWidth: 2, borderColor: surfaceColor }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: { callbacks: { label: function(ctx) { return ' ' + ctx.label + ': ' + ctx.parsed.toLocaleString(); } } }
+      }
+    }
+  });
+
+  // Daily pseudo %
+  mk('chart-pseudo-daily', {
+    type: 'line',
+    data: {
+      labels: DATA.pseudonymization.daily_dates,
+      datasets: [{ label: '% pseudo', data: DATA.pseudonymization.daily_pct,
+        borderColor: catColors[0], backgroundColor: catColors[0] + '26',
+        fill: true, tension: 0.3, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false,
+        callbacks: { label: function(ctx) { return ' ' + ctx.parsed.y + '%'; } } } },
+      scales: { x: axisOpts.x, y: { ...axisOpts.y, min: 0, max: 100, ticks: { callback: function(v) { return v + '%'; } } } }
+    }
+  });
+
+  // LLM volume bar
+  mk('chart-pseudo-volume', {
+    type: 'bar',
+    data: {
+      labels: DATA.pseudonymization.daily_dates,
+      datasets: [{ label: 'Peticiones LLM', data: DATA.pseudonymization.daily_totals,
+        backgroundColor: catColors[0] + 'b3', borderRadius: 3, borderSkipped: false }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+      scales: axisOpts
+    }
+  });
+
+  // Models bar horizontal
+  mk('chart-models', {
+    type: 'bar',
+    data: {
+      labels: DATA.pseudonymization.model_distribution.map(function(i) { return i[0].replace('claude-',''); }),
+      datasets: [{ data: DATA.pseudonymization.model_distribution.map(function(i) { return i[1]; }),
+        backgroundColor: catColors, borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+      scales: {
+        x: axisOpts.x,
+        y: { grid: { display: false }, border: { color: baseColor }, ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+
+  // Activity bar
+  mk('chart-activity', {
+    type: 'bar',
+    data: {
+      labels: DATA.performance.daily_dates,
+      datasets: [{ label: 'Capturas', data: DATA.performance.daily_counts,
+        backgroundColor: catColors[2] + 'bf', borderRadius: 3, borderSkipped: false }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+      scales: axisOpts
+    }
+  });
+}
+
+buildCharts();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', buildCharts);
+</script>
+</body>
+</html>
