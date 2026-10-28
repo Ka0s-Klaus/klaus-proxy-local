@@ -183,6 +183,10 @@ class ProxyLauncher:
             str(pseudonymize_addon),
             "-s",
             str(capture_addon),
+            # Loopback only: without this mitmproxy binds every interface and
+            # becomes an open proxy for the whole LAN (#47)
+            "--listen-host",
+            self.HOST,
             "-p",
             str(self.PORT),
         ]

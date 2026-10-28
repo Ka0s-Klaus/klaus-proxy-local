@@ -55,7 +55,7 @@ mitmdump --version
 ```bash
 # Terminal 1 — proxy de auditoría en primer plano (logs en vivo):
 mitmdump -s src/anthropic_payload_pseudonymize.py \
-         -s src/anthropic_payload_capture.py -p 8899
+         -s src/anthropic_payload_capture.py --listen-host 127.0.0.1 -p 8899
 
 # Terminal 2 — un claude NUEVO enrutado por el proxy (Node no usa el keychain
 # del sistema, de ahí NODE_EXTRA_CA_CERTS):
