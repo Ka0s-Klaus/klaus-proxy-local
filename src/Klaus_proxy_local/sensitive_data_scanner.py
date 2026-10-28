@@ -354,7 +354,10 @@ class FileTraversal:
 
         # Skip by size (only if file exists)
         try:
-            if file_path.exists() and file_path.stat().st_size > FileTraversal.MAX_FILE_SIZE:
+            if (
+                file_path.exists()
+                and file_path.stat().st_size > FileTraversal.MAX_FILE_SIZE
+            ):
                 return False
         except OSError:
             pass
@@ -417,7 +420,9 @@ class FileTraversal:
         return False
 
     @staticmethod
-    def walk(root_path: Path, progress_callback: Callable[[int], None] | None = None) -> list[Path]:
+    def walk(
+        root_path: Path, progress_callback: Callable[[int], None] | None = None
+    ) -> list[Path]:
         """Walk directory tree, yielding scannable files."""
         files = []
         queue = [root_path]
@@ -513,7 +518,7 @@ class ContextualAnalyzer:
         # Try to parse as JSON first
         try:
             # Find potential JSON objects in the line
-            json_match = re.search(r'\{[^{}]*\}', line)
+            json_match = re.search(r"\{[^{}]*\}", line)
             if json_match:
                 json_str = json_match.group(0)
                 try:
@@ -521,7 +526,7 @@ class ContextualAnalyzer:
                     if isinstance(obj, dict):
                         for key, value in obj.items():
                             # Check if key is a secret variable name
-                            key_normalized = key.lower().replace('-', '_')
+                            key_normalized = key.lower().replace("-", "_")
                             if key_normalized in ContextualAnalyzer.SECRET_VAR_NAMES:
                                 if isinstance(value, str) and len(value) >= 4:
                                     findings.append((value, key))
@@ -535,7 +540,7 @@ class ContextualAnalyzer:
             # Match "var": "value" or 'var': 'value'
             pattern = (
                 r'["\']' + re.escape(var_name) + r'["\']'
-                r'\s*:\s*'
+                r"\s*:\s*"
                 r'["\']([^"\']{4,})["\']'
             )
             match = re.search(pattern, line, re.IGNORECASE)
@@ -939,7 +944,6 @@ class EntropyAnalyzer:
         """
         if not text:
             return 0.0
-
 
         freq = Counter(text)
         entropy = 0.0

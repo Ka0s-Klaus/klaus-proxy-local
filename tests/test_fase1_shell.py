@@ -9,14 +9,12 @@ Verifies:
 - Hook installation
 - Idempotence
 """
-import platform
+import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-
-import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from Klaus_proxy_local import setup_shell
@@ -368,7 +366,9 @@ class TestIntegration:
                     with patch.object(
                         setup_shell, "ask_user_permission", return_value=True
                     ):
-                        with patch("Klaus_proxy_local.install_wrappers.install_wrappers"):
+                        with patch(
+                            "Klaus_proxy_local.install_wrappers.install_wrappers"
+                        ):
                             # Should not raise
                             setup_shell.run_setup()
 
@@ -389,7 +389,9 @@ class TestIntegration:
                     with patch.object(
                         setup_shell, "ask_user_permission", return_value=True
                     ):
-                        with patch("Klaus_proxy_local.install_wrappers.install_wrappers"):
+                        with patch(
+                            "Klaus_proxy_local.install_wrappers.install_wrappers"
+                        ):
                             setup_shell.run_setup()
 
             assert config_file.exists()

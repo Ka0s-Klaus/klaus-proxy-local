@@ -336,8 +336,12 @@ class AnthropicPayloadCapture:
         client_port = None
         status_code = None
         if flow.client_conn:
-            client_addr = flow.client_conn.peername[0] if flow.client_conn.peername else None
-            client_port = flow.client_conn.peername[1] if flow.client_conn.peername else None
+            client_addr = (
+                flow.client_conn.peername[0] if flow.client_conn.peername else None
+            )
+            client_port = (
+                flow.client_conn.peername[1] if flow.client_conn.peername else None
+            )
         if flow.response:
             status_code = flow.response.status_code
 

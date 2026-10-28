@@ -14,22 +14,21 @@ Usage:
 """
 import argparse
 import os
-import re
 import shutil
 import signal
 import subprocess
 import sys
-import threading
 import time
 from pathlib import Path
 
 from Klaus_proxy_local import __version__
 from Klaus_proxy_local.certs import (
     ensure_mitmproxy_certs,
+    generate_env_vars_file,
+    generate_mitmproxy_certs,
+    mitm_executable,
     mitmproxy_cert_dir,
     mitmproxy_cert_file,
-    generate_mitmproxy_certs,
-    generate_env_vars_file,
 )
 from Klaus_proxy_local.setup import init_config_if_missing
 
@@ -74,9 +73,7 @@ class ProxyLauncher:
         if not cert_file.exists():
             print("🔒 Generating mitmproxy certificates...\n")
             if not generate_mitmproxy_certs():
-                raise RuntimeError(
-                    f"❌ Failed to generate certificates at {cert_file}"
-                )
+                raise RuntimeError(f"❌ Failed to generate certificates at {cert_file}")
 
     def ensure_prerequisites(self) -> None:
         """Ensure config and certs exist before launching proxy.
@@ -97,7 +94,7 @@ class ProxyLauncher:
                 salt = self.config.get("salt")
                 if salt:
                     os.environ["ANTHROPIC_PSEUDO_SALT"] = salt
-                    print(f"✅ Exported ANTHROPIC_PSEUDO_SALT from config\n")
+                    print("✅ Exported ANTHROPIC_PSEUDO_SALT from config\n")
         except Exception as e:
             raise RuntimeError(f"❌ Config setup failed: {e}")
 
@@ -120,7 +117,9 @@ class ProxyLauncher:
         env_file = Path.home() / ".klaus-proxy" / "klaus-env.sh"
         print("")
         print("╔" + "═" * 68 + "╗")
-        print(f"║ 🔐 Klaus Proxy Local v{__version__} — Running                              ║")
+        print(
+            f"║ 🔐 Klaus Proxy Local v{__version__} — Running                              ║"
+        )
         print("╚" + "═" * 68 + "╝")
         print("")
         print(f"🎯 Listening on:          {self.HOST}:{self.PORT}")
@@ -146,7 +145,6 @@ class ProxyLauncher:
         print("║ Ready. Use another terminal to run 'claude' with the proxy.      ║")
         print("╚" + "═" * 68 + "╝")
         print("")
-
 
     def launch_mitmdump(self) -> None:
         """Launch mitmdump with pseudonymization and capture addons.
@@ -180,7 +178,7 @@ class ProxyLauncher:
         # then capture (evidence collection)
         # NOTE: No -q flag to show all logs with version prefix
         mitmdump_cmd = [
-            "mitmdump",
+            mitm_executable("mitmdump"),
             "-s",
             str(pseudonymize_addon),
             "-s",
@@ -207,7 +205,9 @@ class ProxyLauncher:
             elif self.config and "capture_dir" in self.config:
                 env["ANTHROPIC_CAPTURE_DIR"] = self.config["capture_dir"]
             else:
-                env["ANTHROPIC_CAPTURE_DIR"] = str(Path.home() / ".klaus-proxy" / "captures")
+                env["ANTHROPIC_CAPTURE_DIR"] = str(
+                    Path.home() / ".klaus-proxy" / "captures"
+                )
 
             # Launch mitmdump without PIPE to preserve colors and enable fast Ctrl+C
             # mitmproxy inherits parent stdout/stderr → ANSI colors work natively
@@ -328,7 +328,10 @@ class ProxyLauncher:
             app.run()
 
         except ImportError as e:
-            print(f"⚠️  Klaus Monitor requires 'textual': pip install textual>=0.70.0", file=sys.stderr)
+            print(
+                "⚠️  Klaus Monitor requires 'textual': pip install textual>=0.70.0",
+                file=sys.stderr,
+            )
             print(f"   Error: {e}", file=sys.stderr)
             print("   Proxy continues running without monitor.\n")
         except Exception as e:
@@ -342,21 +345,19 @@ def main(argv=None) -> None:
         prog="claude-proxy",
         description="Klaus Proxy Local - Privacy-first proxy for Anthropic API",
         epilog="Examples:\n"
-               "  claude-proxy              # Start proxy only\n"
-               "  claude-proxy --monitor    # Start proxy + TUI dashboard",
+        "  claude-proxy              # Start proxy only\n"
+        "  claude-proxy --monitor    # Start proxy + TUI dashboard",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     parser.add_argument(
         "--monitor",
         action="store_true",
-        help="Launch Klaus Monitor TUI dashboard after proxy starts (requires textual>=0.70.0)"
+        help="Launch Klaus Monitor TUI dashboard after proxy starts (requires textual>=0.70.0)",
     )
 
     parser.add_argument(
-        "--version",
-        action="version",
-        version=f"%(prog)s {__version__}"
+        "--version", action="version", version=f"%(prog)s {__version__}"
     )
 
     args = parser.parse_args(argv)

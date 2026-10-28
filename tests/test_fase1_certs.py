@@ -9,13 +9,11 @@ Verifies:
 - Error handling
 """
 import subprocess
-import tempfile
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from Klaus_proxy_local import certs
@@ -52,18 +50,18 @@ class TestMitmproxyDetection:
         assert isinstance(result, bool)
 
     def test_is_mitmproxy_installed_checks_version(self):
-        """is_mitmproxy_installed() runs 'mitmproxy --version'."""
+        """is_mitmproxy_installed() runs 'mitmdump --version'."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
             certs.is_mitmproxy_installed()
             mock_run.assert_called_once()
             # Check that --version was in the call
             args = mock_run.call_args[0][0]
-            assert "mitmproxy" in args
+            assert Path(args[0]).name == "mitmdump"
             assert "--version" in args
 
     def test_is_mitmproxy_installed_true_on_success(self):
-        """is_mitmproxy_installed() returns True if mitmproxy --version succeeds."""
+        """is_mitmproxy_installed() returns True if mitmdump --version succeeds."""
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
             result = certs.is_mitmproxy_installed()
@@ -102,7 +100,7 @@ class TestCertGeneration:
     """Test certificate generation."""
 
     def test_generate_mitmproxy_certs_runs_mitmproxy(self):
-        """generate_mitmproxy_certs() runs 'mitmproxy -q'."""
+        """generate_mitmproxy_certs() runs headless 'mitmdump' on an ephemeral port."""
         with patch("subprocess.run") as mock_run:
             with patch.object(certs, "mitmproxy_cert_file") as mock_cert_file:
                 mock_cert_file.return_value = Path("/tmp/test-cert.pem")
@@ -112,6 +110,10 @@ class TestCertGeneration:
                     result = certs.generate_mitmproxy_certs()
 
         assert result is True
+        args = mock_run.call_args[0][0]
+        # Interactive `mitmproxy` crashes without a TTY (#43)
+        assert Path(args[0]).name == "mitmdump"
+        assert args[-2:] == ["-p", "0"]
 
     def test_generate_mitmproxy_certs_handles_timeout(self):
         """generate_mitmproxy_certs() handles timeout gracefully."""
@@ -287,3 +289,30 @@ To manually verify certs.py works (without actually generating certs):
        print(f"❌ Error: {e}")
    EOF
 """
+
+
+class TestMitmExecutable:
+    """Resolution of mitmproxy binaries outside PATH (#43)."""
+
+    def test_prefers_path(self):
+        """Returns the PATH match when the binary is in PATH."""
+        with patch("shutil.which", return_value="/usr/bin/mitmdump"):
+            assert certs.mitm_executable("mitmdump") == "/usr/bin/mitmdump"
+
+    def test_falls_back_to_interpreter_dir(self, tmp_path):
+        """Falls back to the venv bin/ next to sys.executable."""
+        binary = tmp_path / "mitmdump"
+        binary.write_text("")
+        with (
+            patch("shutil.which", return_value=None),
+            patch.object(sys, "executable", str(tmp_path / "python")),
+        ):
+            assert certs.mitm_executable("mitmdump") == str(binary)
+
+    def test_returns_name_when_not_found(self, tmp_path):
+        """Returns the bare name so callers raise FileNotFoundError as before."""
+        with (
+            patch("shutil.which", return_value=None),
+            patch.object(sys, "executable", str(tmp_path / "python")),
+        ):
+            assert certs.mitm_executable("mitmdump") == "mitmdump"

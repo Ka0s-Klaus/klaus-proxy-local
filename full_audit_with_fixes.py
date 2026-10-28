@@ -17,7 +17,6 @@ Flags:
 
 import subprocess
 import sys
-from pathlib import Path
 
 
 def run_command(cmd: list, description: str) -> tuple[int, str]:
@@ -62,8 +61,7 @@ def main():
     # Step 1: Generate report
     print("\n📊 Paso 1: Generando reporte de auditoría...")
     exit_code, output = run_command(
-        [sys.executable, "generate_audit_report.py"],
-        "Generador de Reportes"
+        [sys.executable, "generate_audit_report.py"], "Generador de Reportes"
     )
 
     if exit_code != 0:
@@ -115,7 +113,9 @@ def main():
             print("\n" + "=" * 70)
             print("✅ RESULTADO FINAL: PSEUDONIMIZACIÓN CORRECTA")
             print("=" * 70)
-            print("\n🎉 Todas las fugas han sido añadidas y pseudonimizadas correctamente\n")
+            print(
+                "\n🎉 Todas las fugas han sido añadidas y pseudonimizadas correctamente\n"
+            )
         else:
             print("\n⚠️  Algunas fugas persisten. Revisa manually:")
             print("   python audit_captures.py --find-leaks\n")

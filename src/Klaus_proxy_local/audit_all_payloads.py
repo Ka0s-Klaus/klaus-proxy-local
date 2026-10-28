@@ -16,10 +16,10 @@ Usage:
 import argparse
 import json
 import sys
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from collections import defaultdict, Counter
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, Optional, Tuple
 
 
 class PayloadAuditor:
@@ -169,13 +169,13 @@ class PayloadAuditor:
         ):
             summary += f"    • {method}: {count}\n"
 
-        summary += f"\n  Hosts:\n"
+        summary += "\n  Hosts:\n"
         for host, count in sorted(
             analysis["hosts"].items(), key=lambda x: x[1], reverse=True
         ):
             summary += f"    • {host}: {count}\n"
 
-        summary += f"\n  Status Codes:\n"
+        summary += "\n  Status Codes:\n"
         for code, count in sorted(
             analysis["status_codes"].items(), key=lambda x: x[1], reverse=True
         ):
@@ -183,7 +183,10 @@ class PayloadAuditor:
 
         # Security assessment
         summary += f"\n🛡️  SECURITY ASSESSMENT\n{'─' * 60}\n"
-        if analysis["pseudonymized"] == sent_count and analysis["secrets_redacted"] == sent_count:
+        if (
+            analysis["pseudonymized"] == sent_count
+            and analysis["secrets_redacted"] == sent_count
+        ):
             summary += "  ✅ All payloads pseudonymized and secrets redacted\n"
             summary += "  ✅ Data protection: EXCELLENT\n"
         elif analysis["pseudonymized"] == sent_count:
@@ -241,7 +244,10 @@ class PayloadAuditor:
             Path to exported CSV file
         """
         if output_file is None:
-            output_file = self.captures_dir / f"audit_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            output_file = (
+                self.captures_dir
+                / f"audit_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            )
 
         import csv
 
@@ -289,9 +295,9 @@ def main():
         prog="audit-all-payloads",
         description="Automatic audit of all captured payloads",
         epilog="Examples:\n"
-               "  audit_all_payloads.py                # Summary\n"
-               "  audit_all_payloads.py --detailed     # Detailed report\n"
-               "  audit_all_payloads.py --export=csv   # Export to CSV",
+        "  audit_all_payloads.py                # Summary\n"
+        "  audit_all_payloads.py --detailed     # Detailed report\n"
+        "  audit_all_payloads.py --export=csv   # Export to CSV",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 

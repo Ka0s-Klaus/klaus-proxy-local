@@ -11,13 +11,11 @@ Verifies:
 """
 import signal
 import subprocess
-import tempfile
+import sys
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-
-import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from Klaus_proxy_local.launcher import ProxyLauncher
@@ -322,10 +320,7 @@ class TestShutdown:
         launcher = ProxyLauncher()
         mock_process = MagicMock()
         # First wait() raises TimeoutExpired, second wait() succeeds
-        mock_process.wait.side_effect = [
-            subprocess.TimeoutExpired("mitmdump", 5),
-            None
-        ]
+        mock_process.wait.side_effect = [subprocess.TimeoutExpired("mitmdump", 5), None]
         launcher.mitmdump_process = mock_process
 
         launcher.shutdown()

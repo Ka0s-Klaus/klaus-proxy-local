@@ -81,6 +81,7 @@ def confidence_from_string(s: str) -> Confidence:
 def print_header() -> None:
     """Print scanner header."""
     from Klaus_proxy_local import __version__
+
     print("\n" + "─" * 60)
     print(f"🔍 Klaus Sensitive Data Scanner v{__version__}")
     print("─" * 60 + "\n")

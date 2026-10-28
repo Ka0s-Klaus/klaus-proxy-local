@@ -10,27 +10,23 @@ Covers:
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
 
 from Klaus_proxy_local.sensitive_data_scanner import (
+    _NETWORK_PATTERNS,
+    _SCANNER_PATTERNS_TIER1,
+    _SECRET_PATTERNS_V1,
+    CharacterDiversityAnalyzer,
     Confidence,
     ContextualAnalyzer,
     EntropyAnalyzer,
-    CharacterDiversityAnalyzer,
-    FileTraversal,
     FileContextAnalyzer,
+    FileTraversal,
     HeuristicDetector,
     PatternDetector,
     ScanResult,
     SensitiveDataFinding,
     SensitiveDataScanner,
-    _NETWORK_PATTERNS,
-    _SCANNER_PATTERNS_TIER1,
-    _SECRET_PATTERNS_V1,
 )
-
 
 # --- Test Confidence Enum ---
 
@@ -429,7 +425,7 @@ class TestSensitiveDataScanner:
             (root / "file1.py").write_text("x = 1")
             (root / "file2.py").write_text("y = 2")
 
-            result = scanner.scan_directory(root, progress_callback)
+            scanner.scan_directory(root, progress_callback)
 
             # Progress callback should have been called
             assert len(progress_calls) > 0
@@ -442,10 +438,14 @@ class TestSensitiveDataScanner:
 
             # Create directory structure
             (root / "src").mkdir()
-            (root / "src" / ".env").write_text("STRIPE_KEY=sk_live_1234567890abcdefghij")
+            (root / "src" / ".env").write_text(
+                "STRIPE_KEY=sk_live_1234567890abcdefghij"
+            )
 
             (root / ".git").mkdir()
-            (root / ".git" / "config").write_text("OPENAI_KEY=sk_live_1234567890abcdefghij")
+            (root / ".git" / "config").write_text(
+                "OPENAI_KEY=sk_live_1234567890abcdefghij"
+            )
 
             result = scanner.scan_directory(root)
 
@@ -585,7 +585,7 @@ class TestContextualAnalyzer:
 
     def test_no_detection_in_comments(self):
         line = "# password: this is not a real password"
-        findings = ContextualAnalyzer.analyze_line(line)
+        ContextualAnalyzer.analyze_line(line)
         # May or may not detect in comments - implementation choice
         # For now, we're lenient and allow it
         pass
@@ -597,7 +597,9 @@ class TestContextualAnalyzer:
 
     def test_json_key_detection_complex(self):
         """TIER 2.1: JSON key detection with nested structures"""
-        line = '{"database": {"db_password": "secure_pass_12345", "db_host": "localhost"}}'
+        line = (
+            '{"database": {"db_password": "secure_pass_12345", "db_host": "localhost"}}'
+        )
         findings = ContextualAnalyzer.analyze_line(line)
         # Should detect db_password as a secret variable
         var_names = {f[1] for f in findings}

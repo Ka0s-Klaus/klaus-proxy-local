@@ -22,10 +22,10 @@ Ejemplos:
     python scripts/inspect_vault.py --captures original
 """
 
-import json
 import argparse
+import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 def get_vault_path() -> Path:
@@ -51,15 +51,19 @@ def load_vault() -> Dict[str, Any]:
         print("   Asegúrate de haber ejecutado claude-proxy antes")
         return {}
 
-    with open(vault_path, 'r') as f:
+    with open(vault_path, "r") as f:
         data = json.load(f)
 
     # Normalizar formato: si es dict plano, convertir a estructura estándar
-    if isinstance(data, dict) and 'real_to_pseudo' not in data and 'pseudo_to_real' not in data:
+    if (
+        isinstance(data, dict)
+        and "real_to_pseudo" not in data
+        and "pseudo_to_real" not in data
+    ):
         # Es formato plano - convertir a formato estándar
         real_to_pseudo = data
         pseudo_to_real = {v: k for k, v in real_to_pseudo.items()}
-        return {'real_to_pseudo': real_to_pseudo, 'pseudo_to_real': pseudo_to_real}
+        return {"real_to_pseudo": real_to_pseudo, "pseudo_to_real": pseudo_to_real}
 
     return data
 
@@ -73,14 +77,14 @@ def show_all_mappings(vault: Dict[str, Any]):
         print("❌ Vault vacío")
         return
 
-    real_to_pseudo = vault.get('real_to_pseudo', {})
+    real_to_pseudo = vault.get("real_to_pseudo", {})
 
     print(f"Total de mapeos: {len(real_to_pseudo)}\n")
 
     for i, (real, pseudo) in enumerate(real_to_pseudo.items(), 1):
         print(f"{i}. Valor real:")
         print(f"   └─ {real}")
-        print(f"   Pseudonimizado:")
+        print("   Pseudonimizado:")
         print(f"   └─ {pseudo}\n")
 
 
@@ -89,7 +93,7 @@ def show_forward_mapping(vault: Dict[str, Any]):
     print("\n📋 MAPEO REAL → PSEUDONIMIZADO")
     print("════════════════════════════════════════════════════════════════\n")
 
-    real_to_pseudo = vault.get('real_to_pseudo', {})
+    real_to_pseudo = vault.get("real_to_pseudo", {})
 
     if not real_to_pseudo:
         print("❌ No hay mapeos")
@@ -103,7 +107,7 @@ def show_reverse_mapping(vault: Dict[str, Any]):
     print("\n📋 MAPEO PSEUDONIMIZADO → REAL")
     print("════════════════════════════════════════════════════════════════\n")
 
-    pseudo_to_real = vault.get('pseudo_to_real', {})
+    pseudo_to_real = vault.get("pseudo_to_real", {})
 
     if not pseudo_to_real:
         print("❌ No hay mapeos")
@@ -117,15 +121,15 @@ def search_mapping(vault: Dict[str, Any], term: str):
     print(f"\n🔍 BUSCANDO: '{term}'")
     print("════════════════════════════════════════════════════════════════\n")
 
-    real_to_pseudo = vault.get('real_to_pseudo', {})
-    pseudo_to_real = vault.get('pseudo_to_real', {})
+    real_to_pseudo = vault.get("real_to_pseudo", {})
+    pseudo_to_real = vault.get("pseudo_to_real", {})
 
     found = False
 
     # Buscar en reales
     for real, pseudo in real_to_pseudo.items():
         if term.lower() in real.lower():
-            print(f"✓ Encontrado (como valor REAL):")
+            print("✓ Encontrado (como valor REAL):")
             print(f"  Real: {real}")
             print(f"  Pseudo: {pseudo}\n")
             found = True
@@ -133,7 +137,7 @@ def search_mapping(vault: Dict[str, Any], term: str):
     # Buscar en pseudonimizados
     for pseudo, real in pseudo_to_real.items():
         if term.lower() in pseudo.lower():
-            print(f"✓ Encontrado (como valor PSEUDO):")
+            print("✓ Encontrado (como valor PSEUDO):")
             print(f"  Pseudo: {pseudo}")
             print(f"  Real: {real}\n")
             found = True
@@ -172,21 +176,21 @@ def show_stats(vault: Dict[str, Any]):
     print("\n📊 ESTADÍSTICAS DEL VAULT")
     print("════════════════════════════════════════════════════════════════\n")
 
-    real_to_pseudo = vault.get('real_to_pseudo', {})
+    real_to_pseudo = vault.get("real_to_pseudo", {})
 
     total = len(real_to_pseudo)
 
     # Categorizar por tipo
     categories = {}
     for real in real_to_pseudo.keys():
-        if real.startswith('/'):
-            cat = 'Rutas'
-        elif '@' in real:
-            cat = 'Emails'
-        elif real.startswith('sk-'):
-            cat = 'API Keys'
+        if real.startswith("/"):
+            cat = "Rutas"
+        elif "@" in real:
+            cat = "Emails"
+        elif real.startswith("sk-"):
+            cat = "API Keys"
         else:
-            cat = 'Otros'
+            cat = "Otros"
 
         categories[cat] = categories.get(cat, 0) + 1
 
@@ -203,34 +207,22 @@ def main():
     )
 
     parser.add_argument(
-        '--all',
-        action='store_true',
-        help='Mostrar todas las anonimizaciones'
+        "--all", action="store_true", help="Mostrar todas las anonimizaciones"
     )
     parser.add_argument(
-        '--forward',
-        action='store_true',
-        help='Mostrar mapeo real → pseudo'
+        "--forward", action="store_true", help="Mostrar mapeo real → pseudo"
     )
     parser.add_argument(
-        '--reverse',
-        action='store_true',
-        help='Mostrar mapeo pseudo → real'
+        "--reverse", action="store_true", help="Mostrar mapeo pseudo → real"
     )
     parser.add_argument(
-        '--search',
-        type=str,
-        help='Buscar una anonimización específica'
+        "--search", type=str, help="Buscar una anonimización específica"
     )
     parser.add_argument(
-        '--captures',
-        choices=['original', 'sent'],
-        help='Listar archivos de capturas'
+        "--captures", choices=["original", "sent"], help="Listar archivos de capturas"
     )
     parser.add_argument(
-        '--stats',
-        action='store_true',
-        help='Mostrar estadísticas del vault'
+        "--stats", action="store_true", help="Mostrar estadísticas del vault"
     )
 
     args = parser.parse_args()
@@ -259,5 +251,5 @@ def main():
         print("💡 Usa --help para ver más opciones")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

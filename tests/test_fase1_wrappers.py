@@ -8,7 +8,6 @@ Verifies:
 - Arguments passed through to claude
 - Each shell variant works
 """
-import os
 import subprocess
 from pathlib import Path
 
