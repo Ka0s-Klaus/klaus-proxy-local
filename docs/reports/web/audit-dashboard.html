@@ -143,12 +143,12 @@
   <div class="header-top">
     <div>
       <h1>🔌 Klaus Proxy &mdash; Audit Dashboard</h1>
-      <div class="meta">Generado: 2026-10-28 12:51 &middot; Capturas totales: 11,856 &middot; Periodo: 2026-07-22 → 2026-10-28</div>
+      <div class="meta">Generado: 2026-10-28 13:44 &middot; Capturas totales: 11,921 &middot; Periodo: 2026-07-22 → 2026-10-28</div>
     </div>
     <button class="theme-btn" onclick="toggleTheme()">🌙 Modo oscuro</button>
   </div>
   <div class="summary-cards" id="summary-cards">
-    <div class="summary-card" data-tab="security"><div class="card-title">🔐 Seguridad</div><div class="card-status"><span class="status-dot" style="background:#d03b3b"></span>🔴 Crítico</div></div><div class="summary-card" data-tab="pseudo"><div class="card-title">📊 Pseudonimización</div><div class="card-status"><span class="status-dot" style="background:#fab219"></span>⚠️ Revisar</div></div><div class="summary-card" data-tab="perf"><div class="card-title">⚡ Actividad</div><div class="card-status"><span class="status-dot" style="background:#0ca30c"></span>✅ OK</div></div><div class="summary-card" data-tab="tests"><div class="card-title">🧪 Tests</div><div class="card-status"><span class="status-dot" style="background:#fab219"></span>⚠️ Revisar</div></div><div class="summary-card" data-tab="efdef"><div class="card-title">📋 EFDEF</div><div class="card-status"><span class="status-dot" style="background:#0ca30c"></span>✅ OK</div></div>
+    <div class="summary-card" data-tab="security"><div class="card-title">🔐 Seguridad</div><div class="card-status"><span class="status-dot" style="background:#0ca30c"></span>✅ OK</div></div><div class="summary-card" data-tab="pseudo"><div class="card-title">📊 Pseudonimización</div><div class="card-status"><span class="status-dot" style="background:#fab219"></span>⚠️ Revisar</div></div><div class="summary-card" data-tab="perf"><div class="card-title">⚡ Actividad</div><div class="card-status"><span class="status-dot" style="background:#0ca30c"></span>✅ OK</div></div><div class="summary-card" data-tab="tests"><div class="card-title">🧪 Tests</div><div class="card-status"><span class="status-dot" style="background:#0ca30c"></span>✅ OK</div></div><div class="summary-card" data-tab="efdef"><div class="card-title">📋 EFDEF</div><div class="card-status"><span class="status-dot" style="background:#0ca30c"></span>✅ OK</div></div>
   </div>
 </div>
 
@@ -166,22 +166,22 @@
 <div id="panel-security" class="panel active">
   <div class="section-header">
     <h2>🔐 Auditoría de Seguridad</h2>
-    <span class="status-badge" style="background:#d03b3b">🔴 Crítico</span>
+    <span class="status-badge" style="background:#0ca30c">✅ OK</span>
   </div>
   <div class="grid-3 mb12">
     <div class="stat-tile">
       <div class="stat-label">Capturas totales</div>
-      <div class="stat-value">11,856</div>
+      <div class="stat-value">11,921</div>
       <div class="stat-sub">todos los endpoints</div>
     </div>
     <div class="stat-tile">
       <div class="stat-label">Secretos redactados</div>
       <div class="stat-value">100.0%</div>
-      <div class="stat-sub">11,856 de 11,856</div>
+      <div class="stat-sub">11,921 de 11,921</div>
     </div>
     <div class="stat-tile">
       <div class="stat-label">Hosts inesperados</div>
-      <div class="stat-value" style="color:#d03b3b">721</div>
+      <div class="stat-value" style="color:#0ca30c">0</div>
       <div class="stat-sub">se espera solo api.anthropic.com</div>
     </div>
   </div>
@@ -196,7 +196,7 @@
         <thead><tr><th>Host</th><th>Capturas</th><th>Estado</th></tr></thead>
         <tbody id="hosts-table-body"></tbody>
       </table>
-      <div class="mt12" style="font-size:.8rem;color:#fab219">⚠️ 1 patrones de injection detectados:<ul style="margin-top:4px;padding-left:16px;color:var(--text-muted)"><li>2026-07-22T14:20:00</li></ul></div>
+      <div class="mt12" style="font-size:.8rem;color:#0ca30c">✅ Sin patrones de prompt injection detectados.</div>
     </div>
   </div>
 </div>
@@ -215,7 +215,7 @@
     </div>
     <div class="stat-tile">
       <div class="stat-label">Entradas en el vault</div>
-      <div class="stat-value">267</div>
+      <div class="stat-value">271</div>
       <div class="stat-sub">pares real &rarr; pseudónimo</div>
     </div>
     <div class="stat-tile">
@@ -249,17 +249,17 @@
   <div class="grid-3 mb12">
     <div class="stat-tile">
       <div class="stat-label">Capturas últimos 30 días</div>
-      <div class="stat-value">298</div>
+      <div class="stat-value">363</div>
       <div class="stat-sub">5 días activos</div>
     </div>
     <div class="stat-tile">
       <div class="stat-label">Promedio por día activo</div>
-      <div class="stat-value">59.6</div>
+      <div class="stat-value">72.6</div>
       <div class="stat-sub">capturas / día</div>
     </div>
     <div class="stat-tile">
       <div class="stat-label">Total histórico</div>
-      <div class="stat-value">11,856</div>
+      <div class="stat-value">11,921</div>
       <div class="stat-sub">desde el primer día</div>
     </div>
   </div>
@@ -289,18 +289,18 @@
 <div id="panel-tests" class="panel">
   <div class="section-header">
     <h2>🧪 Cobertura de Tests</h2>
-    <span class="status-badge" style="background:#fab219">⚠️ Revisar</span>
+    <span class="status-badge" style="background:#0ca30c">✅ OK</span>
   </div>
   <div class="grid-3 mb12">
     <div class="stat-tile">
       <div class="stat-label">Tests totales</div>
-      <div class="stat-value">0</div>
+      <div class="stat-value">464</div>
       <div class="stat-sub">colectados por pytest</div>
     </div>
     <div class="stat-tile">
       <div class="stat-label">Tests pasando</div>
-      <div class="stat-value" style="color:var(--good)">0</div>
-      <div class="stat-sub">0% pass rate</div>
+      <div class="stat-value" style="color:var(--good)">464</div>
+      <div class="stat-sub">100.0% pass rate</div>
     </div>
     <div class="stat-tile">
       <div class="stat-label">Tests fallando</div>
@@ -311,10 +311,10 @@
   <div class="card mb12">
     <h3>Pass rate</h3>
     <div class="progress-bar mt8" style="height:12px">
-      <div class="progress-fill" style="width:0%;background:#fab219"></div>
+      <div class="progress-fill" style="width:100.0%;background:#0ca30c"></div>
     </div>
     <div style="font-size:.78rem;color:var(--text-secondary);margin-top:4px">
-      0% &mdash; 0 passed / 0 failed / 0 errors
+      100.0% &mdash; 464 passed / 0 failed / 0 errors
     </div>
   </div>
   <div class="card">
@@ -354,7 +354,7 @@
 </main>
 
 <script>
-const DATA = {"security": {"status": "critical", "total": 11856, "secrets_redacted": 11856, "secrets_redacted_pct": 100.0, "blocked": 163, "unexpected_hosts": ["llm.tools.cloud.masorange.es"], "unexpected_count": 721, "injection_hits": ["2026-07-22T14:20:00"], "injection_count": 1, "host_distribution": [["api.anthropic.com", 11135], ["llm.tools.cloud.masorange.es", 721]]}, "pseudonymization": {"status": "warning", "total_llm": 724, "pseudo_yes": 548, "pseudo_no": 176, "pct": 75.7, "daily_dates": ["2026-07-31", "2026-09-04", "2026-10-19"], "daily_pct": [57.5, 100.0, 50.0], "daily_totals": [400, 1, 2], "vault_entries": 267, "literals_count": 1, "word_literals_count": 4, "model_distribution": [["claude-haiku-4-5-20251001", 400], ["claude-opus-4-8", 320], ["claude-haiku-5-5", 2], ["claude-sonnet-4-6", 1], ["claude-3-5-sonnet-20241022", 1]]}, "performance": {"status": "good", "total_all": 11856, "total_last30": 298, "active_days": 5, "avg_per_active_day": 59.6, "daily_dates": ["2026-09-28", "2026-09-29", "2026-10-08", "2026-10-19", "2026-10-28"], "daily_counts": [121, 52, 5, 3, 117], "path_distribution": [["/api/event_logging/v2/batch", 10735], ["/v1/messages?beta=true", 714], ["/api/eval/...", 221], ["/mcp-registry/...", 158], ["/api/web/domain_info", 17], ["/v1/messages/count_tokens?beta=true", 9], ["/v1/messages", 1], ["/v1/models", 1]], "status_distribution": [["no_status", 10285], ["200", 1568], ["401", 3]], "recent": [{"ts": "2026-10-28T12:46:57", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}, {"ts": "2026-10-28T12:46:27", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}, {"ts": "2026-10-28T12:45:53", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}, {"ts": "2026-10-28T12:45:23", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}, {"ts": "2026-10-28T12:44:52", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}]}, "tests": {"status": "warning", "test_count": 0, "passed": 0, "failed": 0, "errors": 0, "pass_rate": 0, "output_summary": ["/Library/Developer/CommandLineTools/usr/bin/python3: No module named pytest"]}, "efdef": {"status": "good", "checks": [{"label": "config.json", "description": "Archivo de configuración existe", "passed": true, "detail": ""}, {"label": "Vault existe", "description": "Vault de pseudonimización creado y accesible", "passed": true, "detail": "267 entradas"}, {"label": "Salt configurado", "description": "ANTHROPIC_PSEUDO_SALT generado (>=16 chars)", "passed": true, "detail": "salt de 32 chars"}, {"label": "pseudo_literals key", "description": "config.json contiene pseudo_literals para persistencia", "passed": true, "detail": ""}, {"label": "pseudo_word_literals key", "description": "config.json contiene pseudo_word_literals", "passed": true, "detail": ""}, {"label": "Certificado CA", "description": "Certificado mitmproxy generado y disponible", "passed": true, "detail": ""}, {"label": "Klaus env file", "description": "~/.klaus-proxy/klaus-env.sh con vars SSL/TLS", "passed": true, "detail": ""}, {"label": "docs/architecture/", "description": "Carpeta docs/architecture/ existe (EFDEF Sección 23)", "passed": true, "detail": ""}, {"label": "docs/guides/", "description": "Carpeta docs/guides/ existe (EFDEF Sección 23)", "passed": true, "detail": ""}, {"label": "docs/reports/", "description": "Carpeta docs/reports/ existe (EFDEF Sección 23)", "passed": true, "detail": ""}, {"label": "docs/decisions/", "description": "Carpeta docs/decisions/ existe (EFDEF Sección 23)", "passed": true, "detail": ""}, {"label": "README docs section", "description": "README.md tiene sección Documentación como mapa del proyecto", "passed": true, "detail": ""}, {"label": "Workflow CLAUDE.md", "description": "CLAUDE.md documenta flujo Issue→Rama→PR (Sección 22)", "passed": true, "detail": ""}], "passed": 13, "total": 13, "pct": 100.0}};
+const DATA = {"security": {"status": "good", "total": 11921, "secrets_redacted": 11921, "secrets_redacted_pct": 100.0, "blocked": 163, "unexpected_hosts": [], "unexpected_count": 0, "injection_hits": [], "injection_count": 0, "host_distribution": [["api.anthropic.com", 11200], ["llm.tools.cloud.masorange.es", 721]]}, "pseudonymization": {"status": "warning", "total_llm": 724, "pseudo_yes": 548, "pseudo_no": 176, "pct": 75.7, "daily_dates": ["2026-07-31", "2026-09-04", "2026-10-19"], "daily_pct": [57.5, 100.0, 50.0], "daily_totals": [400, 1, 2], "vault_entries": 271, "literals_count": 1, "word_literals_count": 4, "model_distribution": [["claude-haiku-4-5-20251001", 400], ["claude-opus-4-8", 320], ["claude-haiku-5-5", 2], ["claude-sonnet-4-6", 1], ["claude-3-5-sonnet-20241022", 1]]}, "performance": {"status": "good", "total_all": 11921, "total_last30": 363, "active_days": 5, "avg_per_active_day": 72.6, "daily_dates": ["2026-09-28", "2026-09-29", "2026-10-08", "2026-10-19", "2026-10-28"], "daily_counts": [121, 52, 5, 3, 182], "path_distribution": [["/api/event_logging/v2/batch", 10800], ["/v1/messages?beta=true", 714], ["/api/eval/...", 221], ["/mcp-registry/...", 158], ["/api/web/domain_info", 17], ["/v1/messages/count_tokens?beta=true", 9], ["/v1/messages", 1], ["/v1/models", 1]], "status_distribution": [["no_status", 10285], ["200", 1633], ["401", 3]], "recent": [{"ts": "2026-10-28T13:44:12", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}, {"ts": "2026-10-28T13:43:41", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}, {"ts": "2026-10-28T13:43:11", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}, {"ts": "2026-10-28T13:42:37", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}, {"ts": "2026-10-28T13:42:02", "path": "/api/event_logging/v2/batch", "host": "api.anthropic.com"}]}, "tests": {"status": "good", "test_count": 464, "passed": 464, "failed": 0, "errors": 0, "pass_rate": 100.0, "output_summary": ["........................................................................ [ 15%]", "........................................................................ [ 30%]", "........................................................................ [ 46%]", "........................................................................ [ 61%]", ".................................s...................................... [ 77%]", "......s................................................................. [ 92%]", "..................................                                       [100%]", "464 passed, 2 skipped in 3.18s"]}, "efdef": {"status": "good", "checks": [{"label": "config.json", "description": "Archivo de configuración existe", "passed": true, "detail": ""}, {"label": "Vault existe", "description": "Vault de pseudonimización creado y accesible", "passed": true, "detail": "271 entradas"}, {"label": "Salt configurado", "description": "ANTHROPIC_PSEUDO_SALT generado (>=16 chars)", "passed": true, "detail": "salt de 32 chars"}, {"label": "pseudo_literals key", "description": "config.json contiene pseudo_literals para persistencia", "passed": true, "detail": ""}, {"label": "pseudo_word_literals key", "description": "config.json contiene pseudo_word_literals", "passed": true, "detail": ""}, {"label": "Certificado CA", "description": "Certificado mitmproxy generado y disponible", "passed": true, "detail": ""}, {"label": "Klaus env file", "description": "~/.klaus-proxy/klaus-env.sh con vars SSL/TLS", "passed": true, "detail": ""}, {"label": "docs/architecture/", "description": "Carpeta docs/architecture/ existe (EFDEF Sección 23)", "passed": true, "detail": ""}, {"label": "docs/guides/", "description": "Carpeta docs/guides/ existe (EFDEF Sección 23)", "passed": true, "detail": ""}, {"label": "docs/reports/", "description": "Carpeta docs/reports/ existe (EFDEF Sección 23)", "passed": true, "detail": ""}, {"label": "docs/decisions/", "description": "Carpeta docs/decisions/ existe (EFDEF Sección 23)", "passed": true, "detail": ""}, {"label": "README docs section", "description": "README.md tiene sección Documentación como mapa del proyecto", "passed": true, "detail": ""}, {"label": "Workflow CLAUDE.md", "description": "CLAUDE.md documenta flujo Issue→Rama→PR (Sección 22)", "passed": true, "detail": ""}], "passed": 13, "total": 13, "pct": 100.0}};
 
 function toggleTheme() {
   const r = document.documentElement;

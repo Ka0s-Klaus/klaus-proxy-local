@@ -53,7 +53,20 @@ def _ts_to_date(ts_str: str | None) -> str | None:
 # Audit Plan 1 — Seguridad
 # ──────────────────────────────────────────────────────────────────────────────
 
-EXPECTED_HOSTS = {"api.anthropic.com"}
+def _load_expected_hosts() -> set[str]:
+    """Lee los hosts esperados desde config.json. Fallback: solo api.anthropic.com."""
+    try:
+        cfg_path = Path.home() / ".klaus-proxy" / "config.json"
+        if cfg_path.exists():
+            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+            hosts = [h.strip().lower() for h in cfg.get("hosts", []) if h.strip()]
+            if hosts:
+                return set(hosts)
+    except Exception:
+        pass
+    return {"api.anthropic.com"}
+
+EXPECTED_HOSTS = _load_expected_hosts()
 
 INJECTION_PATTERNS = [
     r"ignore (?:all )?previous instructions",
@@ -88,8 +101,13 @@ def audit_security(original: list[dict], _sent: list[dict]) -> dict:
             blocked += 1
         payload = cap.get("payload")
         if isinstance(payload, dict):
-            content_str = json.dumps(payload)
-            if _INJECTION_RE.search(content_str):
+            # Solo analizar mensajes de rol "user" — evitar falsos positivos
+            # del system prompt (que puede mencionar patrones como "jailbreak")
+            user_content = json.dumps([
+                m for m in payload.get("messages", [])
+                if m.get("role") == "user"
+            ])
+            if _INJECTION_RE.search(user_content):
                 injection_hits.append(cap.get("captured_at", "?")[:19])
 
     unexpected_unique = list(dict.fromkeys(unexpected_hosts))
@@ -265,7 +283,7 @@ def audit_tests(project_root: Path) -> dict:
 
     try:
         run_res = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", "--no-header", "--tb=no"],
+            [sys.executable, "-m", "pytest", "--no-header", "--tb=no"],
             cwd=project_root,
             capture_output=True,
             text=True,

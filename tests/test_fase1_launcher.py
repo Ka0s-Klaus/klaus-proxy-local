@@ -368,7 +368,7 @@ class TestMainFunction:
         with patch.object(ProxyLauncher, "run"):
             from Klaus_proxy_local.launcher import main
 
-            main()
+            main(argv=[])
             # If no exception, test passes
 
     def test_main_calls_run(self):
@@ -376,7 +376,7 @@ class TestMainFunction:
         with patch.object(ProxyLauncher, "run") as mock_run:
             from Klaus_proxy_local.launcher import main
 
-            main()
+            main(argv=[])
             mock_run.assert_called_once()
 
 
