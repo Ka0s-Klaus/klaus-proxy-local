@@ -102,7 +102,16 @@ _DEFAULT_HOSTS = ("api.anthropic.com",)
 # Regex de datos sensibles con forma reconocible.
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 # IPv4 con 4 octetos delimitados por punto (evita versiones tipo 4.8.0).
-_IPV4_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+# Cada octeto debe estar en 0–255 y la secuencia no puede formar parte de una
+# más larga (2.1.312.625, 1.2.3.4.5). Tampoco cuenta como IP lo que va tras
+# ``version=``/``version:`` (``cc_version=`` en la cabecera de facturación de
+# Claude Code), aunque sus octetos sean válidos (#57).
+_IPV4_OCTET = r"(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)"
+_IPV4_RE = re.compile(
+    r"(?<![\w.])(?<![Vv]ersion=)(?<![Vv]ersion:)"
+    rf"{_IPV4_OCTET}(?:\.{_IPV4_OCTET}){{3}}"
+    r"(?![\w]|\.\d)"
+)
 
 # --- Secretos (Tier 1): redacción IRREVERSIBLE ------------------------------
 # El cuerpo del payload NO se redacta como las cabeceras. Si un fichero leído
