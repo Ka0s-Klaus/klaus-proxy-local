@@ -836,3 +836,152 @@ def test_config_write_failure_still_protects_in_memory(tmp_config, monkeypatch):
     ]
     assert "acme-repo" in rules.word_literals
     assert "solo hasta reiniciar" in addon.logs[-1][1]
+
+
+# --- restauración de responses SSE con seudónimos partidos (#67) ----------------
+
+
+def _sse_event(kind, data):
+    return f"event: {kind}\ndata: {json.dumps(data)}\n\n"
+
+
+def _sse_response(blocks):
+    """SSE con la forma de /v1/messages: ``blocks`` = [(delta_type, field, chunks)]."""
+    out = _sse_event(
+        "message_start",
+        {"type": "message_start", "message": {"id": "msg_1", "content": []}},
+    )
+    for index, (delta_type, field, chunks) in enumerate(blocks):
+        out += _sse_event(
+            "content_block_start",
+            {"type": "content_block_start", "index": index, "content_block": {}},
+        )
+        for chunk in chunks:
+            out += _sse_event(
+                "content_block_delta",
+                {
+                    "type": "content_block_delta",
+                    "index": index,
+                    "delta": {"type": delta_type, field: chunk},
+                },
+            )
+        out += _sse_event(
+            "content_block_stop", {"type": "content_block_stop", "index": index}
+        )
+    out += _sse_event("message_stop", {"type": "message_stop"})
+    return out
+
+
+def _client_view(raw):
+    """Lo que reconstruye el cliente: {(index, field): texto concatenado}."""
+    view = {}
+    for line in raw.splitlines():
+        if not line.startswith("data: "):
+            continue
+        obj = json.loads(line[6:])
+        if obj.get("type") != "content_block_delta":
+            continue
+        delta = obj["delta"]
+        field = ps._SSE_DELTA_FIELDS[delta["type"]]
+        view[(obj["index"], field)] = view.get((obj["index"], field), "") + delta[field]
+    return view
+
+
+def _split(text, *cuts):
+    pieces, prev = [], 0
+    for cut in cuts:
+        pieces.append(text[prev:cut])
+        prev = cut
+    return pieces + [text[prev:]]
+
+
+@pytest.fixture
+def path_vault():
+    v = ps.Vault()
+    real = "/Users/alice/dev/acme"
+    return v, real, v.map_path(real, "proj")
+
+
+@pytest.mark.parametrize(
+    "delta_type,field",
+    [
+        ("text_delta", "text"),
+        ("thinking_delta", "thinking"),
+    ],
+)
+def test_restore_sse_joins_pseudonym_split_across_deltas(path_vault, delta_type, field):
+    v, real, pseudo = path_vault
+    text = f"La ruta es {pseudo}/src."
+    start = text.index(pseudo)
+    raw = _sse_response([(delta_type, field, _split(text, start + 3, start + 9))])
+    out = ps.restore_body(raw, v)
+    assert _client_view(out) == {(0, field): f"La ruta es {real}/src."}
+    assert out.count("event: ") == raw.count("event: ")
+
+
+def test_restore_sse_tool_use_input_split_and_escaped(path_vault):
+    v, _real, pseudo = path_vault
+    real_quote = 'C:\\Users\\a "b"'
+    pseudo_quote = v.map(real_quote, "id")
+    args = json.dumps({"command": f"cd {pseudo} && echo {pseudo_quote}"})
+    cut = args.index(pseudo) + 4
+    raw = _sse_response([("input_json_delta", "partial_json", _split(args, cut))])
+    view = _client_view(ps.restore_body(raw, v))
+    assert json.loads(view[(0, "partial_json")]) == {
+        "command": f"cd {_real} && echo {real_quote}"
+    }
+
+
+def test_restore_sse_keeps_blocks_separate(path_vault):
+    v, real, pseudo = path_vault
+    raw = _sse_response(
+        [
+            ("text_delta", "text", ["uno ", pseudo[:5]]),
+            ("text_delta", "text", [pseudo[5:], " dos"]),
+        ]
+    )
+    # Un seudónimo no cruza bloques: cada bloque se restaura por separado.
+    assert _client_view(ps.restore_body(raw, v)) == {
+        (0, "text"): "uno " + pseudo[:5],
+        (1, "text"): pseudo[5:] + " dos",
+    }
+
+
+def test_restore_sse_untouched_when_nothing_to_restore(path_vault):
+    v, _real, _pseudo = path_vault
+    raw = _sse_response([("text_delta", "text", ["hola ", "mundo"])])
+    assert ps.restore_body(raw, v) == raw
+
+
+def test_restore_sse_falls_back_on_unparseable_event(path_vault):
+    v, real, pseudo = path_vault
+    raw = f"event: x\ndata: {{roto\n\nruta {pseudo}\n\n"
+    assert ps.restore_body(raw, v) == f"event: x\ndata: {{roto\n\nruta {real}\n\n"
+
+
+def test_restore_sse_restores_other_events_as_json(path_vault):
+    v, real, pseudo = path_vault
+    raw = _sse_event(
+        "content_block_start",
+        {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {
+                "type": "tool_use",
+                "name": "Bash",
+                "input": {"cwd": pseudo},
+            },
+        },
+    )
+    out = ps.restore_body(raw, v)
+    data = json.loads(out.split("data: ", 1)[1])
+    assert data["content_block"]["input"]["cwd"] == real
+
+
+def test_sse_block_text_finds_split_unreversed_pseudonym(path_vault):
+    v, _real, pseudo = path_vault
+    raw = _sse_response([("text_delta", "text", [pseudo[:4], pseudo[4:]])])
+    assert ps._find_unreversed_pseudonyms(raw, v) == []
+    assert ps._find_unreversed_pseudonyms(ps.sse_block_text(raw), v) == [
+        pseudo.lstrip("/")
+    ]
