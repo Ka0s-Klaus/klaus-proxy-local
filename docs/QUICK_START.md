@@ -2,7 +2,7 @@
 
 > **Get started in 2 minutes.**
 
-**Status:** ✅ Ready for v0.3.3  
+**Status:** ✅ Ready for v0.4.0  
 **Audience:** Individual developers  
 **Related:** [setup.md](./setup.md) | [USER_GUIDE.md](./USER_GUIDE.md)
 
