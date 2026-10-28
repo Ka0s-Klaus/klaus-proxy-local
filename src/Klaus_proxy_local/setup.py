@@ -163,14 +163,14 @@ def migrate_config_paths() -> None:
         os.chmod(cfg_file, 0o600)
 
 
-def _remote_tokens(url: str) -> list[str]:
-    """org/repo de una URL de remote, con el mismo parser que el seudonimizador."""
+def _pseudonymizer():
+    """Addon del seudonimizador (vive suelto en src/, fuera del paquete)."""
     src_path = Path(__file__).resolve().parent.parent
     if str(src_path) not in sys.path:
         sys.path.insert(0, str(src_path))
-    from anthropic_payload_pseudonymize import _parse_remote_tokens
+    import anthropic_payload_pseudonymize
 
-    return _parse_remote_tokens(url)
+    return anthropic_payload_pseudonymize
 
 
 def remember_repo_tokens(cwd: Path | None = None) -> tuple[list[str], list[str]]:
@@ -179,18 +179,12 @@ def remember_repo_tokens(cwd: Path | None = None) -> tuple[list[str], list[str]]
     The pseudonymizer only detects org/repo from the remote of mitmdump's working
     directory, so starting claude-proxy outside the repo silently dropped them
     (#61). Saving them in config.json keeps them protected wherever the proxy
-    starts from.
+    starts from. The write is atomic: mitmdump also adds tokens it learns (#63).
 
     Returns ``(added, protected)``: tokens added now and the full list in config.
     Best-effort: without git, a remote or a readable config it changes nothing.
     """
-    cfg_file = config_file()
-    try:
-        config = json.loads(cfg_file.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return [], []
-    protected = list(config.get("pseudo_word_literals") or [])
-
+    ps = _pseudonymizer()
     try:
         out = subprocess.run(
             ["git", "config", "--get", "remote.origin.url"],
@@ -199,19 +193,10 @@ def remember_repo_tokens(cwd: Path | None = None) -> tuple[list[str], list[str]]
             text=True,
             timeout=3,
         )
-        tokens = _remote_tokens((out.stdout or "").strip())
+        tokens = ps._parse_remote_tokens((out.stdout or "").strip())
     except Exception:
         tokens = []
-
-    added = [t for t in tokens if t not in protected]
-    if added:
-        protected.extend(added)
-        config["pseudo_word_literals"] = protected
-        cfg_file.write_text(
-            json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
-        os.chmod(cfg_file, 0o600)
-    return added, protected
+    return ps.add_word_literals_to_config(tokens, config_file())
 
 
 def load_config() -> dict:

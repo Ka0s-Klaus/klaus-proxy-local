@@ -390,6 +390,15 @@ class Rules:
         # Si se aplica también la regla key=value (captura de secretos por nombre).
         self.secret_kv = secret_kv
 
+    def add_word_literals(self, tokens: list[str]) -> list[str]:
+        """Añade word-literals en caliente (longest-first); devuelve los nuevos."""
+        added = [t for t in dict.fromkeys(tokens) if t and t not in self.word_literals]
+        if added:
+            self.word_literals = sorted(
+                self.word_literals + added, key=len, reverse=True
+            )
+        return added
+
 
 def _detect_git_identity() -> list[str]:
     """Lee la identidad git local (user.name / user.email) si está disponible."""
@@ -460,6 +469,114 @@ def _detect_git_remote_tokens() -> list[str]:
         return _parse_remote_tokens((out.stdout or "").strip())
     except Exception:
         return []
+
+
+# Nombres de repo/org demasiado comunes para usarlos como word-literal: se
+# seudonimizaría esa palabra en todo el texto (#63). Solo se aplica a lo que se
+# aprende de las peticiones; lo configurado a mano se respeta.
+_GENERIC_REPO_TOKENS = frozenset(
+    {
+        "api",
+        "app",
+        "apps",
+        "backend",
+        "blog",
+        "client",
+        "config",
+        "core",
+        "data",
+        "demo",
+        "docs",
+        "dotfiles",
+        "example",
+        "examples",
+        "frontend",
+        "infra",
+        "lib",
+        "main",
+        "notes",
+        "scripts",
+        "server",
+        "site",
+        "src",
+        "test",
+        "tests",
+        "tools",
+        "utils",
+        "web",
+        "website",
+    }
+)
+
+
+def is_generic_repo_token(token: str) -> bool:
+    return token.lower() in _GENERIC_REPO_TOKENS
+
+
+def _iter_remotes(obj: Any):
+    """Valores ``remote`` de los dicts ``{host, remote}`` anidados en ``obj``."""
+    if isinstance(obj, dict):
+        remote = obj.get("remote")
+        if isinstance(remote, str) and isinstance(obj.get("host"), str):
+            yield remote
+        for v in obj.values():
+            yield from _iter_remotes(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _iter_remotes(v)
+
+
+def remote_tokens_from_payload(raw: str) -> list[str]:
+    """org/repo de los remotes git que Claude Code envía en la propia petición.
+
+    Claude Code incluye ``{host, remote: "org/repo"}`` en
+    ``safeguards[].classifier_context.git_state.visibility`` (y en el
+    ``prior_turn_context``). Es un campo interno, así que es best-effort: sin
+    JSON, sin ``safeguards`` o con otra forma devuelve ``[]``. Solo se mira
+    ``safeguards``: lo que va en los mensajes es contenido, no estructura.
+    """
+    try:
+        payload = json.loads(raw)
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(payload, dict):
+        return []
+    tokens: list[str] = []
+    for remote in _iter_remotes(payload.get("safeguards")):
+        for tok in _parse_remote_tokens(remote):
+            if tok not in tokens:
+                tokens.append(tok)
+    return tokens
+
+
+def config_path() -> Path:
+    return Path.home() / ".klaus-proxy" / "config.json"
+
+
+def add_word_literals_to_config(
+    tokens: list[str], path: Path | None = None
+) -> tuple[list[str], list[str]]:
+    """Añade ``tokens`` a ``pseudo_word_literals`` de config.json.
+
+    Escritura atómica (tmp + rename, 0600): la usan a la vez ``mitmdump`` al
+    aprender tokens y ``claude-proxy`` al arrancar (#63). Devuelve
+    ``(añadidos, lista_completa)``. Sin config legible no cambia nada.
+    """
+    path = path or config_path()
+    try:
+        config = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return [], []
+    protected = list(config.get("pseudo_word_literals") or [])
+    added = [t for t in dict.fromkeys(tokens) if t and t not in protected]
+    if added:
+        protected.extend(added)
+        config["pseudo_word_literals"] = protected
+        tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+        tmp.write_text(json.dumps(config, indent=2, ensure_ascii=False), "utf-8")
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, path)
+    return added, protected
 
 
 def build_rules() -> Rules:
@@ -737,6 +854,7 @@ class AnthropicPseudonymizer:
     def __init__(self, vault: Vault | None = None, rules: Rules | None = None) -> None:
         self._vault = vault
         self._rules = rules
+        self._generic_warned: set[str] = set()
 
     def _get_vault(self) -> Vault:
         if self._vault is None:
@@ -786,6 +904,50 @@ class AnthropicPseudonymizer:
         except Exception as exc:  # noqa: BLE001 - red de seguridad deliberada
             self._fail_closed(flow, req, exc)
 
+    def learn_repo_tokens(self, text: str, rules: Rules) -> list[str]:
+        """Protege el org/repo que trae la propia petición ANTES de reescribirla.
+
+        Así un repo desde el que nunca se arrancó ``claude-proxy`` no sale en
+        claro (#63). Best-effort: un fallo aquí solo se avisa, la seudonimización
+        sigue con las reglas que ya hay. Devuelve los tokens nuevos.
+        """
+        try:
+            tokens = remote_tokens_from_payload(text)
+            for tok in tokens:
+                if is_generic_repo_token(tok) and tok not in self._generic_warned:
+                    self._generic_warned.add(tok)
+                    self._log(
+                        f"[anthropic-pseudo] WARN org/repo genérico no protegido: "
+                        f"{tok} (añádelo a pseudo_word_literals si es privado)",
+                        level="warn",
+                    )
+            added = rules.add_word_literals(
+                [t for t in tokens if not is_generic_repo_token(t)]
+            )
+            if added:
+                self._log(
+                    f"[anthropic-pseudo] 🛡️ org/repo nuevo protegido: "
+                    f"{', '.join(added)}",
+                    level="ok",
+                )
+                try:
+                    add_word_literals_to_config(added)
+                except Exception as exc:  # noqa: BLE001
+                    self._log(
+                        f"[anthropic-pseudo] WARN no pude guardar org/repo en "
+                        f"config.json: {type(exc).__name__}: {exc} (protegido "
+                        f"solo hasta reiniciar)",
+                        level="warn",
+                    )
+            return added
+        except Exception as exc:  # noqa: BLE001
+            self._log(
+                f"[anthropic-pseudo] WARN no pude leer org/repo de la petición: "
+                f"{type(exc).__name__}: {exc}",
+                level="warn",
+            )
+            return []
+
     def _pseudonymize_request(self, flow: Any, req: Any) -> None:  # pragma: no cover
         """Reescribe el cuerpo de la request. Cualquier excepción sube a
         ``request`` y dispara ``_fail_closed`` (no debe tragarse errores)."""
@@ -794,6 +956,7 @@ class AnthropicPseudonymizer:
             return
         vault = self._get_vault()
         rules = self._get_rules()
+        self.learn_repo_tokens(text, rules)
         before = len(vault.pseudo_to_real)
         # `original`: datos reales con SOLO los secretos Tier-1 redactados (nunca
         # se persiste una credencial). `new`: cuerpo totalmente seudonimizado que
