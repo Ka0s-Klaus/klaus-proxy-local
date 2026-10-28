@@ -327,7 +327,8 @@ class TestGenerateEnvVarsFile:
         with patch.object(Path, "home", return_value=tmp_path):
             env_file = certs.generate_env_vars_file(cert)
         exports = [
-            line for line in env_file.read_text().splitlines()
+            line
+            for line in env_file.read_text().splitlines()
             if line.startswith("export ")
         ]
         assert f'export NODE_EXTRA_CA_CERTS="{cert}"' in exports

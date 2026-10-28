@@ -371,12 +371,12 @@ class TestHandleSignal:
         )
         launcher.mitmdump_process = mock_process
 
-        with patch.object(launcher, "ensure_prerequisites"), patch.object(
-            launcher, "show_dashboard"
-        ), patch.object(launcher, "launch_mitmdump"), patch.object(
-            launcher, "shutdown"
-        ) as mock_shutdown, patch(
-            "signal.signal"
+        with (
+            patch.object(launcher, "ensure_prerequisites"),
+            patch.object(launcher, "show_dashboard"),
+            patch.object(launcher, "launch_mitmdump"),
+            patch.object(launcher, "shutdown") as mock_shutdown,
+            patch("signal.signal"),
         ):
             with pytest.raises(SystemExit) as exc:
                 launcher.run()
