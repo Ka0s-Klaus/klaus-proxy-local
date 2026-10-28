@@ -1,4 +1,5 @@
 """Tests del addon de log en disco (#55)."""
+
 import logging
 import logging.handlers
 import stat

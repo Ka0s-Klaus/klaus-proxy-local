@@ -277,7 +277,9 @@ class TestLaunchMitmdump:
                     launcher.launch_mitmdump()
 
                 call_args = mock_popen.call_args[0][0]
-                scripts = [call_args[i + 1] for i, a in enumerate(call_args) if a == "-s"]
+                scripts = [
+                    call_args[i + 1] for i, a in enumerate(call_args) if a == "-s"
+                ]
                 assert scripts[0].endswith("klaus_file_log.py")
 
     def test_launch_mitmdump_raises_if_file_log_addon_missing(self):
