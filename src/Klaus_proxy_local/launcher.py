@@ -30,7 +30,7 @@ from Klaus_proxy_local.certs import (
     mitmproxy_cert_dir,
     mitmproxy_cert_file,
 )
-from Klaus_proxy_local.setup import init_config_if_missing
+from Klaus_proxy_local.setup import init_config_if_missing, remember_repo_tokens
 
 
 class ProxyLauncher:
@@ -49,6 +49,7 @@ class ProxyLauncher:
         self.cert_file = None
         self.mitmdump_process = None
         self.enable_monitor = enable_monitor
+        self.protected_tokens: list[str] = []
 
     def regenerate_certs_if_needed(self) -> None:
         """Regenerate mitmproxy certificates if they might be corrupted.
@@ -98,6 +99,12 @@ class ProxyLauncher:
         except Exception as e:
             raise RuntimeError(f"❌ Config setup failed: {e}")
 
+        # Step 1b: Remember org/repo of the current repo, so they stay protected
+        # even if the proxy is later started from elsewhere (#61)
+        added, self.protected_tokens = remember_repo_tokens()
+        if added:
+            print(f"✅ Org/repo added to protected list: {', '.join(added)}\n")
+
         # Step 2: Auto-regenerate or ensure certs
         try:
             self.regenerate_certs_if_needed()
@@ -126,6 +133,14 @@ class ProxyLauncher:
         print("📁 Config:                ~/.klaus-proxy/config.json")
         print("📋 Captures:              ~/.klaus-proxy/captures/")
         print("📝 Logs:                  ~/.klaus-proxy/logs/proxy.log")
+        if self.protected_tokens:
+            print(f"🛡️  Protected org/repo:    {', '.join(self.protected_tokens)}")
+        else:
+            print(
+                "\033[33m⚠️  Protected org/repo:    NONE — start claude-proxy once "
+                "inside each repo\n   (or add them to pseudo_word_literals in "
+                "~/.klaus-proxy/config.json)\033[0m"
+            )
         print(f"🔒 Certificate:           {self.cert_file}")
         print("✅ Auto-configuration:    ALL CERTIFICATES + ENV VARS SET")
         print("")

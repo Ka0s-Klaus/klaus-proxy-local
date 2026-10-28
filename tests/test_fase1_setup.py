@@ -10,6 +10,8 @@ Verifies:
 - No external dependencies
 """
 import json
+import stat
+import subprocess
 
 # Import the module under test
 import sys
@@ -384,3 +386,81 @@ To manually verify setup.py works:
    ls -la ~/.klaus-proxy/
    cat ~/.klaus-proxy/config.json
 """
+
+
+class TestRememberRepoTokens:
+    """org/repo protection must not depend on where claude-proxy starts (#61)."""
+
+    @pytest.fixture
+    def cfg_dir(self, tmp_path):
+        d = tmp_path / ".klaus-proxy"
+        d.mkdir()
+        (d / "config.json").write_text(
+            json.dumps({"salt": "x", "pseudo_word_literals": ["keep-me"]}),
+            encoding="utf-8",
+        )
+        with patch.object(setup, "config_dir", return_value=d):
+            yield d
+
+    @staticmethod
+    def _git_repo(path, url):
+        path.mkdir()
+        subprocess.run(["git", "init", "-q", str(path)], check=True)
+        subprocess.run(
+            ["git", "-C", str(path), "remote", "add", "origin", url], check=True
+        )
+        return path
+
+    def _saved(self, cfg_dir):
+        return json.loads((cfg_dir / "config.json").read_text(encoding="utf-8"))
+
+    def test_adds_org_and_repo_from_cwd_remote(self, cfg_dir, tmp_path):
+        repo = self._git_repo(
+            tmp_path / "r", "https://github.com/acme-org/acme-repo.git"
+        )
+        added, protected = setup.remember_repo_tokens(repo)
+        assert added == ["acme-org", "acme-repo"]
+        assert protected == ["keep-me", "acme-org", "acme-repo"]
+        assert self._saved(cfg_dir)["pseudo_word_literals"] == protected
+        assert self._saved(cfg_dir)["salt"] == "x"
+        assert stat.S_IMODE((cfg_dir / "config.json").stat().st_mode) == 0o600
+
+    def test_is_idempotent(self, cfg_dir, tmp_path):
+        repo = self._git_repo(
+            tmp_path / "r", "https://github.com/acme-org/acme-repo.git"
+        )
+        setup.remember_repo_tokens(repo)
+        added, protected = setup.remember_repo_tokens(repo)
+        assert added == []
+        assert protected == ["keep-me", "acme-org", "acme-repo"]
+
+    def test_outside_a_repo_keeps_saved_tokens(self, cfg_dir, tmp_path):
+        """Starting from $HOME no longer drops the protection (#61)."""
+        added, protected = setup.remember_repo_tokens(tmp_path)
+        assert added == []
+        assert protected == ["keep-me"]
+        assert self._saved(cfg_dir)["pseudo_word_literals"] == ["keep-me"]
+
+    def test_without_config_does_nothing(self, tmp_path):
+        with patch.object(setup, "config_dir", return_value=tmp_path / "missing"):
+            assert setup.remember_repo_tokens(tmp_path) == ([], [])
+
+    def test_saved_tokens_reach_pseudonymizer_from_any_cwd(
+        self, cfg_dir, tmp_path, monkeypatch
+    ):
+        """End to end: tokens saved from the repo are applied from elsewhere."""
+        import anthropic_payload_pseudonymize as ps
+
+        repo = self._git_repo(
+            tmp_path / "r", "https://github.com/acme-org/acme-repo.git"
+        )
+        setup.remember_repo_tokens(repo)
+
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)
+        monkeypatch.delenv("ANTHROPIC_PSEUDO_PROJECT_ROOT", raising=False)
+        monkeypatch.setattr(ps.Path, "home", lambda: cfg_dir.parent)
+        text = "memory at claude-501--Users-u-dev-acme-repo-dea5d022-scratchpad/"
+        out = ps.pseudonymize_text(text, ps.Vault(), ps.build_rules())
+        assert "acme-repo" not in out
