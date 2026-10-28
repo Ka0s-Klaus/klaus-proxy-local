@@ -416,43 +416,25 @@ If you enabled auto-startup but want to disable it:
 
 ## 📚 Documentación
 
-### 🎯 Para Nuevos Usuarios (Empieza Aquí)
+> 🗺️ **Este README es el mapa.** Todas las referencias del proyecto parten de aquí. Si buscas algo y no está en esta tabla, probablemente aún no existe — crea una issue.
 
-| Guía | Tiempo | Descripción |
-|------|--------|-------------|
-| **[QUICK_START.md](./docs/QUICK_START.md)** | 2 min | Instalación y uso básico |
-| **SSL/TLS Setup** (README) | 3 min | Configurar certificados para Git/curl/tools |
-| **[AUDIT_QUICK_START.md](./docs/AUDIT_QUICK_START.md)** | 5 min | Auditoría rápida de payloads |
-| **[THREAT_MODEL.md](./docs/THREAT_MODEL.md)** | 10 min | Qué protegemos y qué no |
+| Sección | Descripción | Enlace |
+|---|---|---|
+| 🏗️ **Arquitectura** | Diseño interno, componentes y flujos | [docs/architecture/](./docs/architecture/README.md) |
+| 📖 **Guías** | Quick start, runbooks, troubleshooting | [docs/guides/](./docs/guides/README.md) |
+| 📊 **Informes** | Auditorías, releases y resúmenes ejecutivos | [docs/reports/](./docs/reports/README.md) |
+| 🧭 **Decisiones (ADRs)** | Decisiones técnicas y sus alternativas descartadas | [docs/decisions/](./docs/decisions/README.md) |
 
-### 🔧 Para Auditores (v0.3.0)
+### ⚡ Accesos directos más usados
 
-| Guía | Descripción |
-|------|-------------|
-| **[AUDIT_CAPTURES_GUIDE.md](./docs/AUDIT_CAPTURES_GUIDE.md)** | Análisis multi-modo completo (20+ páginas) |
-| **[GENERATE_REPORTS_GUIDE.md](./docs/GENERATE_REPORTS_GUIDE.md)** | Generación automática de reportes |
-| **[AUTO_FIX_LEAKS_GUIDE.md](./docs/AUTO_FIX_LEAKS_GUIDE.md)** | Detección y corrección automática de fugas |
-
-### 📋 Para Releases
-
-| Tema | Documento |
-|------|-----------|
-| **v0.3.0 (Current)** | [RELEASE_v0.3.0_NOTES.md](./docs/RELEASE_v0.3.0_NOTES.md) |
-| **v0.2.0** | [RELEASE_v0.2.0.md](./docs/RELEASE_v0.2.0.md) |
-| **v0.1.0** | [RELEASE_v0.1.0.md](./docs/RELEASE_v0.1.0.md) |
-| **All Releases** | [RELEASES.md](./docs/RELEASES.md) |
-
-### 🏗️ Para Desarrolladores
-
-| Tema | Documento |
-|------|-----------|
-| **Arquitectura** | [architecture.md](./docs/architecture.md) |
-| **Setup Completo** | [setup.md](./docs/setup.md) |
-| **Scanner (v0.2.0)** | [FASE2_SENSITIVE_DATA_SCANNER.md](./docs/FASE2_SENSITIVE_DATA_SCANNER.md) |
-| **Patrones Personalizados** | [FASE2_CUSTOM_PATTERNS.md](./docs/FASE2_CUSTOM_PATTERNS.md) |
-| **Hardening Seguridad** | [SECURITY_HARDENING.md](./docs/SECURITY_HARDENING.md) |
-| **Runbook Detallado** | [anthropic-audit-proxy.md](./docs/anthropic-audit-proxy.md) |
-| **Índice Completo** | [INDEX.md](./docs/INDEX.md) |
+| Documento | Descripción |
+|---|---|
+| [⚡ Quick Start](./docs/QUICK_START.md) | Instalación y primer uso en 2 min |
+| [🔎 Audit Quick Start](./docs/AUDIT_QUICK_START.md) | Primera auditoría en 5 min |
+| [🛠️ Troubleshooting](./docs/TROUBLESHOOTING.md) | Solución de problemas comunes |
+| [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
+| [📊 Executive Summary](./docs/EXECUTIVE_SUMMARY.md) | Estado actual del sistema |
+| [🚀 Release v0.3.2](./docs/RELEASE_v0.3.2_NOTES.md) | Notas de la última release |
 
 ---
 
