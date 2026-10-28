@@ -506,7 +506,17 @@ El org y el nombre del repo se pseudonimizan como *word-literals*. Cada vez que 
 - El dashboard de arranque muestra la lista protegida (`🛡️  Protected org/repo`) y avisa en amarillo si está vacía.
 - Además, el proxy **aprende el org/repo de cada petición**: Claude Code envía los remotes de git del proyecto en el que trabaja, y el pseudonimizador los protege antes de reescribir esa misma petición y los guarda en `pseudo_word_literals`. En el log aparece `🛡️ org/repo nuevo protegido: …`.
 - Los nombres genéricos (`docs`, `api`, `test`, `app`…) no se aprenden, porque se pseudonimizaría esa palabra en todo el texto. Se avisa una vez en el log; si son privados, añádelos a mano.
-- ⚠️ Ese campo es interno de Claude Code y solo está verificado en modo de permisos `auto`. Si no llega, no se aprende nada. Para proteger un proyecto en cualquier caso, arranca `claude-proxy` una vez dentro de él o añade sus tokens a mano a `pseudo_word_literals`.
+- ⚠️ Ese campo es interno de Claude Code y **depende del modo de permisos** (verificado con Claude Code 2.1.312):
+
+  | Modo | ¿Envía los remotes? | ¿Se aprende el org/repo? |
+  | --- | --- | --- |
+  | `auto` | Sí | Sí |
+  | `plan` | Sí, desde la 2ª petición | Sí, desde la 2ª petición |
+  | `manual`, `acceptEdits`, `dontAsk` | No | No |
+
+  En `plan`, y en `auto` mientras Claude Code aún no ha leído el estado de git, la **primera** petición de un repo nuevo sale antes de aprenderlo.
+
+- **Para proteger un repo en cualquier modo**, haz que esté en `pseudo_word_literals` antes de trabajar en él. Puedes arrancar `claude-proxy` una vez dentro del repo, abrir una sesión en `auto` o `plan` o añadir sus tokens a mano. El dashboard de arranque muestra la lista.
 
 ### Logs del proxy
 
