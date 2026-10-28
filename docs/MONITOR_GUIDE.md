@@ -1,21 +1,19 @@
 # 🎮 Klaus Monitor — htop-style TUI Guide
 
-Klaus Monitor es una interfaz interactiva tipo **htop** para monitorizar Klaus Proxy Local en tiempo real. Muestra estadísticas, tráfico vivo, cobertura del vault, auditoría y alertas en una única terminal.
+⚠️ **DEPRECATED — Removed in v0.3.3**
+
+Klaus Monitor (`claude-proxy-monitor` command) was removed in v0.3.3. The TUI module source has been deleted and is no longer available as an entry point.
+
+For monitoring Klaus Proxy Local, use instead:
+- `klaus-audit-payloads` — audit captured payloads with detailed reports
+- `klaus-fix-pseudonymization` — diagnose pseudonymization issues
+- Manual inspection of `~/.klaus-proxy/captures/` directory
 
 ---
 
-## ⚡ Uso Rápido
+## ⏛️ Historical Documentation
 
-### Opción 1: Monitor Standalone (sin proxy)
-```bash
-claude-proxy-monitor
-```
-
-### Opción 2: Proxy + Monitor Juntos (aún no integrado)
-```bash
-claude-proxy  # Terminal 1
-claude-proxy-monitor  # Terminal 2
-```
+This guide documents Klaus Monitor as it existed in v0.3.2. The following sections are archived for reference only.
 
 ---
 

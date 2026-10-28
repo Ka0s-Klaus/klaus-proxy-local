@@ -3,7 +3,7 @@
 
 set -e
 
-echo "🚀 Klaus Proxy Local v0.4.0"
+echo "🚀 Klaus Proxy Local v0.3.3"
 echo "============================="
 echo ""
 
@@ -39,36 +39,18 @@ claude-proxy &
 PROXY_PID=$!
 
 # Give proxy time to start
-sleep 2
-
-# Start dashboard server
-echo "Starting dashboard on http://localhost:9999..."
-echo ""
-
-python3 -m Klaus_proxy_local.dashboard_server &
-DASHBOARD_PID=$!
-
-# Give dashboard time to start
 sleep 1
-
-# Open browser if possible
-if command -v open &> /dev/null; then
-    open http://localhost:9999
-elif command -v xdg-open &> /dev/null; then
-    xdg-open http://localhost:9999
-fi
 
 echo ""
 echo -e "${GREEN}✅ Klaus Proxy Local is running!${NC}"
 echo ""
-echo -e "📊 Dashboard: ${BLUE}http://localhost:9999${NC}"
 echo -e "🔌 Proxy:     ${BLUE}127.0.0.1:8899${NC}"
 echo ""
-echo "Press Ctrl+C to stop both services"
+echo "Press Ctrl+C to stop"
 echo ""
 
 # Cleanup on exit
-trap "kill $PROXY_PID $DASHBOARD_PID 2>/dev/null; echo ''; echo 'Stopped.'" EXIT
+trap "kill $PROXY_PID 2>/dev/null; echo ''; echo 'Stopped.'" EXIT
 
 # Wait for processes
 wait

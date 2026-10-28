@@ -99,6 +99,8 @@ def init_config_if_missing() -> dict:
         "capture_dir": str(capture_dir()),
         "vault_path": str(vault_path()),
         "log_level": "info",
+        "pseudo_literals": [],
+        "pseudo_word_literals": [],
     }
 
     # 4. Write config.json (0o600 = owner rw only)

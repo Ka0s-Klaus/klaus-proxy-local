@@ -49,7 +49,7 @@ Todo funciona con **fail-closed**: si algo falla, la request **no sale** del equ
 
 ```bash
 # 1. Instala
-pip install Klaus-proxy-local==0.3.0
+pip install Klaus-proxy-local==0.3.3
 
 # 2. Arranca el proxy (Terminal 1)
 claude-proxy
@@ -60,7 +60,7 @@ export NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem
 claude "tu pregunta aquí"
 
 # 4. Audita capturas automáticamente (Terminal 3)
-python full_audit_with_fixes.py --auto
+klaus-audit-payloads --detailed
 ```
 
 ¿Listo para auditar todo lo que envía tu equipo?
