@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import stat
 
 import pytest
 
@@ -585,3 +586,207 @@ def test_fail_closed_body_is_bytes_and_explains_reason():
     # Incluye el tipo y el mensaje de la excepción para diagnóstico.
     assert "ValueError" in text
     assert "cuerpo ilegible" in text
+
+
+# --- aprendizaje de org/repo desde la petición (#63) ---------------------------
+
+
+@pytest.fixture
+def tmp_config(tmp_path, monkeypatch):
+    """config.json temporal: estos tests nunca tocan el del usuario."""
+    cfg = tmp_path / "config.json"
+    cfg.write_text(
+        json.dumps({"salt": "x", "pseudo_word_literals": ["keep-me"]}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(ps, "config_path", lambda: cfg)
+    return cfg
+
+
+def _visibility(remote):
+    origin = {"host": "github.com", "remote": remote, "visibility": "private"}
+    return {"origin": origin, "push_remote": "origin", "remotes": [dict(origin)]}
+
+
+def _claude_code_body(remote="acme-org/acme-repo", prior_remote=None, text=""):
+    """Petición con la forma que envía Claude Code (capturas reales, anonimizada)."""
+    prior = prior_remote or remote
+    return json.dumps(
+        {
+            "model": "claude-x",
+            "system": [
+                {
+                    "type": "text",
+                    "text": "memory at /tmp/claude-501--Users-u-dev-"
+                    + remote.split("/")[-1]
+                    + "-dea5d022-scratchpad/memory/",
+                }
+            ],
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": text or "hola"},
+                        {
+                            "type": "tool_use",
+                            "id": "t1",
+                            "name": "x",
+                            "input": {
+                                "host": "h",
+                                "remote": "content-org/content-repo",
+                            },
+                        },
+                    ],
+                }
+            ],
+            "safeguards": [
+                {
+                    "type": "dangerous_tool_use",
+                    "classifier_context": {
+                        "permission_mode": "auto",
+                        "git_state": {
+                            "branch": "main",
+                            "visibility": _visibility(remote),
+                        },
+                        "prior_turn_context": [
+                            {
+                                "context": {
+                                    "git_state": {"visibility": _visibility(prior)}
+                                }
+                            }
+                        ],
+                    },
+                }
+            ],
+        }
+    )
+
+
+class _Recorder(ps.AnthropicPseudonymizer):
+    def __init__(self, rules):
+        super().__init__(vault=ps.Vault(), rules=rules)
+        self.logs = []
+
+    def _log(self, msg, level=None):
+        self.logs.append((level, msg))
+
+
+def test_remote_tokens_from_payload_reads_safeguards():
+    body = _claude_code_body("acme-org/acme-repo", prior_remote="other-org/other-repo")
+    assert ps.remote_tokens_from_payload(body) == [
+        "acme-org",
+        "acme-repo",
+        "other-org",
+        "other-repo",
+    ]
+
+
+def test_remote_tokens_from_payload_ignores_message_content():
+    tokens = ps.remote_tokens_from_payload(_claude_code_body())
+    assert "content-org" not in tokens and "content-repo" not in tokens
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "no es json",
+        "[]",
+        json.dumps({"messages": []}),
+        json.dumps({"safeguards": "x"}),
+        json.dumps({"safeguards": [{"git_state": {"host": "h", "remote": 3}}]}),
+        json.dumps({"safeguards": [{"remote": "acme-org/acme-repo"}]}),  # sin host
+    ],
+)
+def test_remote_tokens_from_payload_is_best_effort(raw):
+    assert ps.remote_tokens_from_payload(raw) == []
+
+
+def test_rules_add_word_literals_returns_only_new_longest_first():
+    rules = ps.Rules(word_literals=["abc"])
+    assert rules.add_word_literals(["abc", "longer-one", "longer-one", "xyz"]) == [
+        "longer-one",
+        "xyz",
+    ]
+    assert rules.word_literals == ["longer-one", "abc", "xyz"]
+
+
+def test_add_word_literals_to_config_is_atomic_and_idempotent(tmp_config):
+    added, protected = ps.add_word_literals_to_config(["acme-repo", "keep-me"])
+    assert added == ["acme-repo"]
+    assert protected == ["keep-me", "acme-repo"]
+    saved = json.loads(tmp_config.read_text(encoding="utf-8"))
+    assert saved == {"salt": "x", "pseudo_word_literals": ["keep-me", "acme-repo"]}
+    assert stat.S_IMODE(tmp_config.stat().st_mode) == 0o600
+    assert [p.name for p in tmp_config.parent.iterdir()] == ["config.json"]
+    assert ps.add_word_literals_to_config(["acme-repo"]) == ([], protected)
+
+
+def test_add_word_literals_to_config_without_config(tmp_path):
+    missing = tmp_path / "missing.json"
+    assert ps.add_word_literals_to_config(["acme-repo"], missing) == ([], [])
+    assert not missing.exists()
+
+
+def test_unknown_repo_is_learned_before_rewriting(tmp_config):
+    """Repo nunca visto: sale sin org/repo en claro en esa MISMA petición."""
+    rules = ps.Rules()  # sin word-literals: proxy arrancado fuera de cualquier repo
+    addon = _Recorder(rules)
+    body = _claude_code_body(text="trabajando en acme-repo de acme-org")
+
+    added = addon.learn_repo_tokens(body, rules)
+    out = ps.pseudonymize_body(body, addon._get_vault(), rules)
+
+    assert added == ["acme-org", "acme-repo"]
+    assert "acme-repo" not in out and "acme-org" not in out
+    saved = json.loads(tmp_config.read_text(encoding="utf-8"))
+    assert saved["pseudo_word_literals"] == ["keep-me", "acme-org", "acme-repo"]
+    assert (
+        "ok",
+        "[anthropic-pseudo] 🛡️ org/repo nuevo protegido: acme-org, acme-repo",
+    ) in addon.logs
+
+
+def test_known_repo_is_not_logged_again(tmp_config):
+    rules = ps.Rules()
+    addon = _Recorder(rules)
+    addon.learn_repo_tokens(_claude_code_body(), rules)
+    addon.logs.clear()
+    assert addon.learn_repo_tokens(_claude_code_body(), rules) == []
+    assert addon.logs == []
+
+
+def test_generic_repo_names_are_not_learned_and_warn_once(tmp_config):
+    rules = ps.Rules()
+    addon = _Recorder(rules)
+    body = _claude_code_body("acme-org/docs")
+    assert addon.learn_repo_tokens(body, rules) == ["acme-org"]
+    addon.learn_repo_tokens(body, rules)
+    assert "docs" not in rules.word_literals
+    warns = [m for lvl, m in addon.logs if lvl == "warn"]
+    assert len(warns) == 1 and "docs" in warns[0]
+
+
+def test_learning_failure_never_breaks_the_request(tmp_config, monkeypatch):
+    def boom(_raw):
+        raise RuntimeError("forma nueva")
+
+    monkeypatch.setattr(ps, "remote_tokens_from_payload", boom)
+    rules = ps.Rules()
+    addon = _Recorder(rules)
+    assert addon.learn_repo_tokens(_claude_code_body(), rules) == []
+    assert addon.logs[-1][0] == "warn"
+
+
+def test_config_write_failure_still_protects_in_memory(tmp_config, monkeypatch):
+    def boom(_tokens, _path=None):
+        raise OSError("disco lleno")
+
+    monkeypatch.setattr(ps, "add_word_literals_to_config", boom)
+    rules = ps.Rules()
+    addon = _Recorder(rules)
+    assert addon.learn_repo_tokens(_claude_code_body(), rules) == [
+        "acme-org",
+        "acme-repo",
+    ]
+    assert "acme-repo" in rules.word_literals
+    assert "solo hasta reiniciar" in addon.logs[-1][1]

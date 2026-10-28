@@ -504,7 +504,9 @@ ANTHROPIC_PSEUDO_SALT=your-salt mitmdump \
 El org y el nombre del repo se pseudonimizan como *word-literals*. Cada vez que `claude-proxy` arranca **dentro de un repo git**, añade el org/repo de su `origin` a `pseudo_word_literals` en `~/.klaus-proxy/config.json`. Desde ese momento quedan protegidos aunque el proxy se arranque desde otro directorio.
 
 - El dashboard de arranque muestra la lista protegida (`🛡️  Protected org/repo`) y avisa en amarillo si está vacía.
-- Para proteger otro proyecto, arranca `claude-proxy` una vez dentro de él o añade sus tokens a mano a `pseudo_word_literals`.
+- Además, el proxy **aprende el org/repo de cada petición**: Claude Code envía los remotes de git del proyecto en el que trabaja, y el pseudonimizador los protege antes de reescribir esa misma petición y los guarda en `pseudo_word_literals`. En el log aparece `🛡️ org/repo nuevo protegido: …`.
+- Los nombres genéricos (`docs`, `api`, `test`, `app`…) no se aprenden, porque se pseudonimizaría esa palabra en todo el texto. Se avisa una vez en el log; si son privados, añádelos a mano.
+- ⚠️ Ese campo es interno de Claude Code y solo está verificado en modo de permisos `auto`. Si no llega, no se aprende nada. Para proteger un proyecto en cualquier caso, arranca `claude-proxy` una vez dentro de él o añade sus tokens a mano a `pseudo_word_literals`.
 
 ### Logs del proxy
 
