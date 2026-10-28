@@ -316,3 +316,19 @@ class TestMitmExecutable:
             patch.object(sys, "executable", str(tmp_path / "python")),
         ):
             assert certs.mitm_executable("mitmdump") == "mitmdump"
+
+
+class TestGenerateEnvVarsFile:
+    """Test klaus-env.sh generation."""
+
+    def test_exports_node_extra_ca_certs(self, tmp_path):
+        """Claude Code only trusts the proxy CA via NODE_EXTRA_CA_CERTS (#51)."""
+        cert = tmp_path / "mitmproxy-ca-cert.pem"
+        with patch.object(Path, "home", return_value=tmp_path):
+            env_file = certs.generate_env_vars_file(cert)
+        exports = [
+            line
+            for line in env_file.read_text().splitlines()
+            if line.startswith("export ")
+        ]
+        assert f'export NODE_EXTRA_CA_CERTS="{cert}"' in exports

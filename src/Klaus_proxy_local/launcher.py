@@ -149,9 +149,8 @@ class ProxyLauncher:
     def launch_mitmdump(self) -> None:
         """Launch mitmdump with pseudonymization and capture addons.
 
-        Auto-configures environment variables for clients:
-        - NODE_EXTRA_CA_CERTS: Path to mitmproxy CA certificate
-        - NODE_TLS_REJECT_UNAUTHORIZED: Disabled as fallback if needed
+        Client trust (NODE_EXTRA_CA_CERTS & co.) is not set here: clients get
+        it by sourcing ~/.klaus-proxy/klaus-env.sh (#51).
 
         Raises:
           RuntimeError: If mitmdump fails to start.
@@ -195,11 +194,7 @@ class ProxyLauncher:
             print("🚀 Starting mitmdump...")
             print(f"   Command: {' '.join(mitmdump_cmd)}\n")
 
-            # Set up environment with certificate trust configuration
             env = os.environ.copy()
-            env["NODE_EXTRA_CA_CERTS"] = str(mitmproxy_cert_file())
-            # Fallback for NodeJS/npm tools that don't respect NODE_EXTRA_CA_CERTS
-            env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0"
             # Ensure ANTHROPIC_PSEUDO_SALT is set (from config or env)
             if "ANTHROPIC_PSEUDO_SALT" in os.environ:
                 env["ANTHROPIC_PSEUDO_SALT"] = os.environ["ANTHROPIC_PSEUDO_SALT"]
@@ -243,15 +238,13 @@ class ProxyLauncher:
             )
 
     def handle_signal(self, signum, frame) -> None:
-        """Handle Ctrl+C gracefully."""
-        # Ignore further signals during shutdown to prevent recursion
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        """Turn SIGTERM into KeyboardInterrupt so run() does the shutdown.
 
-        print("\n\n🛑 Stopping Klaus Proxy Local...")
-        self.shutdown()
-        print("✅ Proxy stopped")
-        sys.exit(0)
+        Never call shutdown() from here: the handler runs while the main
+        thread is inside Popen.wait() holding its non-reentrant waitpid
+        lock, and waiting again from the handler deadlocks (#51).
+        """
+        raise KeyboardInterrupt
 
     def shutdown(self) -> None:
         """Shutdown proxy cleanly and quickly."""
@@ -286,6 +279,10 @@ class ProxyLauncher:
         4. Optionally launch Klaus Monitor TUI
         5. Keep running until Ctrl+C
         """
+        # Before mitmdump starts, so an early SIGTERM can't orphan it.
+        # SIGINT already raises KeyboardInterrupt.
+        signal.signal(signal.SIGTERM, self.handle_signal)
+
         try:
             # Phase 1: Setup
             self.ensure_prerequisites()
@@ -302,9 +299,6 @@ class ProxyLauncher:
                 self._launch_monitor()
 
             # Phase 4: Keep running
-            signal.signal(signal.SIGINT, self.handle_signal)
-            signal.signal(signal.SIGTERM, self.handle_signal)
-
             # Wait forever (until Ctrl+C)
             self.mitmdump_process.wait()
 
@@ -312,7 +306,12 @@ class ProxyLauncher:
             print(f"{e}", file=sys.stderr)
             sys.exit(1)
         except KeyboardInterrupt:
+            # Ignore further signals during shutdown to prevent recursion
+            signal.signal(signal.SIGINT, signal.SIG_IGN)
+            signal.signal(signal.SIGTERM, signal.SIG_IGN)
+            print("\n\n🛑 Stopping Klaus Proxy Local...")
             self.shutdown()
+            print("✅ Proxy stopped")
             sys.exit(0)
         except Exception as e:
             print(f"❌ Unexpected error: {e}", file=sys.stderr)

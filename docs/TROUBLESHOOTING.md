@@ -40,15 +40,17 @@ rm -rf ~/.mitmproxy/
 claude-proxy
 # Will auto-regenerate and output the path
 
-# Then make sure you're setting NODE_EXTRA_CA_CERTS
-export NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca.pem
+# Then make sure Claude Code gets NODE_EXTRA_CA_CERTS (klaus-env.sh exports it)
+source ~/.klaus-proxy/klaus-env.sh
+# or manually:
+export NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem
 ```
 
 **For Docker/containers:**
 
 ```bash
 # Install the cert in the system store instead
-docker exec <container> cp ~/.mitmproxy/mitmproxy-ca.pem /usr/local/share/ca-certificates/
+docker exec <container> cp ~/.mitmproxy/mitmproxy-ca-cert.pem /usr/local/share/ca-certificates/
 docker exec <container> update-ca-certificates
 ```
 
@@ -154,7 +156,7 @@ klaus-setup
 
 # Or manually add to your shell:
 alias claude-with-proxy='HTTPS_PROXY=http://127.0.0.1:8899 \
-  NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca.pem claude'
+  NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem claude'
 
 # For fish shell:
 funcsave claude-with-proxy
