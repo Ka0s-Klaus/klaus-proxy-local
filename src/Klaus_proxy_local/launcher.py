@@ -22,6 +22,7 @@ import time
 from pathlib import Path
 
 from Klaus_proxy_local import __version__
+from Klaus_proxy_local.addons_snapshot import ADDON_FILES, snapshot_addons
 from Klaus_proxy_local.certs import (
     ensure_mitmproxy_certs,
     generate_env_vars_file,
@@ -50,6 +51,7 @@ class ProxyLauncher:
         self.mitmdump_process = None
         self.enable_monitor = enable_monitor
         self.protected_tokens: list[str] = []
+        self.addons_info: dict = {}
 
     def regenerate_certs_if_needed(self) -> None:
         """Regenerate mitmproxy certificates if they might be corrupted.
@@ -176,6 +178,7 @@ class ProxyLauncher:
         pseudonymize_addon = addons_dir / "anthropic_payload_pseudonymize.py"
         capture_addon = addons_dir / "anthropic_payload_capture.py"
         file_log_addon = addons_dir / "klaus_file_log.py"
+        guard_addon = addons_dir / "klaus_pseudo_guard.py"
 
         # Verify addons exist
         if not pseudonymize_addon.exists():
@@ -193,20 +196,27 @@ class ProxyLauncher:
                 f"❌ File log addon not found: {file_log_addon}\n"
                 f"   Make sure Klaus Proxy is installed in development mode: pip install -e ."
             )
+        if not guard_addon.exists():
+            raise RuntimeError(
+                f"❌ Guard addon not found: {guard_addon}\n"
+                f"   Make sure Klaus Proxy is installed in development mode: pip install -e ."
+            )
+
+        # Run mitmdump from an immutable copy: mitmproxy hot-reloads -s scripts,
+        # so loading them from the clone let checkouts swap (or break) the
+        # pseudonymizer of a running proxy (#71)
+        snapshot_dir, self.addons_info = snapshot_addons(addons_dir)
+        addon_paths = [str(snapshot_dir / name) for name in ADDON_FILES]
 
         # Build mitmdump command
-        # Addons must come BEFORE port: pseudonymize (request rewrite)
-        # then capture (evidence collection). File log goes first so it is
-        # already attached when the other addons log on load (#55)
+        # Addons must come BEFORE port, in ADDON_FILES order: file log first so
+        # it is attached when the others log on load (#55), pseudonymize
+        # (request rewrite), capture (evidence), guard last (fail-closed, #71)
         # NOTE: No -q flag to show all logs with version prefix
-        mitmdump_cmd = [
-            mitm_executable("mitmdump"),
-            "-s",
-            str(file_log_addon),
-            "-s",
-            str(pseudonymize_addon),
-            "-s",
-            str(capture_addon),
+        mitmdump_cmd = [mitm_executable("mitmdump")]
+        for path in addon_paths:
+            mitmdump_cmd += ["-s", path]
+        mitmdump_cmd += [
             # Loopback only: without this mitmproxy binds every interface and
             # becomes an open proxy for the whole LAN (#47)
             "--listen-host",
@@ -216,6 +226,10 @@ class ProxyLauncher:
         ]
 
         try:
+            print(
+                f"🧩 Addons: {self.addons_info.get('commit', '?')} "
+                f"(snapshot {snapshot_dir})"
+            )
             print("🚀 Starting mitmdump...")
             print(f"   Command: {' '.join(mitmdump_cmd)}\n")
 
