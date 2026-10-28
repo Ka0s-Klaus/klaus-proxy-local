@@ -27,7 +27,7 @@ Uso (el seudonimizador debe ir ANTES de la captura para que la evidencia refleje
 lo que REALMENTE sale del equipo):
 
     mitmdump -s src/anthropic_payload_pseudonymize.py \\
-             -s src/anthropic_payload_capture.py -p 8899
+             -s src/anthropic_payload_capture.py --listen-host 127.0.0.1 -p 8899
 """
 from __future__ import annotations
 

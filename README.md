@@ -32,7 +32,7 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
   Claude Code deja en disco.
 
 ### ¿Cómo lo hago?
-- Un proxy `mitmproxy` local (`mitmdump -p 8899`) con dos addons Python en
+- Un proxy `mitmproxy` local (`mitmdump --listen-host 127.0.0.1 -p 8899`, solo loopback) con dos addons Python en
   [`src/`](./src): `anthropic_payload_pseudonymize.py` (reescribe/revierte) y
   `anthropic_payload_capture.py` (graba la evidencia).
 - Claude Code se enruta por el proxy vía `HTTPS_PROXY` + `NODE_EXTRA_CA_CERTS`, de
@@ -464,7 +464,7 @@ black --check .
 # Ejecutar el proxy (manual, sin instalación)
 ANTHROPIC_PSEUDO_SALT=your-salt mitmdump \
   -s src/anthropic_payload_pseudonymize.py \
-  -s src/anthropic_payload_capture.py -p 8899
+  -s src/anthropic_payload_capture.py --listen-host 127.0.0.1 -p 8899
 ```
 
 ---

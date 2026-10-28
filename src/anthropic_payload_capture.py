@@ -6,7 +6,7 @@ que Claude Code (u otro cliente) envía a ``api.anthropic.com``, de forma que un
 DPO pueda documentar qué información sale hacia la API.
 
 Uso:
-    mitmdump -s src/anthropic_payload_capture.py
+    mitmdump -s src/anthropic_payload_capture.py --listen-host 127.0.0.1
 
 Y enrutando el cliente a través del proxy (ver docs/anthropic-audit-proxy.md):
     HTTPS_PROXY=http://127.0.0.1:8080 \
