@@ -5,10 +5,10 @@
 > gateway LLM corporativo), con análisis multi-modo y corrección automática de fugas.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.3.3-green)](./docs/RELEASE_v0.3.3_NOTES.md)
-[![Tests](https://img.shields.io/badge/tests-465%2F465-brightgreen)](./docs/FIX_SUMMARY.md)
-[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.3.3_NOTES.md)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
+[![Version](https://img.shields.io/badge/version-0.4.0-green)](./docs/RELEASE_v0.4.0_NOTES.md)
+[![Tests](https://img.shields.io/badge/tests-487%20passed-brightgreen)](./docs/FIX_SUMMARY.md)
+[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.4.0_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
 
@@ -54,13 +54,20 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.3.3)
+## 🚀 Inicio rápido (v0.4.0)
+
+> ℹ️ El paquete **no está publicado en PyPI**: se instala desde el repositorio con
+> `install.sh` (macOS y Linux, Python ≥ 3.13; en macOS lo instala vía Homebrew si falta).
 
 ```bash
-# Instalar
-pip install Klaus-proxy-local==0.3.3
+# Instalar: crea un venv en ~/.local/share/klaus/venv, instala mitmproxy, genera
+# config + SALT + certificado CA y enlaza los comandos en ~/.local/bin
+git clone https://github.com/Ka0s-Klaus/klaus-proxy-local.git
+cd klaus-proxy-local
+./install.sh --check   # opcional: solo verifica prerequisitos
+./install.sh
 
-# Terminal 1: arrancar el proxy (auto-genera config + certs + SALT + variables SSL/TLS)
+# Terminal 1: arrancar el proxy (solo escucha en 127.0.0.1:8899)
 claude-proxy
 # ✅ Captures guardadas en ~/.klaus-proxy/captures/ (no repo)
 # ✅ Logs con COLORES (verde = OK, rojo = error)
@@ -93,6 +100,9 @@ klaus-audit-payloads --export=csv
 klaus-setup
 # Selecciona 'y' para auto-startup, luego: exec $SHELL
 ```
+
+> ⚠️ La instalación es *editable*: el venv apunta al clon del repositorio. **No borres
+> ni muevas esa carpeta.** Para actualizar: `git pull && ./install.sh`.
 
 ✨ **Eso es todo.** Todo es automático: configuración, certificados, SALT, auditoría, corrección de fugas, **y ahora con captura en usuario-local + colores + Ctrl+C rápido**.
 

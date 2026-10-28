@@ -48,8 +48,9 @@ Todo funciona con **fail-closed**: si algo falla, la request **no sale** del equ
 ### Comienza en 3 minutos
 
 ```bash
-# 1. Instala
-pip install Klaus-proxy-local==0.3.3
+# 1. Instala (desde el repositorio; no está en PyPI)
+git clone https://github.com/Ka0s-Klaus/klaus-proxy-local.git
+cd klaus-proxy-local && ./install.sh
 
 # 2. Arranca el proxy (Terminal 1)
 claude-proxy
