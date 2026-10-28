@@ -41,6 +41,12 @@ class TestProxyLauncherInit:
 class TestEnsurePrerequisites:
     """Test prerequisite setup (config + certs)."""
 
+    @pytest.fixture(autouse=True)
+    def _no_env_file(self):
+        """Keep tests from rewriting the real ~/.klaus-proxy/klaus-env.sh."""
+        with patch("Klaus_proxy_local.launcher.generate_env_vars_file"):
+            yield
+
     def test_ensure_prerequisites_calls_config_setup(self):
         """ensure_prerequisites() calls init_config_if_missing()."""
         launcher = ProxyLauncher()
