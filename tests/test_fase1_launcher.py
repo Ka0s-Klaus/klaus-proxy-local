@@ -21,6 +21,15 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from Klaus_proxy_local.launcher import ProxyLauncher
 
 
+@pytest.fixture(autouse=True)
+def _no_real_repo_tokens():
+    """Never touch the user's real ~/.klaus-proxy/config.json (#61)."""
+    with patch(
+        "Klaus_proxy_local.launcher.remember_repo_tokens", return_value=([], [])
+    ) as mock:
+        yield mock
+
+
 class TestProxyLauncherInit:
     """Test ProxyLauncher initialization."""
 
@@ -59,6 +68,19 @@ class TestEnsurePrerequisites:
 
                 launcher.ensure_prerequisites()
                 mock_config.assert_called_once()
+
+    def test_ensure_prerequisites_remembers_repo_tokens(self, _no_real_repo_tokens):
+        """ensure_prerequisites() persists org/repo of the cwd repo (#61)."""
+        _no_real_repo_tokens.return_value = (["acme-repo"], ["acme-org", "acme-repo"])
+        launcher = ProxyLauncher()
+        with patch("Klaus_proxy_local.launcher.init_config_if_missing") as mock_config:
+            mock_config.return_value = {"salt": "x"}
+            with patch("Klaus_proxy_local.launcher.ensure_mitmproxy_certs"):
+                with patch("Klaus_proxy_local.launcher.generate_env_vars_file"):
+                    with patch.object(launcher, "regenerate_certs_if_needed"):
+                        launcher.ensure_prerequisites()
+        _no_real_repo_tokens.assert_called_once_with()
+        assert launcher.protected_tokens == ["acme-org", "acme-repo"]
 
     def test_ensure_prerequisites_calls_cert_setup(self):
         """ensure_prerequisites() calls ensure_mitmproxy_certs()."""
@@ -157,6 +179,23 @@ class TestShowDashboard:
         captured = capsys.readouterr()
 
         assert "~/.klaus-proxy/captures/" in captured.out
+
+    def test_show_dashboard_lists_protected_tokens(self, capsys):
+        """show_dashboard() lists the protected org/repo (#61)."""
+        launcher = ProxyLauncher()
+        launcher.cert_file = Path("/tmp/cert.pem")
+        launcher.protected_tokens = ["acme-org", "acme-repo"]
+        launcher.show_dashboard()
+        out = capsys.readouterr().out
+        assert "acme-org, acme-repo" in out
+        assert "NONE" not in out
+
+    def test_show_dashboard_warns_without_protected_tokens(self, capsys):
+        """show_dashboard() warns when no org/repo is protected (#61)."""
+        launcher = ProxyLauncher()
+        launcher.cert_file = Path("/tmp/cert.pem")
+        launcher.show_dashboard()
+        assert "Protected org/repo:    NONE" in capsys.readouterr().out
 
     def test_show_dashboard_outputs_log_path(self, capsys):
         """show_dashboard() shows where the proxy log lives (#55)."""

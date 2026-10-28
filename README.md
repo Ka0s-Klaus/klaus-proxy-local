@@ -499,6 +499,13 @@ ANTHROPIC_PSEUDO_SALT=your-salt mitmdump \
 | `ANTHROPIC_PSEUDO_VAULT` | Ruta del vault de seudonimización | `captures/.pseudonym_vault.json` |
 | `KLAUS_LOG_DIR` | Directorio del log del proxy (`proxy.log`) | `~/.klaus-proxy/logs/` |
 
+### Protección de org/repo
+
+El org y el nombre del repo se pseudonimizan como *word-literals*. Cada vez que `claude-proxy` arranca **dentro de un repo git**, añade el org/repo de su `origin` a `pseudo_word_literals` en `~/.klaus-proxy/config.json`. Desde ese momento quedan protegidos aunque el proxy se arranque desde otro directorio.
+
+- El dashboard de arranque muestra la lista protegida (`🛡️  Protected org/repo`) y avisa en amarillo si está vacía.
+- Para proteger otro proyecto, arranca `claude-proxy` una vez dentro de él o añade sus tokens a mano a `pseudo_word_literals`.
+
 ### Logs del proxy
 
 Además de verse en la terminal, todo lo que registra el proxy se guarda en `~/.klaus-proxy/logs/proxy.log`. Lo escribe el addon `src/klaus_file_log.py`, que `claude-proxy` carga automáticamente:
