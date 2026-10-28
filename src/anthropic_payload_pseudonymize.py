@@ -431,24 +431,38 @@ def _parse_remote_tokens(url: str) -> list[str]:
     """Extrae org y nombre de repo de una URL de remote como word-literals.
 
     p.ej. ``dev2@example.com:example-org/customer1-ecosistema1.git`` →
-    ``["example-org", "customer1-ecosistema1"]``. Se descartan tokens de
-    menos de 3 chars, los que contienen punto (hosts) y los genéricos de
-    plataforma (github/gitlab/...). Función pura → unit-testable sin git.
+    ``["example-org", "customer1-ecosistema1"]``. El host se quita por
+    posición (tras el esquema, antes de ``:`` en la forma scp), no por llevar
+    punto: un repo puede llamarse como un dominio (``user.github.io``) y
+    antes se descartaba en silencio (#65). Acepta también ``org/repo`` sin
+    host, que es lo que envía Claude Code. Se descartan tokens de menos de 3
+    chars y los genéricos de plataforma (github/gitlab/...). Función pura →
+    unit-testable sin git.
     """
     tokens: list[str] = []
     if not url:
         return tokens
-    # Normaliza scp-like y https, quita credenciales embebidas y .git final.
-    tail = re.sub(r"^[a-z]+://", "", url.strip())
-    tail = tail.split("@")[-1]  # quita user[:pass]@
-    tail = re.sub(r"[:/]", " ", tail)  # host:org/repo → host org repo
-    tail = re.sub(r"\.git\b", " ", tail)
-    for tok in tail.split():
+    rest = url.strip()
+    scheme = re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", rest)
+    if scheme:
+        # esquema://[user[:pass]@]host[:port]/org/repo
+        path = rest[scheme.end() :].partition("/")[2]
+    elif re.match(r"^[^/:]+:(?!//)", rest):
+        # scp-like: [user@]host:org/repo
+        path = rest.partition(":")[2]
+    else:
+        # org/repo sin host; si parece host/org/repo, el host se quita.
+        path = rest
+        parts = path.strip("/").split("/")
+        if len(parts) >= 3 and "." in parts[0]:
+            path = "/".join(parts[1:])
+    path = re.sub(r"\.git/?$", "", path.strip().strip("/"))
+    for tok in path.split("/"):
         tok = tok.strip()
         if (
             len(tok) >= 3
             and tok.lower() not in _GENERIC_REMOTE_TOKENS
-            and "." not in tok
+            and tok not in tokens
         ):
             tokens.append(tok)
     return tokens

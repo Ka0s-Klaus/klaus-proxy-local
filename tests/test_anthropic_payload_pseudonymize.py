@@ -490,6 +490,52 @@ def test_git_remote_tokens_parsing():
     assert "github" not in toks  # genérico descartado
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "acme-org/repo.with.dots",  # lo que envía Claude Code (sin host)
+        "https://github.com/acme-org/repo.with.dots.git",
+        "https://user:tok@github.com/acme-org/repo.with.dots",
+        "git@github.com:acme-org/repo.with.dots.git",
+        "ssh://git@git.example.com:2222/acme-org/repo.with.dots.git",
+        "github.com/acme-org/repo.with.dots",
+    ],
+)
+def test_parse_remote_tokens_keeps_dotted_repo_names(url):
+    """Un repo con forma de dominio no se descarta por llevar puntos (#65)."""
+    assert ps._parse_remote_tokens(url) == ["acme-org", "repo.with.dots"]
+
+
+def test_parse_remote_tokens_gitlab_subgroups():
+    url = "https://gitlab.example.com/acme-org/team-a/service-x.git"
+    assert ps._parse_remote_tokens(url) == ["acme-org", "team-a", "service-x"]
+
+
+def test_parse_remote_tokens_never_returns_host_or_port():
+    for url in (
+        "https://git.example.com/acme-org/acme-repo",
+        "ssh://git@git.example.com:2222/acme-org/acme-repo.git",
+        "git@git.example.com:acme-org/acme-repo.git",
+    ):
+        toks = ps._parse_remote_tokens(url)
+        assert toks == ["acme-org", "acme-repo"], url
+
+
+def test_dotted_repo_learned_from_request_is_not_leaked(tmp_path, monkeypatch):
+    """Extremo a extremo: petición con remote de repo con puntos (#65)."""
+    cfg = tmp_path / "config.json"
+    cfg.write_text(json.dumps({"salt": "x"}), encoding="utf-8")
+    monkeypatch.setattr(ps, "config_path", lambda: cfg)
+    rules = ps.Rules()
+    addon = _Recorder(rules)
+    body = _claude_code_body(
+        "acme-org/site.acme.dev", text="despliega site.acme.dev desde site.acme.dev"
+    )
+    assert addon.learn_repo_tokens(body, rules) == ["acme-org", "site.acme.dev"]
+    out = ps.pseudonymize_body(body, addon._get_vault(), rules)
+    assert "site.acme.dev" not in out
+
+
 # --- redact_secrets_body: original con secretos Tier-1 redactados ------------
 
 
