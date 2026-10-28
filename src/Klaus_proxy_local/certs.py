@@ -167,6 +167,7 @@ def generate_env_vars_file(cert_file: Path) -> Path:
       - GIT_SSL_CAINFO: For git HTTPS connections
       - CURL_CA_BUNDLE: For curl SSL/TLS verification
       - SSL_CERT_FILE: For general SSL/TLS tools
+      - NODE_EXTRA_CA_CERTS: For Claude Code and other Node.js clients
 
     This allows clients (git, curl, etc.) to trust the proxy's certificate
     without requiring system-wide certificate installation.
@@ -196,8 +197,9 @@ export SSL_CERT_FILE="{cert_file}"
 # Optional: For Python-based tools
 export REQUESTS_CA_BUNDLE="{cert_file}"
 
-# Optional: For Node.js-based tools (already handled by proxy launcher)
-# export NODE_EXTRA_CA_CERTS="{cert_file}"
+# Required for Claude Code and other Node.js-based clients: the launcher
+# cannot set this for them, it only controls mitmdump's own environment (#51)
+export NODE_EXTRA_CA_CERTS="{cert_file}"
 """
 
     try:

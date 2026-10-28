@@ -354,21 +354,34 @@ class TestShutdown:
 class TestHandleSignal:
     """Test signal handling."""
 
-    def test_handle_signal_calls_shutdown(self):
-        """handle_signal() calls shutdown()."""
+    def test_handle_signal_does_not_call_shutdown(self):
+        """handle_signal() must not wait on the child itself (deadlock, #51)."""
         launcher = ProxyLauncher()
         with patch.object(launcher, "shutdown") as mock_shutdown:
-            with patch("sys.exit"):
-                launcher.handle_signal(signal.SIGINT, None)
-                mock_shutdown.assert_called_once()
+            with pytest.raises(KeyboardInterrupt):
+                launcher.handle_signal(signal.SIGTERM, None)
+            mock_shutdown.assert_not_called()
 
-    def test_handle_signal_exits(self):
-        """handle_signal() exits the program."""
+    def test_sigterm_during_wait_shuts_down(self):
+        """SIGTERM while blocked in wait() shuts down and exits cleanly."""
         launcher = ProxyLauncher()
-        launcher.mitmdump_process = None
+        mock_process = MagicMock()
+        mock_process.wait.side_effect = lambda *a, **kw: launcher.handle_signal(
+            signal.SIGTERM, None
+        )
+        launcher.mitmdump_process = mock_process
 
-        with pytest.raises(SystemExit):
-            launcher.handle_signal(signal.SIGINT, None)
+        with patch.object(launcher, "ensure_prerequisites"), patch.object(
+            launcher, "show_dashboard"
+        ), patch.object(launcher, "launch_mitmdump"), patch.object(
+            launcher, "shutdown"
+        ) as mock_shutdown, patch(
+            "signal.signal"
+        ):
+            with pytest.raises(SystemExit) as exc:
+                launcher.run()
+        assert exc.value.code == 0
+        mock_shutdown.assert_called_once()
 
 
 class TestMainFunction:
