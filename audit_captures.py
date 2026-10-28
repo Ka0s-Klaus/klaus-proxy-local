@@ -125,8 +125,6 @@ def find_leaks():
     print("=" * 70 + "\n")
 
     vault = load_vault()
-    vault_reverse = {v: k for k, v in vault.items()}
-
     # Focus only on TRULY sensitive patterns (not UUIDs or API paths)
     critical_patterns = {
         "email": r"[\w\.-]+@[\w\.-]+\.\w+",
@@ -152,18 +150,25 @@ def find_leaks():
                 # Filter out obvious false positives
                 if pattern_type == "email":
                     # Skip noreply, test, example domains
-                    if any(x in match.lower() for x in ["noreply", "test", "example", "localhost"]):
+                    if any(
+                        x in match.lower()
+                        for x in ["noreply", "test", "example", "localhost"]
+                    ):
                         continue
 
                 # Check if this value is in the vault (should be pseudonymized)
                 if match not in vault:
-                    leaks_found.append({
-                        "type": pattern_type,
-                        "value": match[:60],
-                    })
+                    leaks_found.append(
+                        {
+                            "type": pattern_type,
+                            "value": match[:60],
+                        }
+                    )
 
     # Deduplicate
-    leaks_found = list({(l["type"], l["value"]): l for l in leaks_found}.values())
+    leaks_found = list(
+        {(leak["type"], leak["value"]): leak for leak in leaks_found}.values()
+    )
 
     if leaks_found:
         print(f"⚠️  Found {len(leaks_found)} potential leaks:\n")
@@ -229,8 +234,6 @@ def interactive_review():
     vault = load_vault()
     original_files = list(ORIGINAL_DIR.glob("**/*.json"))
 
-    candidates_to_add = []
-
     for i, orig_file in enumerate(original_files[:50]):
         sent_file = SENT_DIR / orig_file.relative_to(ORIGINAL_DIR)
 
@@ -248,20 +251,21 @@ def interactive_review():
 
         # Filter for likely sensitive data
         sensitive = [
-            s for s in missing_in_sent
+            s
+            for s in missing_in_sent
             if re.search(r"@|[\d\.]{7,}|/|_empresa", s, re.IGNORECASE)
         ]
 
         if sensitive and len(sensitive) <= 5:  # Manageable number
             print(f"\n[{i+1}/50] {orig_file.name}")
-            print(f"  Potentially sensitive in original but NOT in sent:")
+            print("  Potentially sensitive in original but NOT in sent:")
             for val in sorted(sensitive)[:3]:
                 print(f"    • {val[:60]}")
                 if val not in vault and len(val) > 3:
-                    print(f"      → NOT in vault. Add? (A/S/C)")
+                    print("      → NOT in vault. Add? (A/S/C)")
                     # In real interactive mode, get user input here
 
-    print(f"\n\n💡 Use --review with interactive prompts for full mode\n")
+    print("\n\n💡 Use --review with interactive prompts for full mode\n")
 
 
 def main():

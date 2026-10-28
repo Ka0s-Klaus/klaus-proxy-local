@@ -12,7 +12,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 
 class PseudonymizationDiagnostic:
@@ -88,7 +88,9 @@ class PseudonymizationDiagnostic:
 
             if path not in by_path:
                 by_path[path] = []
-            by_path[path].append({"host": host, "method": method, "file": payload["file"]})
+            by_path[path].append(
+                {"host": host, "method": method, "file": payload["file"]}
+            )
 
         return {"by_host": by_host, "by_path": by_path}
 
@@ -162,7 +164,7 @@ class PseudonymizationDiagnostic:
                     report += f"    ... and {len(payloads) - 3} more\n"
                 report += "\n"
 
-            report += f"\nBY PATH:\n"
+            report += "\nBY PATH:\n"
             for path, payloads in sorted(
                 analysis["by_path"].items(), key=lambda x: len(x[1]), reverse=True
             )[:5]:
@@ -214,11 +216,17 @@ class PseudonymizationDiagnostic:
         by_host = analysis.get("by_host", {})
         non_pseudonymized_hosts = list(by_host.keys())
 
-        if "api.anthropic.com" in non_pseudonymized_hosts or "llm.tools" in non_pseudonymized_hosts[0] if non_pseudonymized_hosts else False:
+        # Compare whole hostnames / leading DNS labels, never substrings:
+        # "evil-api.anthropic.com.attacker.io" must not match (CodeQL #58).
+        # The corporate gateway has the form llm.tools.cloud.<customer>.
+        if any(
+            host == "api.anthropic.com" or host.split(".")[:2] == ["llm", "tools"]
+            for host in non_pseudonymized_hosts
+        ):
             recommendations += (
                 "⚠️  Internal/Third-party services NOT pseudonymized\n"
                 "   These might be intentional (internal logs, monitoring)\n"
-                '   HOSTS: ' + ", ".join(non_pseudonymized_hosts[:3]) + "\n"
+                "   HOSTS: " + ", ".join(non_pseudonymized_hosts[:3]) + "\n"
                 "   SOLUTION: Check if these should be pseudonymized\n"
                 "   - If YES: Update ANTHROPIC_CAPTURE_HOSTS\n"
                 "   - If NO: Safe to ignore\n\n"
@@ -323,9 +331,9 @@ def main():
         prog="fix-pseudonymization",
         description="Diagnose and fix pseudonymization issues",
         epilog="Examples:\n"
-               "  fix_pseudonymization.py                  # Diagnostic report\n"
-               "  fix_pseudonymization.py --show-payloads  # Show unpseudonymized payloads\n"
-               "  fix_pseudonymization.py --show-config    # Show configuration",
+        "  fix_pseudonymization.py                  # Diagnostic report\n"
+        "  fix_pseudonymization.py --show-payloads  # Show unpseudonymized payloads\n"
+        "  fix_pseudonymization.py --show-config    # Show configuration",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 

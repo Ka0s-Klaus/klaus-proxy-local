@@ -9,6 +9,7 @@ Generates mitmproxy certificate on first run:
 
 This removes the manual mitmproxy cert setup burden.
 """
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -24,11 +25,31 @@ def mitmproxy_cert_file() -> Path:
     return mitmproxy_cert_dir() / "mitmproxy-ca-cert.pem"
 
 
+def mitm_executable(name: str) -> str:
+    """Resolve a mitmproxy binary (``mitmproxy``, ``mitmdump``).
+
+    Looks in PATH first and falls back to the directory of the running
+    interpreter, so binaries installed in the Klaus venv are found even
+    when that venv is not in PATH (e.g. when launched via the
+    ``~/.local/bin`` symlinks created by install.sh).
+
+    Returns:
+      Full path to the binary, or ``name`` unchanged if not found.
+    """
+    found = shutil.which(name)
+    if found:
+        return found
+    sibling = Path(sys.executable).parent / name
+    if sibling.is_file():
+        return str(sibling)
+    return name
+
+
 def is_mitmproxy_installed() -> bool:
     """Check if mitmproxy is installed and accessible.
 
     Returns:
-      True if `mitmproxy --version` succeeds, False otherwise.
+      True if `mitmdump --version` succeeds, False otherwise.
 
     Note:
       This is a best-effort check. Mitmproxy might be installed
@@ -36,7 +57,7 @@ def is_mitmproxy_installed() -> bool:
     """
     try:
         result = subprocess.run(
-            ["mitmproxy", "--version"],
+            [mitm_executable("mitmdump"), "--version"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             timeout=5,
@@ -47,34 +68,41 @@ def is_mitmproxy_installed() -> bool:
 
 
 def generate_mitmproxy_certs() -> bool:
-    """Generate mitmproxy certificates by running mitmproxy.
+    """Generate mitmproxy certificates by running mitmdump.
 
-    Starts mitmproxy for a few seconds to trigger cert generation.
+    Starts mitmdump for a few seconds to trigger cert generation.
     Mitmproxy auto-generates certs on first run and stores them in ~/.mitmproxy/.
 
     Returns:
       True if cert generation succeeded, False on error.
 
     Note:
-      This runs `mitmproxy -q` (quiet mode) with a 3-second timeout.
-      The timeout allows cert generation to complete without waiting
-      for the interactive prompt.
+      This runs headless `mitmdump -q` on an ephemeral localhost port with a
+      3-second timeout. The interactive `mitmproxy` console cannot be used
+      here: without a TTY it crashes before generating the CA (#43).
     """
     try:
-        # Start mitmproxy in quiet mode with a timeout
-        # The -q flag suppresses interactive output
+        # Headless, quiet, ephemeral port (-p 0) to avoid clashing with a
+        # running proxy on 8899 or anything else on 8080
         subprocess.run(
-            ["mitmproxy", "-q"],
+            [
+                mitm_executable("mitmdump"),
+                "-q",
+                "--listen-host",
+                "127.0.0.1",
+                "-p",
+                "0",
+            ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             timeout=3,
         )
     except subprocess.TimeoutExpired:
-        # This is EXPECTED: mitmproxy runs indefinitely, we timeout after 3s
+        # This is EXPECTED: mitmdump runs indefinitely, we timeout after 3s
         # By that time, certs have been generated
         pass
     except (FileNotFoundError, OSError) as e:
-        print(f"❌ Failed to run mitmproxy: {e}", file=sys.stderr)
+        print(f"❌ Failed to run mitmdump: {e}", file=sys.stderr)
         return False
 
     # Verify cert file exists

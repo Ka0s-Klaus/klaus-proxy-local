@@ -195,6 +195,7 @@ def _configured_hosts() -> tuple[str, ...]:
     # Priority 2: ~/.klaus-proxy/config.json — single source of truth for hosts
     try:
         import json as _json
+
         _cfg_path = Path.home() / ".klaus-proxy" / "config.json"
         if _cfg_path.exists():
             _cfg = _json.loads(_cfg_path.read_text(encoding="utf-8"))
@@ -499,6 +500,7 @@ def build_rules() -> Rules:
     # Las env vars tienen prioridad; config.json actúa como fallback/complemento.
     try:
         import json as _json
+
         _cfg_path = Path.home() / ".klaus-proxy" / "config.json"
         if _cfg_path.exists():
             _cfg = _json.loads(_cfg_path.read_text(encoding="utf-8"))
@@ -790,7 +792,9 @@ class AnthropicPseudonymizer:
         new = pseudonymize_body(text, vault, rules)
         flow.metadata["anthropic_original_body"] = original
         flow.metadata["anthropic_pseudonymized"] = bool(new != original)
-        flow.metadata["anthropic_pseudo_ran"] = True  # #38: corrió aunque no modificó nada
+        flow.metadata["anthropic_pseudo_ran"] = (
+            True  # #38: corrió aunque no modificó nada
+        )
         # Mapa real→seudónimo YA poblado por el cuerpo, para que la captura
         # seudonimice también url/host/cabeceras del registro `sent` con los
         # MISMOS seudónimos y sin acuñar ninguno nuevo.

@@ -10,15 +10,14 @@ Verifies:
 - No external dependencies
 """
 import json
-import os
+
+# Import the module under test
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
-# Import the module under test
-import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from Klaus_proxy_local import setup

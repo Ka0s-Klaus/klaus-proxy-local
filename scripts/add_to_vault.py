@@ -122,7 +122,7 @@ def format_finding(finding, vault_integration: VaultIntegration) -> str:
     """Formatear un finding para mostrar."""
     # Verificar si ya está en vault
     existing = vault_integration.check_already_in_vault(finding.value)
-    status = f"✓ ya en vault" if existing else "✦ nuevo"
+    status = "✓ ya en vault" if existing else "✦ nuevo"
 
     icon = {
         Confidence.CRITICAL: "🔴",
@@ -174,7 +174,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
 
     # Escanear
-    result = scanner.scan_directory(path, print_progress if not args.get("json") else None)
+    result = scanner.scan_directory(
+        path, print_progress if not args.get("json") else None
+    )
     if not args.get("json"):
         print()  # Nueva línea después de barra de progreso
 

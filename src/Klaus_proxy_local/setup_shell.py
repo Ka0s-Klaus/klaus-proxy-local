@@ -154,9 +154,9 @@ def get_shell_hook() -> str:
     elif shell == "powershell":
         return (
             "\n# 🔐 Klaus Proxy Local — Auto-startup (FASE 1.5)\n"
-            "$EnvFile = \"$HOME\\.klaus-proxy\\klaus-env.sh\"\n"
+            '$EnvFile = "$HOME\\.klaus-proxy\\klaus-env.sh"\n'
             "if (Test-Path $EnvFile) {\n"
-            "  & \"$EnvFile\"\n"
+            '  & "$EnvFile"\n'
             "}\n"
             "$ProcessCheck = Get-Process -Name mitmdump -ErrorAction SilentlyContinue\n"
             "if (-not $ProcessCheck) {\n"

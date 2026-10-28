@@ -17,7 +17,6 @@ Output:
 
 import json
 import re
-import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -128,13 +127,16 @@ def get_leaks() -> list:
 
             for match in matches:
                 if pattern_type == "email":
-                    if any(x in match.lower() for x in ["noreply", "test", "example", "localhost"]):
+                    if any(
+                        x in match.lower()
+                        for x in ["noreply", "test", "example", "localhost"]
+                    ):
                         continue
 
                 if match not in vault:
                     leaks_found.append({"type": pattern_type, "value": match[:60]})
 
-    return list({(l["type"], l["value"]): l for l in leaks_found}.values())
+    return list({(leak["type"], leak["value"]): leak for leak in leaks_found}.values())
 
 
 def get_vault_analysis() -> dict:
@@ -184,8 +186,6 @@ def generate_report() -> str:
     """Generate full audit report."""
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
-    date_str = now.strftime("%Y-%m-%d")
-    time_str = now.strftime("%H%M%S")
 
     print(f"📊 Generando reporte de auditoría... ({timestamp})")
 
@@ -202,22 +202,26 @@ def generate_report() -> str:
     # Header
     report.append("# 🔍 Auditoría de Captures — Reporte Automático\n")
     report.append(f"**Fecha:** {timestamp}  ")
-    report.append(f"**Status:** ✅ AUDITADO\n")
+    report.append("**Status:** ✅ AUDITADO\n")
 
     # Summary table
     report.append("---\n")
     report.append("## 🎯 Resumen Ejecutivo\n")
     report.append("| Métrica | Valor | Status |")
     report.append("|---------|-------|--------|")
-    report.append(f"| **Payloads capturados** | {stats['original_count']:,} original + {stats['sent_count']:,} sent | ✅ |")
+    report.append(
+        f"| **Payloads capturados** | {stats['original_count']:,} original + {stats['sent_count']:,} sent | ✅ |"
+    )
     report.append(f"| **Valores en vault** | {len(vault)} entradas | ✅ |")
 
     leak_status = "✅" if len(leaks) == 0 else "⚠️"
     leak_desc = "0 - Excelente" if len(leaks) == 0 else f"{len(leaks)} - Revisar"
     report.append(f"| **Fugas detectadas** | {leak_desc} | {leak_status} |")
 
-    report.append(f"| **Cobertura** | Emails {len(vault_analysis['email'])}, IPs {len(vault_analysis['ip'])}, Orgs {len(vault_analysis['org'])} | ✅ Excelente |")
-    report.append(f"| **Pseudonimización** | 100% funcionando | ✅ |\n")
+    report.append(
+        f"| **Cobertura** | Emails {len(vault_analysis['email'])}, IPs {len(vault_analysis['ip'])}, Orgs {len(vault_analysis['org'])} | ✅ Excelente |"
+    )
+    report.append("| **Pseudonimización** | 100% funcionando | ✅ |\n")
 
     # Statistics
     report.append("---\n")
@@ -226,13 +230,13 @@ def generate_report() -> str:
     report.append("```")
     report.append(f"📁 Original payloads:      {stats['original_count']:,}")
     report.append(f"📁 Sent payloads:         {stats['sent_count']:,}")
-    report.append(f"Ratio:                     1:1 (sincronizado perfectamente)")
+    report.append("Ratio:                     1:1 (sincronizado perfectamente)")
     report.append("```\n")
 
     report.append("### Patrones Encontrados (muestra 100)")
     report.append("```")
-    for ptype in sorted(stats['patterns'].keys(), key=lambda x: -stats['patterns'][x]):
-        count = stats['patterns'][ptype]
+    for ptype in sorted(stats["patterns"].keys(), key=lambda x: -stats["patterns"][x]):
+        count = stats["patterns"][ptype]
         report.append(f"  {ptype:15} {count:8} occurrences")
     report.append("```\n")
 
@@ -296,10 +300,16 @@ def generate_report() -> str:
         report.append(f"- ⚠️ {len(leaks)} fugas potenciales (revisar)")
 
     report.append("\n### Seguridad:")
-    report.append(f"- ✅ Emails pseudonimizados ({len(vault_analysis['email'])} entradas)")
+    report.append(
+        f"- ✅ Emails pseudonimizados ({len(vault_analysis['email'])} entradas)"
+    )
     report.append(f"- ✅ IPs pseudonimizadas ({len(vault_analysis['ip'])} entradas)")
-    report.append(f"- ✅ Organizaciones pseudonimizadas ({len(vault_analysis['org'])} entradas)")
-    report.append(f"- ✅ Identidades pseudonimizadas ({len(vault_analysis['id'])} entradas)")
+    report.append(
+        f"- ✅ Organizaciones pseudonimizadas ({len(vault_analysis['org'])} entradas)"
+    )
+    report.append(
+        f"- ✅ Identidades pseudonimizadas ({len(vault_analysis['id'])} entradas)"
+    )
     report.append("- ✅ Vault protegido (permisos 0o600)")
 
     report.append("\n### Producción:")
@@ -353,7 +363,9 @@ def update_index(report_path: Path) -> None:
     time_str = now.strftime("%H:%M:%S")
     filename = report_path.name
 
-    new_entry = f"| {date_str} | {time_str} | [{filename}]({filename}) | Auto-generated |"
+    new_entry = (
+        f"| {date_str} | {time_str} | [{filename}]({filename}) | Auto-generated |"
+    )
     entries.insert(0, new_entry)
 
     # Write index

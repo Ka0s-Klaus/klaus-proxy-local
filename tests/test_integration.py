@@ -10,14 +10,12 @@ Coverage:
 - Wrapper script functionality
 - Shell setup flow
 """
-import os
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -42,9 +40,9 @@ class TestInstallationFlow:
 
     def test_entry_points_callable(self):
         """All entry point functions exist and are callable."""
-        from Klaus_proxy_local.main import main as main1
-        from Klaus_proxy_local.launcher import main as main2
         from Klaus_proxy_local.install_wrappers import main as main3
+        from Klaus_proxy_local.launcher import main as main2
+        from Klaus_proxy_local.main import main as main1
         from Klaus_proxy_local.setup_shell import main as main4
 
         assert callable(main1)
@@ -94,7 +92,9 @@ class TestAutoCertFlow:
         from Klaus_proxy_local.certs import ensure_mitmproxy_certs
 
         fake_cert_path = Path("/home/user/.mitmproxy/mitmproxy-ca-cert.pem")
-        with patch("Klaus_proxy_local.certs.mitmproxy_cert_file", return_value=fake_cert_path):
+        with patch(
+            "Klaus_proxy_local.certs.mitmproxy_cert_file", return_value=fake_cert_path
+        ):
             with patch("pathlib.Path.exists", return_value=True):
                 cert_file = ensure_mitmproxy_certs()
 
@@ -106,7 +106,9 @@ class TestAutoCertFlow:
         from Klaus_proxy_local.certs import ensure_mitmproxy_certs
 
         fake_cert_path = Path("/home/user/.mitmproxy/mitmproxy-ca-cert.pem")
-        with patch("Klaus_proxy_local.certs.mitmproxy_cert_file", return_value=fake_cert_path):
+        with patch(
+            "Klaus_proxy_local.certs.mitmproxy_cert_file", return_value=fake_cert_path
+        ):
             with patch(
                 "Klaus_proxy_local.certs.is_mitmproxy_installed", return_value=False
             ):
@@ -221,14 +223,13 @@ class TestEndToEndFlow:
     def test_import_all_modules(self):
         """All modules can be imported in sequence."""
         # Simulate: import Klaus_proxy_local
-        import Klaus_proxy_local
 
         # Simulate: import submodules
         from Klaus_proxy_local import (
-            setup,
             certs,
-            launcher,
             install_wrappers,
+            launcher,
+            setup,
             setup_shell,
         )
 
@@ -236,9 +237,9 @@ class TestEndToEndFlow:
 
     def test_config_then_certs_then_launch(self):
         """Config → Certs → Launch sequence works."""
-        from Klaus_proxy_local.setup import init_config_if_missing
         from Klaus_proxy_local.certs import ensure_mitmproxy_certs
         from Klaus_proxy_local.launcher import ProxyLauncher
+        from Klaus_proxy_local.setup import init_config_if_missing
 
         with tempfile.TemporaryDirectory() as tmpdir:
             config_dir = Path(tmpdir)
@@ -249,7 +250,7 @@ class TestEndToEndFlow:
                 assert config is not None
 
             # Step 2: Ensure certs (will fail gracefully if mitmproxy missing)
-            with patch("Klaus_proxy_local.certs.mitmproxy_cert_file") as mock_cert:
+            with patch("Klaus_proxy_local.certs.mitmproxy_cert_file"):
                 with patch("pathlib.Path.exists", return_value=True):
                     cert = ensure_mitmproxy_certs()
                     assert cert is not None
@@ -284,17 +285,17 @@ class TestDependencyAvailability:
     def test_core_dependencies_available(self):
         """Core dependencies can be imported."""
         try:
-            import httpx
-            import fastapi
-            import uvicorn
-            import anthropic
+            import anthropic  # noqa: F401
+            import fastapi  # noqa: F401
+            import httpx  # noqa: F401
+            import uvicorn  # noqa: F401
         except ImportError as e:
             pytest.skip(f"Core dependency not installed: {e}")
 
     def test_mitmproxy_available(self):
         """Mitmproxy can be imported."""
         try:
-            import mitmproxy
+            import mitmproxy  # noqa: F401
         except ImportError:
             pytest.skip("mitmproxy not installed (optional for testing)")
 
@@ -302,7 +303,7 @@ class TestDependencyAvailability:
         """Dev dependencies are optional."""
         try:
             import pytest
-            import pytest_cov
+            import pytest_cov  # noqa: F401
         except ImportError:
             pytest.skip("Dev dependencies not installed (optional)")
 

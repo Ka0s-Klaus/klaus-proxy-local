@@ -22,9 +22,7 @@ import hashlib
 import json
 import os
 import re
-import secrets
 from pathlib import Path
-from typing import Optional
 
 CAPTURES_DIR = Path.home() / ".klaus-proxy" / "captures"
 SENT_DIR = CAPTURES_DIR / "sent"
@@ -111,13 +109,22 @@ def detect_leaks() -> list[dict]:
 
             for match in matches:
                 if pattern_type == "email":
-                    if any(x in match.lower() for x in ["noreply", "test", "example", "localhost"]):
+                    if any(
+                        x in match.lower()
+                        for x in ["noreply", "test", "example", "localhost"]
+                    ):
                         continue
 
                 if match not in vault:
-                    leaks.append({"type": pattern_type, "value": match, "hash": hash_value(match)})
+                    leaks.append(
+                        {
+                            "type": pattern_type,
+                            "value": match,
+                            "hash": hash_value(match),
+                        }
+                    )
 
-    return list({l["value"]: l for l in leaks}.values())
+    return list({leak["value"]: leak for leak in leaks}.values())
 
 
 def determine_prefix(value: str, pattern_type: str) -> str:
@@ -210,13 +217,13 @@ def main():
 
         # Skip if already in vault
         if value in vault:
-            print(f"⏭️  Saltando (ya en vault):")
+            print("⏭️  Saltando (ya en vault):")
             print(f"    {value[:60]} → {pseudo}\n")
             skipped_count += 1
             continue
 
         # Show what will be added
-        print(f"➕ Añadiendo:")
+        print("➕ Añadiendo:")
         print(f"    Real:       {value[:60]}")
         print(f"    Pseudónimo: {pseudo}")
         print(f"    Tipo:       {pattern_type}\n")
@@ -234,7 +241,7 @@ def main():
             print(f"💾 Guardando {added_count} nuevas entradas en vault...\n")
             save_vault(vault)
             print(f"✅ Vault actualizado: {VAULT_PATH}")
-            print(f"   Permisos: 0o600 (solo lectura/escritura dueño)\n")
+            print("   Permisos: 0o600 (solo lectura/escritura dueño)\n")
 
     # Summary
     print("=" * 70)
