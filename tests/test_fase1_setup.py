@@ -464,3 +464,41 @@ class TestRememberRepoTokens:
         text = "memory at claude-501--Users-u-dev-acme-repo-dea5d022-scratchpad/"
         out = ps.pseudonymize_text(text, ps.Vault(), ps.build_rules())
         assert "acme-repo" not in out
+
+
+class TestRememberProjectsRoot:
+    """Protect sibling project names under the repo's parent directory (#42)."""
+
+    @pytest.fixture
+    def cfg_dir(self, tmp_path):
+        d = tmp_path / ".klaus-proxy"
+        d.mkdir()
+        (d / "config.json").write_text(json.dumps({"salt": "x"}), encoding="utf-8")
+        with patch.object(setup, "config_dir", return_value=d):
+            yield d
+
+    @staticmethod
+    def _repo(path):
+        path.mkdir(parents=True)
+        subprocess.run(["git", "init", "-q", str(path)], check=True)
+        return path
+
+    def test_adds_parent_of_repo(self, cfg_dir, tmp_path):
+        repo = self._repo(tmp_path / "proyectos" / "repo-a")
+        root, total = setup.remember_projects_root(repo)
+        assert root == str(repo.resolve().parent)
+        assert total == 1
+        saved = json.loads((cfg_dir / "config.json").read_text())
+        assert saved["pseudo_patterns"][0]["replacement_prefix"] == "dir"
+        assert setup.remember_projects_root(repo) == (None, 1)
+
+    def test_skips_repo_directly_in_home(self, cfg_dir, tmp_path, monkeypatch):
+        repo = self._repo(tmp_path / "home" / "repo-a")
+        monkeypatch.setattr(setup.Path, "home", lambda: (tmp_path / "home").resolve())
+        assert setup.remember_projects_root(repo) == (None, 0)
+        assert "pseudo_patterns" not in json.loads(
+            (cfg_dir / "config.json").read_text()
+        )
+
+    def test_outside_git_does_nothing(self, cfg_dir, tmp_path):
+        assert setup.remember_projects_root(tmp_path) == (None, 0)

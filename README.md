@@ -498,6 +498,7 @@ ANTHROPIC_PSEUDO_SALT=your-salt mitmdump \
 | `ANTHROPIC_PSEUDO_PROJECT_ROOT` | Raíz del proyecto **auditado** (palanca de rutas + git) | `cwd` del proceso |
 | `ANTHROPIC_PSEUDO_VAULT` | Ruta del vault de seudonimización | `captures/.pseudonym_vault.json` |
 | `KLAUS_LOG_DIR` | Directorio del log del proxy (`proxy.log`) | `~/.klaus-proxy/logs/` |
+| `ANTHROPIC_PSEUDO_USER_DIRS` | Patrón integrado de usuarios en `/Users/<u>` y `/home/<u>` | `1` |
 
 ### Protección de org/repo
 
@@ -517,6 +518,24 @@ El org y el nombre del repo se pseudonimizan como *word-literals*. Cada vez que 
   En `plan`, y en `auto` mientras Claude Code aún no ha leído el estado de git, la **primera** petición de un repo nuevo sale antes de aprenderlo.
 
 - **Para proteger un repo en cualquier modo**, haz que esté en `pseudo_word_literals` antes de trabajar en él. Puedes arrancar `claude-proxy` una vez dentro del repo, abrir una sesión en `auto` o `plan` o añadir sus tokens a mano. El dashboard de arranque muestra la lista.
+
+### Patrones (`pseudo_patterns`)
+
+Para datos con forma reconocible que no son un literal fijo. Se aplican **antes** que el resto de reglas, sobre el texto real, y son reversibles: el mismo valor siempre da el mismo seudónimo.
+
+```json
+"pseudo_patterns": [
+  {"pattern": "/Users/u/proyectos/([^/\\s]+)", "replacement_prefix": "dir"},
+  {"pattern": "CLIENTE-\\d{4}", "replacement_prefix": "cli"}
+]
+```
+
+- Si el regex tiene grupos, **solo se pseudonimiza el grupo 1**: `/Users/u/proyectos/acme/src` → `…/proyectos/dir_1a2b3c4d/src`. Sin grupos, la coincidencia entera.
+- `replacement_prefix`: solo minúsculas (`[a-z]+`); por defecto `pat`. Una entrada inválida se ignora.
+- **Automático:** al arrancar dentro de un repo, `claude-proxy` añade un patrón para la carpeta que lo contiene (p. ej. `~/proyectos`). Así los nombres de **todos** los proyectos de esa carpeta se protegen en las rutas, aunque no tengan remote o aparezcan truncados. No se añade si esa carpeta es el home.
+- **Integrado:** el nombre de usuario de cualquier ruta `/Users/<u>/…` o `/home/<u>/…`, aunque sea de otra máquina (p. ej. un `@import` en un `CLAUDE.md`). Se desactiva con `ANTHROPIC_PSEUDO_USER_DIRS=0`.
+- No cubre las rutas codificadas con guiones (`-Users-u-proyectos-<dir>-…`); ahí siguen protegiendo los word-literals.
+- `anthropic-pair-verify` comprueba cada patrón por contexto (capa `[pattern]`).
 
 ### Addons: snapshot inmutable y guardián
 
