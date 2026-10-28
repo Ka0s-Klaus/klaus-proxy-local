@@ -129,6 +129,45 @@ def test_version_string_not_mistaken_for_ip():
     assert forward == "anthropic-version 2023-06-01 v4.8.0"
 
 
+def _ip(*parts: int) -> str:
+    """Construye una cadena con forma de IPv4 sin escribirla literal."""
+    return ".".join(str(p) for p in parts)
+
+
+@pytest.mark.parametrize(
+    "addr",
+    [_ip(10, 0, 0, 1), _ip(192, 168, 1, 10), _ip(255, 255, 255, 255), _ip(0, 0, 0, 0)],
+)
+def test_real_ipv4_still_detected(addr):
+    v = ps.Vault()
+    for text in (f"host {addr}", f"({addr}:443)", f"ip={addr}.", f"user@{addr}"):
+        forward = ps.pseudonymize_text(text, v, _rules())
+        assert addr not in forward, text
+        assert ps.restore_text(forward, v) == text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Octeto fuera de rango: versión de Claude Code (#57)
+        f"cc_version={_ip(2, 1, 312, 625)}; cc_entrypoint=cli",
+        f"build {_ip(1, 2, 300, 4)}",
+        # Octetos válidos pero en contexto de versión (#57)
+        f"x-anthropic-billing-header: cc_version={_ip(2, 1, 3, 4)}; cc_entrypoint=cli",
+        f"version: {_ip(1, 2, 3, 4)}".replace(": ", ":"),
+        # Secuencias de más de 4 componentes
+        f"release {_ip(1, 2, 3, 4, 5)}",
+        f"release {_ip(9, 1, 2, 3, 4)}",
+        # Pegado a letras o guiones bajos
+        f"v{_ip(1, 2, 3, 4)}",
+        f"lib_{_ip(1, 2, 3, 4)}",
+    ],
+)
+def test_version_like_strings_not_mistaken_for_ip(text):
+    v = ps.Vault()
+    assert ps.pseudonymize_text(text, v, _rules()) == text
+
+
 # --- idempotencia ------------------------------------------------------------
 
 
