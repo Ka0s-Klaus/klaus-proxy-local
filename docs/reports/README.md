@@ -6,6 +6,16 @@ Aquí viven los **resultados y evidencias** del proyecto: auditorías realizadas
 
 ---
 
+## 🌐 Dashboards interactivos (web/)
+
+| Dashboard | Descripción | Cómo generar |
+|---|---|---|
+| [🔍 Audit Dashboard](./web/audit-dashboard.html) | 5 planes de auditoría: seguridad, pseudonimización, actividad, tests, EFDEF | `python3 scripts/generate_audit_dashboard.py --open` |
+
+→ [Ver documentación completa de dashboards](./web/README.md)
+
+---
+
 ## 🔍 Auditorías y análisis
 
 | Informe | Fecha | Descripción |
