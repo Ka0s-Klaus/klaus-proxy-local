@@ -30,7 +30,7 @@ def test_snapshot_copies_addons_read_only_with_version(src_dir, root):
     assert dest.parent == root
     for name in snap.ADDON_FILES:
         assert (dest / name).read_text(encoding="utf-8") == f"# {name} v1\n"
-        assert stat.S_IMODE((dest / name).stat().st_mode) == 0o444
+        assert stat.S_IMODE((dest / name).stat().st_mode) == 0o400
     assert info["sha"].startswith(dest.name)
     assert json.loads((dest / snap.VERSION_FILE).read_text()) == info
     assert not [p for p in root.iterdir() if p.name.startswith(".tmp-")]

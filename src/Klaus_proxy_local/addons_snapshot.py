@@ -81,7 +81,7 @@ def snapshot_addons(src_dir: Path, root: Path | None = None) -> tuple[Path, dict
         tmp.mkdir(mode=0o700)
         for name in ADDON_FILES:
             shutil.copyfile(src_dir / name, tmp / name)
-            os.chmod(tmp / name, 0o444)
+            os.chmod(tmp / name, 0o400)
         info = {
             "commit": source_commit(src_dir),
             "sha": sha,
@@ -89,7 +89,7 @@ def snapshot_addons(src_dir: Path, root: Path | None = None) -> tuple[Path, dict
             "created": datetime.now().isoformat(timespec="seconds"),
         }
         (tmp / VERSION_FILE).write_text(json.dumps(info, indent=2), encoding="utf-8")
-        os.chmod(tmp / VERSION_FILE, 0o444)
+        os.chmod(tmp / VERSION_FILE, 0o400)
         try:
             os.rename(tmp, dest)
         except OSError:
