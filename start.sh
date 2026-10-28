@@ -6,7 +6,7 @@ set -e
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-echo "🚀 Klaus Proxy Local v0.4.0"
+echo "🚀 Klaus Proxy Local v0.3.3"
 echo "============================"
 echo ""
 
@@ -36,15 +36,9 @@ if command -v tmux &> /dev/null; then
     tmux send-keys -t "$SESSION:0" "cd '$PROJECT_DIR' && claude-proxy" Enter
     tmux rename-window -t "$SESSION:0" "proxy"
 
-    # Window 2: Dashboard
-    sleep 2
-    tmux new-window -t "$SESSION" -n "dashboard"
-    tmux send-keys -t "$SESSION:1" "cd '$PROJECT_DIR' && python3 -m Klaus_proxy_local.dashboard_server" Enter
-
     sleep 1
 
     echo ""
-    echo "📊 Dashboard: http://localhost:9999"
     echo "🔌 Proxy:     127.0.0.1:8899"
     echo ""
     echo "Tmux session: $SESSION"
@@ -52,32 +46,27 @@ if command -v tmux &> /dev/null; then
     echo ""
 else
     # Fallback: simple background processes
-    echo "Starting services in background..."
+    echo "Starting proxy in background..."
     echo ""
 
     claude-proxy &
     PROXY_PID=$!
 
-    sleep 2
-
-    python3 -m Klaus_proxy_local.dashboard_server &
-    DASHBOARD_PID=$!
-
     sleep 1
 
     # Open browser
     if command -v open &> /dev/null; then
-        open http://localhost:9999
+        open http://localhost:9999 2>/dev/null || true
     fi
 
     echo ""
-    echo "✅ Services running:"
-    echo "📊 Dashboard: http://localhost:9999 (proxy: $PROXY_PID, dashboard: $DASHBOARD_PID)"
+    echo "✅ Proxy running (PID: $PROXY_PID)"
+    echo "🔌 Proxy:     127.0.0.1:8899"
     echo ""
     echo "Press Ctrl+C to stop"
     echo ""
 
     # Wait
-    trap "kill $PROXY_PID $DASHBOARD_PID 2>/dev/null; echo ''; echo 'Stopped'" EXIT
+    trap "kill $PROXY_PID 2>/dev/null; echo ''; echo 'Stopped'" EXIT
     wait
 fi

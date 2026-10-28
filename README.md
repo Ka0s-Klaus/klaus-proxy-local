@@ -5,10 +5,10 @@
 > gateway LLM corporativo), con análisis multi-modo y corrección automática de fugas.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Python](https://img.shields.io/badge/python-3.13%2B-blue)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.3.2-green)](./docs/RELEASE_v0.3.2_NOTES.md)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://python.org)
+[![Version](https://img.shields.io/badge/version-0.3.3-green)](./docs/RELEASE_v0.3.3_NOTES.md)
 [![Tests](https://img.shields.io/badge/tests-465%2F465-brightgreen)](./docs/FIX_SUMMARY.md)
-[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.3.2_NOTES.md)
+[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.3.3_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
 
@@ -54,11 +54,11 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.3.2)
+## 🚀 Inicio rápido (v0.3.3)
 
 ```bash
 # Instalar
-pip install Klaus-proxy-local==0.3.2
+pip install Klaus-proxy-local==0.3.3
 
 # Terminal 1: arrancar el proxy (auto-genera config + certs + SALT + variables SSL/TLS)
 claude-proxy

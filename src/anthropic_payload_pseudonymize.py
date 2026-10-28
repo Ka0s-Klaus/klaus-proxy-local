@@ -472,6 +472,22 @@ def build_rules() -> Rules:
     extra_word = os.environ.get("ANTHROPIC_PSEUDO_WORD_LITERALS", "")
     word_literals.extend(v.strip() for v in extra_word.split(",") if v.strip())
 
+    # Persistencia desde config.json — fuente de verdad que sobrevive reinicios.
+    # Las env vars tienen prioridad; config.json actúa como fallback/complemento.
+    try:
+        import json as _json
+        _cfg_path = Path.home() / ".klaus-proxy" / "config.json"
+        if _cfg_path.exists():
+            _cfg = _json.loads(_cfg_path.read_text(encoding="utf-8"))
+            for v in _cfg.get("pseudo_literals", []):
+                if v and v not in literals:
+                    literals.append(v)
+            for v in _cfg.get("pseudo_word_literals", []):
+                if v and v not in word_literals:
+                    word_literals.append(v)
+    except Exception:
+        pass
+
     regexes: list[tuple[re.Pattern, str]] = []
     if regexes_enabled():
         regexes = [(_EMAIL_RE, "email"), (_IPV4_RE, "ip")]

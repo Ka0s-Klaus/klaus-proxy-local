@@ -2,9 +2,9 @@
 
 > **Get started in 2 minutes.**
 
-**Status:** ✅ Ready for v0.1.0  
+**Status:** ✅ Ready for v0.3.3  
 **Audience:** Individual developers  
-**Related:** [THREAT_MODEL.md](./THREAT_MODEL.md) | [architecture.md](./architecture.md) | [setup.md](./setup.md)
+**Related:** [setup.md](./setup.md) | [USER_GUIDE.md](./USER_GUIDE.md)
 
 ---
 
@@ -25,7 +25,7 @@ You see:       "Read /home/dev/secret-project/main.py and fix the bug"
                (Claude Code works normally)
 ```
 
-See [THREAT_MODEL.md](./THREAT_MODEL.md) for what's protected and what's not.
+See [USER_GUIDE.md](./USER_GUIDE.md) for detailed setup and troubleshooting.
 
 ---
 
@@ -200,7 +200,7 @@ All captures stored locally:
 │   │   └── 20260730_143015_anthropic_payload.json
 │   ├── sent/              # What actually left your machine
 │   │   └── 20260730_143015_anthropic_payload.json
-│   └── .vault.json        # Mapping (real ↔ pseudonym)
+│   └── .pseudonym_vault.json  # Mapping (real ↔ pseudonym)
 ├── config.json            # Your configuration
 └── .mitmproxy-ca-cert.pem # SSL certificate
 ```
@@ -245,7 +245,7 @@ All captures stored locally:
    ls ~/.klaus-proxy/captures/sent/
    ```
 2. Share **only** the `sent/` directory (already pseudonymized)
-3. **Never** share the vault (`..pseudonym_vault.json`) — it reveals the mapping
+3. **Never** share the vault (`.pseudonym_vault.json`) — it reveals the mapping
 
 ---
 

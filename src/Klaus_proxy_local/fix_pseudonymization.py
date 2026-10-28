@@ -6,7 +6,7 @@ When payloads are NOT pseudonymized, this tool helps identify why and fix it.
 Usage:
   python fix_pseudonymization.py                # Diagnose issues
   python fix_pseudonymization.py --show-payloads  # Show non-pseudonymized payloads
-  python fix_pseudonymization.py --enable     # Force enable pseudonymization
+  python fix_pseudonymization.py --show-config   # Show current configuration
 """
 import argparse
 import json

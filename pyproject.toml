@@ -10,6 +10,13 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 keywords = ["anthropic", "claude", "proxy", "llm"]
+
+[project.urls]
+Homepage = "https://github.com/Ka0s-Klaus/klaus-proxy-local"
+Repository = "https://github.com/Ka0s-Klaus/klaus-proxy-local"
+Documentation = "https://github.com/Ka0s-Klaus/klaus-proxy-local/tree/main/docs"
+"Bug Tracker" = "https://github.com/Ka0s-Klaus/klaus-proxy-local/issues"
+
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
@@ -23,7 +30,7 @@ classifiers = [
 dependencies = [
     "httpx",
     "anthropic",
-    "mitmproxy>=9.0.0",
+    "mitmproxy>=11.0.2,<12",
 ]
 
 [project.optional-dependencies]
@@ -34,7 +41,7 @@ dev = [
     # estable entre versiones (p. ej. black 25→26), y un rango flotante hace
     # que `black --check` en CI reformatee código ya formateado con otra
     # versión. Pinear garantiza un formato reproducible local == CI.
-    "ruff==0.16.5",
+    "ruff>=0.8.0,<1.0.0",
     "black==25.11.0",
 ]
 
