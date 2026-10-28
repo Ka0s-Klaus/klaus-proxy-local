@@ -96,11 +96,8 @@ def project_root() -> Path:
     return Path(override) if override else Path.cwd()
 
 
-# Hosts sobre los que se reescribe. Mismos que la captura (gateway + Anthropic).
-_DEFAULT_HOSTS = (
-    "api.anthropic.com",
-    "llm.tools.cloud.customer1.es",
-)
+# Hosts sobre los que se reescribe — solo el fallback final si ni env var ni config.json.
+_DEFAULT_HOSTS = ("api.anthropic.com",)
 
 # Regex de datos sensibles con forma reconocible.
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
@@ -189,11 +186,24 @@ def secret_kv_enabled() -> bool:
 
 
 def _configured_hosts() -> tuple[str, ...]:
+    # Priority 1: explicit env var
     override = os.environ.get("ANTHROPIC_PSEUDO_HOSTS") or os.environ.get(
         "ANTHROPIC_CAPTURE_HOSTS"
     )
     if override:
         return tuple(h.strip().lower() for h in override.split(",") if h.strip())
+    # Priority 2: ~/.klaus-proxy/config.json — single source of truth for hosts
+    try:
+        import json as _json
+        _cfg_path = Path.home() / ".klaus-proxy" / "config.json"
+        if _cfg_path.exists():
+            _cfg = _json.loads(_cfg_path.read_text(encoding="utf-8"))
+            hosts = [h.strip().lower() for h in _cfg.get("hosts", []) if h.strip()]
+            if hosts:
+                return tuple(hosts)
+    except Exception:
+        pass
+    # Priority 3: hardcoded fallback (only Anthropic — user-specific gateways go in config.json)
     return _DEFAULT_HOSTS
 
 

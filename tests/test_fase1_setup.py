@@ -80,7 +80,6 @@ class TestConfigAutoGeneration:
 
             expected_hosts = [
                 "api.anthropic.com",
-                "llm.tools.cloud.customer1.es",
             ]
             assert config["hosts"] == expected_hosts
 
