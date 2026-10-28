@@ -429,3 +429,100 @@ def test_main_single_name_selects_one(tmp_path, capsys):
     )
     assert rc == 0
     assert "1 par(es)" in capsys.readouterr().out
+
+
+# --- rendimiento sin cambiar resultados (#73) ----------------------------------
+
+
+def _reference_matches(record, regex):
+    """Implementación de #59, sin prefiltro ni caché: la referencia."""
+    leaves = []
+
+    def walk(obj):
+        if isinstance(obj, str):
+            leaves.append(obj)
+        elif isinstance(obj, dict):
+            for v in obj.values():
+                walk(v)
+        elif isinstance(obj, list):
+            for v in obj:
+                walk(v)
+
+    walk([record.get("payload"), record.get("headers")])
+    return {m for leaf in leaves for m in regex.findall(leaf)}
+
+
+def _history_records(n=6):
+    """Peticiones de una sesión que reenvían el historial (hojas duplicadas)."""
+    history = []
+    records = []
+    ip = ".".join(["10", "1", "2", "3"])
+    for i in range(n):
+        history.append({"role": "user", "content": f"turno {i} sin datos"})
+        history.append(
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"ruta {i}: dev{i}" + "@" + "corp.example",
+                    },
+                    {"type": "tool_use", "input": {"cmd": f"ping {ip}", "n": i}},
+                    {
+                        "type": "text",
+                        "text": f"versión 1.2.3.4.{i} y cc_version=2.1.{i}.4",
+                    },
+                ],
+            }
+        )
+        records.append(
+            _record(
+                {"messages": list(history), "system": [{"text": "a.b c@d"}]},
+                headers={"X-Forwarded-For": ip, "Accept": "*/*"},
+            )
+        )
+    return records
+
+
+def test_layer_matches_equals_reference_on_repeated_history():
+    from anthropic_payload_pseudonymize import _EMAIL_RE, _IPV4_RE
+
+    pv._leaf_layer_matches.cache_clear()
+    for rec in _history_records():
+        got = pv.layer_matches(rec)
+        assert got["email"] == _reference_matches(rec, _EMAIL_RE)
+        assert got["ipv4"] == _reference_matches(rec, _IPV4_RE)
+        assert pv.regex_matches(rec, _EMAIL_RE) == got["email"]
+    # El historial repetido se resuelve desde la caché.
+    assert pv._leaf_layer_matches.cache_info().hits > 0
+
+
+def test_regex_matches_with_other_regex_still_works():
+    import re
+
+    rec = _record(_msg_payload("token-AB12 y token-CD34"))
+    assert pv.regex_matches(rec, re.compile(r"token-\w+")) == {
+        "token-AB12",
+        "token-CD34",
+    }
+
+
+def test_string_leaves_visits_every_string():
+    obj = {"a": ["x", {"b": "y", "c": [1, None, "z"]}], "d": "w"}
+    assert sorted(pv._string_leaves(obj)) == ["w", "x", "y", "z"]
+
+
+def test_verify_pair_results_unchanged_with_shared_serialization():
+    """verify_pair reutiliza el payload serializado: mismas fugas y secretos."""
+    rules = Rules(literals=["alice"])
+    orig = _record(_msg_payload("alice en " + ".".join(["10", "9", "8", "7"])))
+    sent = _record(_msg_payload("alice sigue"), variant="sent")
+    spans = pv.sensitive_spans(orig, {}, rules)
+    assert pv.diff_leaks(spans, sent) == pv.diff_leaks(
+        spans, sent, pv._record_text(sent)
+    )
+    assert pv.secrets_in_sent(sent) == pv.secrets_in_sent(
+        sent, pv._serialize(sent["payload"])
+    )
+    status = {r.name: r.level for r in pv.verify_pair(orig, sent, {}, rules)}
+    assert status["Fugas en claro"] == "fail"
