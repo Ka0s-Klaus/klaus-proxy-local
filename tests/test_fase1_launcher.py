@@ -18,7 +18,19 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+from Klaus_proxy_local.addons_snapshot import ADDON_FILES
 from Klaus_proxy_local.launcher import ProxyLauncher
+
+
+@pytest.fixture(autouse=True)
+def _no_real_snapshot():
+    """Never copy addons into the user's real ~/.klaus-proxy/addons (#71)."""
+    src = Path(__file__).resolve().parent.parent / "src"
+    with patch(
+        "Klaus_proxy_local.launcher.snapshot_addons",
+        return_value=(src, {"commit": "test"}),
+    ) as mock:
+        yield mock
 
 
 @pytest.fixture(autouse=True)
@@ -328,6 +340,31 @@ class TestLaunchMitmdump:
             mock_exists.side_effect = [True, True, False]
 
             with pytest.raises(RuntimeError, match="File log addon not found"):
+                launcher.launch_mitmdump()
+
+    def test_launch_mitmdump_runs_addons_from_snapshot(
+        self, _no_real_snapshot, tmp_path
+    ):
+        """launch_mitmdump() loads every addon from the snapshot, guard last (#71)."""
+        _no_real_snapshot.return_value = (tmp_path, {"commit": "abc1234"})
+        launcher = ProxyLauncher()
+        with patch("subprocess.Popen") as mock_popen:
+            with patch("pathlib.Path.exists", return_value=True):
+                mock_popen.return_value.poll.return_value = None
+                with patch("time.sleep"):
+                    launcher.launch_mitmdump()
+        call_args = mock_popen.call_args[0][0]
+        scripts = [call_args[i + 1] for i, a in enumerate(call_args) if a == "-s"]
+        assert scripts == [str(tmp_path / n) for n in ADDON_FILES]
+        assert scripts[-1].endswith("klaus_pseudo_guard.py")
+        assert launcher.addons_info == {"commit": "abc1234"}
+
+    def test_launch_mitmdump_raises_if_guard_addon_missing(self):
+        """launch_mitmdump() raises if the guard addon is missing (#71)."""
+        launcher = ProxyLauncher()
+        with patch("pathlib.Path.exists") as mock_exists:
+            mock_exists.side_effect = [True, True, True, False]
+            with pytest.raises(RuntimeError, match="Guard addon not found"):
                 launcher.launch_mitmdump()
 
     def test_launch_mitmdump_raises_if_pseudonymize_addon_missing(self):

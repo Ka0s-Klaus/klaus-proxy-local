@@ -518,6 +518,14 @@ El org y el nombre del repo se pseudonimizan como *word-literals*. Cada vez que 
 
 - **Para proteger un repo en cualquier modo**, haz que esté en `pseudo_word_literals` antes de trabajar en él. Puedes arrancar `claude-proxy` una vez dentro del repo, abrir una sesión en `auto` o `plan` o añadir sus tokens a mano. El dashboard de arranque muestra la lista.
 
+### Addons: snapshot inmutable y guardián
+
+mitmproxy recarga los scripts `-s` cada vez que cambian en disco. Para que un `git checkout`, un `stash` o una edición en el clon no cambien ni rompan el pseudonimizador de un proxy en marcha:
+
+- `claude-proxy` copia los addons a `~/.klaus-proxy/addons/<hash>/` (de solo lectura, con `VERSION.json`) y lanza `mitmdump` desde esa copia. **Los cambios en el clon solo se aplican al reiniciar `claude-proxy`.** Al arrancar se muestra `🧩 Addons: <commit> (snapshot …)`, que también queda en el log.
+- El addon `klaus_pseudo_guard.py` se carga el último y **bloquea con un 502 cualquier petición que el pseudonimizador no haya procesado**, por ejemplo si no llegó a cargar. En el log aparece `[klaus-guard] BLOQUEADA …`.
+- Los snapshots no se borran solos (pesan unos pocos KB). Puedes borrar los antiguos con el proxy parado.
+
 ### Logs del proxy
 
 Además de verse en la terminal, todo lo que registra el proxy se guarda en `~/.klaus-proxy/logs/proxy.log`. Lo escribe el addon `src/klaus_file_log.py`, que `claude-proxy` carga automáticamente:
