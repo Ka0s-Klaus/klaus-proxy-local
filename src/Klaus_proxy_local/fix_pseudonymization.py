@@ -216,11 +216,12 @@ class PseudonymizationDiagnostic:
         by_host = analysis.get("by_host", {})
         non_pseudonymized_hosts = list(by_host.keys())
 
-        if (
-            "api.anthropic.com" in non_pseudonymized_hosts
-            or "llm.tools" in non_pseudonymized_hosts[0]
-            if non_pseudonymized_hosts
-            else False
+        # Compare whole hostnames / leading DNS labels, never substrings:
+        # "evil-api.anthropic.com.attacker.io" must not match (CodeQL #58).
+        # The corporate gateway has the form llm.tools.cloud.<customer>.
+        if any(
+            host == "api.anthropic.com" or host.split(".")[:2] == ["llm", "tools"]
+            for host in non_pseudonymized_hosts
         ):
             recommendations += (
                 "⚠️  Internal/Third-party services NOT pseudonymized\n"
