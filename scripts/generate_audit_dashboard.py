@@ -13,17 +13,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _load_json(path: Path) -> dict | list | None:
     try:
@@ -53,6 +52,7 @@ def _ts_to_date(ts_str: str | None) -> str | None:
 # Audit Plan 1 — Seguridad
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def _load_expected_hosts() -> set[str]:
     """Lee los hosts esperados desde config.json. Fallback: solo api.anthropic.com."""
     try:
@@ -65,6 +65,7 @@ def _load_expected_hosts() -> set[str]:
     except Exception:
         pass
     return {"api.anthropic.com"}
+
 
 EXPECTED_HOSTS = _load_expected_hosts()
 
@@ -103,10 +104,9 @@ def audit_security(original: list[dict], _sent: list[dict]) -> dict:
         if isinstance(payload, dict):
             # Solo analizar mensajes de rol "user" — evitar falsos positivos
             # del system prompt (que puede mencionar patrones como "jailbreak")
-            user_content = json.dumps([
-                m for m in payload.get("messages", [])
-                if m.get("role") == "user"
-            ])
+            user_content = json.dumps(
+                [m for m in payload.get("messages", []) if m.get("role") == "user"]
+            )
             if _INJECTION_RE.search(user_content):
                 injection_hits.append(cap.get("captured_at", "?")[:19])
 
@@ -143,15 +143,24 @@ def audit_security(original: list[dict], _sent: list[dict]) -> dict:
 # Audit Plan 2 — Pseudonimización
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def audit_pseudonymization(original: list[dict], config_dir: Path) -> dict:
     llm_caps = [c for c in original if c.get("path", "").startswith("/v1/messages")]
     total_llm = len(llm_caps)
 
     if total_llm == 0:
         return {
-            "status": "no_data", "total_llm": 0, "pseudo_yes": 0, "pseudo_no": 0,
-            "pct": 0, "daily_dates": [], "daily_pct": [], "daily_totals": [],
-            "vault_entries": 0, "literals_count": 0, "word_literals_count": 0,
+            "status": "no_data",
+            "total_llm": 0,
+            "pseudo_yes": 0,
+            "pseudo_no": 0,
+            "pct": 0,
+            "daily_dates": [],
+            "daily_pct": [],
+            "daily_totals": [],
+            "vault_entries": 0,
+            "literals_count": 0,
+            "word_literals_count": 0,
             "model_distribution": [],
         }
 
@@ -162,6 +171,7 @@ def audit_pseudonymization(original: list[dict], config_dir: Path) -> dict:
     #     (el pseudonimizador corrió pero el mensaje era limpio, p.ej. "generate title")
     #   - Para otros hosts sin pseudo_ran ni pseudonymized → definitivamente no corrió
     _always_covered = {"api.anthropic.com"}
+
     def _pseudo_ran_compat(cap: dict) -> bool:
         if cap.get("pseudo_ran"):
             return True
@@ -208,7 +218,11 @@ def audit_pseudonymization(original: list[dict], config_dir: Path) -> dict:
 
     model_dist: dict[str, int] = {}
     for cap in llm_caps:
-        m = (cap.get("payload") or {}).get("model") if isinstance(cap.get("payload"), dict) else None
+        m = (
+            (cap.get("payload") or {}).get("model")
+            if isinstance(cap.get("payload"), dict)
+            else None
+        )
         model_dist[m or "unknown"] = model_dist.get(m or "unknown", 0) + 1
 
     # El semáforo se basa en los últimos 30 días para no penalizar deuda histórica
@@ -220,9 +234,15 @@ def audit_pseudonymization(original: list[dict], config_dir: Path) -> dict:
     recent_pct = round(100 * recent_ran / recent_total, 1) if recent_total else pct_ran
     if recent_total == 0:
         # Sin capturas recientes: estado basado en configuración actual (all-time fallback)
-        status = "good" if pct_ran >= 99 else ("warning" if pct_ran >= 90 else "critical")
+        status = (
+            "good" if pct_ran >= 99 else ("warning" if pct_ran >= 90 else "critical")
+        )
     else:
-        status = "good" if recent_pct >= 99 else ("warning" if recent_pct >= 90 else "critical")
+        status = (
+            "good"
+            if recent_pct >= 99
+            else ("warning" if recent_pct >= 90 else "critical")
+        )
 
     return {
         "status": status,
@@ -248,12 +268,20 @@ def audit_pseudonymization(original: list[dict], config_dir: Path) -> dict:
 # Audit Plan 3 — Actividad
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def audit_performance(original: list[dict]) -> dict:
     if not original:
         return {
-            "status": "no_data", "total_all": 0, "total_last30": 0, "active_days": 0,
-            "avg_per_active_day": 0, "daily_dates": [], "daily_counts": [],
-            "path_distribution": [], "status_distribution": [], "recent": [],
+            "status": "no_data",
+            "total_all": 0,
+            "total_last30": 0,
+            "active_days": 0,
+            "avg_per_active_day": 0,
+            "daily_dates": [],
+            "daily_counts": [],
+            "path_distribution": [],
+            "status_distribution": [],
+            "recent": [],
         }
 
     cutoff = (datetime.now(tz=timezone.utc) - timedelta(days=30)).isoformat()[:10]
@@ -287,7 +315,9 @@ def audit_performance(original: list[dict]) -> dict:
     total_last30 = sum(daily_counts)
     avg = round(total_last30 / active_days, 1) if active_days else 0
 
-    recent = sorted(original, key=lambda c: c.get("captured_at") or "", reverse=True)[:5]
+    recent = sorted(original, key=lambda c: c.get("captured_at") or "", reverse=True)[
+        :5
+    ]
 
     return {
         "status": "good" if active_days > 0 else "warning",
@@ -300,7 +330,11 @@ def audit_performance(original: list[dict]) -> dict:
         "path_distribution": sorted(path_dist.items(), key=lambda x: -x[1])[:10],
         "status_distribution": sorted(status_dist.items(), key=lambda x: -x[1]),
         "recent": [
-            {"ts": c.get("captured_at", "")[:19], "path": c.get("path", ""), "host": c.get("host", "")}
+            {
+                "ts": c.get("captured_at", "")[:19],
+                "path": c.get("path", ""),
+                "host": c.get("host", ""),
+            }
             for c in recent
         ],
     }
@@ -309,6 +343,7 @@ def audit_performance(original: list[dict]) -> dict:
 # ──────────────────────────────────────────────────────────────────────────────
 # Audit Plan 4 — Tests
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def audit_tests(project_root: Path) -> dict:
     test_count = passed = failed = errors = 0
@@ -364,11 +399,19 @@ def audit_tests(project_root: Path) -> dict:
 # Audit Plan 5 — EFDEF Compliance
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def audit_efdef(project_root: Path, config_dir: Path) -> dict:
     checks: list[dict] = []
 
     def chk(label: str, description: str, passed: bool, detail: str = "") -> None:
-        checks.append({"label": label, "description": description, "passed": passed, "detail": detail})
+        checks.append(
+            {
+                "label": label,
+                "description": description,
+                "passed": passed,
+                "detail": detail,
+            }
+        )
 
     cfg_file = config_dir / "config.json"
     cfg = _load_json(cfg_file) or {}
@@ -376,62 +419,120 @@ def audit_efdef(project_root: Path, config_dir: Path) -> dict:
 
     vault_file = config_dir / "captures" / ".pseudonym_vault.json"
     v = _load_json(vault_file) if vault_file.exists() else None
-    chk("Vault existe", "Vault de pseudonimización creado y accesible",
-        vault_file.exists(), f"{len(v)} entradas" if isinstance(v, dict) else "")
+    chk(
+        "Vault existe",
+        "Vault de pseudonimización creado y accesible",
+        vault_file.exists(),
+        f"{len(v)} entradas" if isinstance(v, dict) else "",
+    )
 
     salt = cfg.get("salt", "")
-    chk("Salt configurado", "ANTHROPIC_PSEUDO_SALT generado (>=16 chars)",
-        bool(salt and len(salt) >= 16), f"salt de {len(salt)} chars" if salt else "ausente")
+    chk(
+        "Salt configurado",
+        "ANTHROPIC_PSEUDO_SALT generado (>=16 chars)",
+        bool(salt and len(salt) >= 16),
+        f"salt de {len(salt)} chars" if salt else "ausente",
+    )
 
-    chk("pseudo_literals key", "config.json contiene pseudo_literals para persistencia",
-        "pseudo_literals" in cfg)
-    chk("pseudo_word_literals key", "config.json contiene pseudo_word_literals",
-        "pseudo_word_literals" in cfg)
+    chk(
+        "pseudo_literals key",
+        "config.json contiene pseudo_literals para persistencia",
+        "pseudo_literals" in cfg,
+    )
+    chk(
+        "pseudo_word_literals key",
+        "config.json contiene pseudo_word_literals",
+        "pseudo_word_literals" in cfg,
+    )
 
     cert = Path.home() / ".mitmproxy" / "mitmproxy-ca-cert.pem"
     chk("Certificado CA", "Certificado mitmproxy generado y disponible", cert.exists())
 
     env_file = config_dir / "klaus-env.sh"
-    chk("Klaus env file", "~/.klaus-proxy/klaus-env.sh con vars SSL/TLS", env_file.exists())
+    chk(
+        "Klaus env file",
+        "~/.klaus-proxy/klaus-env.sh con vars SSL/TLS",
+        env_file.exists(),
+    )
 
     for subdir in ["architecture", "guides", "reports", "decisions"]:
         p = project_root / "docs" / subdir
-        chk(f"docs/{subdir}/", f"Carpeta docs/{subdir}/ existe (EFDEF Sección 23)", p.is_dir())
+        chk(
+            f"docs/{subdir}/",
+            f"Carpeta docs/{subdir}/ existe (EFDEF Sección 23)",
+            p.is_dir(),
+        )
 
     readme = project_root / "README.md"
-    readme_has_docs = "📚 Documentación" in (readme.read_text(encoding="utf-8") if readme.exists() else "")
-    chk("README docs section", "README.md tiene sección Documentación como mapa del proyecto", readme_has_docs)
+    readme_has_docs = "📚 Documentación" in (
+        readme.read_text(encoding="utf-8") if readme.exists() else ""
+    )
+    chk(
+        "README docs section",
+        "README.md tiene sección Documentación como mapa del proyecto",
+        readme_has_docs,
+    )
 
     claude_md = project_root / "CLAUDE.md"
     has_workflow = False
     if claude_md.exists():
         content = claude_md.read_text(encoding="utf-8")
-        has_workflow = "Issue" in content and "Rama" in content and "Pull Request" in content
-    chk("Workflow CLAUDE.md", "CLAUDE.md documenta flujo Issue→Rama→PR (Sección 22)", has_workflow)
+        has_workflow = (
+            "Issue" in content and "Rama" in content and "Pull Request" in content
+        )
+    chk(
+        "Workflow CLAUDE.md",
+        "CLAUDE.md documenta flujo Issue→Rama→PR (Sección 22)",
+        has_workflow,
+    )
 
     passed_count = sum(1 for c in checks if c["passed"])
     total_count = len(checks)
     pct = round(100 * passed_count / total_count, 1) if total_count else 0
     status = "good" if pct >= 90 else ("warning" if pct >= 70 else "critical")
 
-    return {"status": status, "checks": checks, "passed": passed_count, "total": total_count, "pct": pct}
+    return {
+        "status": status,
+        "checks": checks,
+        "passed": passed_count,
+        "total": total_count,
+        "pct": pct,
+    }
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # HTML Generation — uses #MARKER# tokens to avoid conflict with CSS {}
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def _status_color(status: str) -> str:
-    return {"good": "#0ca30c", "warning": "#fab219", "critical": "#d03b3b", "no_data": "#898781"}.get(status, "#898781")
+    return {
+        "good": "#0ca30c",
+        "warning": "#fab219",
+        "critical": "#d03b3b",
+        "no_data": "#898781",
+    }.get(status, "#898781")
+
 
 def _status_emoji(status: str) -> str:
-    return {"good": "✅", "warning": "⚠️", "critical": "🔴", "no_data": "⬜"}.get(status, "⬜")
+    return {"good": "✅", "warning": "⚠️", "critical": "🔴", "no_data": "⬜"}.get(
+        status, "⬜"
+    )
+
 
 def _status_label(status: str) -> str:
-    return {"good": "OK", "warning": "Revisar", "critical": "Crítico", "no_data": "Sin datos"}.get(status, "?")
+    return {
+        "good": "OK",
+        "warning": "Revisar",
+        "critical": "Crítico",
+        "no_data": "Sin datos",
+    }.get(status, "?")
+
 
 def _pct_color(pct: float, good_threshold: float = 90) -> str:
-    return "#0ca30c" if pct >= good_threshold else ("#fab219" if pct >= 70 else "#d03b3b")
+    return (
+        "#0ca30c" if pct >= good_threshold else ("#fab219" if pct >= 70 else "#d03b3b")
+    )
 
 
 def _build_html(replacements: dict[str, str], template: str) -> str:
@@ -1064,7 +1165,7 @@ def render_html(
             f'<div class="card-title">{label}</div>'
             f'<div class="card-status">'
             f'<span class="status-dot" style="background:{col}"></span>'
-            f'{em} {lbl}</div></div>'
+            f"{em} {lbl}</div></div>"
         )
 
     injection_count = security.get("injection_count", 0)
@@ -1073,7 +1174,11 @@ def render_html(
         injection_html = '<div class="mt12" style="font-size:.8rem;color:#0ca30c">✅ Sin patrones de prompt injection detectados.</div>'
     else:
         lines = "".join(f"<li>{h}</li>" for h in injection_hits[:5])
-        more = f"<li style='color:var(--text-muted)'>…y {injection_count - 5} más</li>" if injection_count > 5 else ""
+        more = (
+            f"<li style='color:var(--text-muted)'>…y {injection_count - 5} más</li>"
+            if injection_count > 5
+            else ""
+        )
         injection_html = (
             f'<div class="mt12" style="font-size:.8rem;color:#fab219">'
             f"⚠️ {injection_count} patrones de injection detectados:"
@@ -1088,7 +1193,9 @@ def render_html(
         "efdef": efdef,
     }
 
-    literals_total = pseudo.get("literals_count", 0) + pseudo.get("word_literals_count", 0)
+    literals_total = pseudo.get("literals_count", 0) + pseudo.get(
+        "word_literals_count", 0
+    )
 
     replacements = {
         "GENERATED_AT": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -1104,7 +1211,9 @@ def render_html(
         "SEC_REDACTED": f"{security.get('secrets_redacted', 0):,}",
         "SEC_REDACTED_PCT": str(security.get("secrets_redacted_pct", 0)),
         "SEC_UNEXPECTED": str(security.get("unexpected_count", 0)),
-        "SEC_HOSTS_COLOR": "#d03b3b" if security.get("unexpected_count", 0) > 0 else "#0ca30c",
+        "SEC_HOSTS_COLOR": (
+            "#d03b3b" if security.get("unexpected_count", 0) > 0 else "#0ca30c"
+        ),
         "INJECTION_HTML": injection_html,
         # Pseudonymization
         "PSEUDO_COLOR": _status_color(pseudo.get("status", "no_data")),
@@ -1113,7 +1222,9 @@ def render_html(
         "PSEUDO_PCT": str(pseudo.get("pct", 0)),
         "PSEUDO_PCT_COLOR": _pct_color(pseudo.get("pct", 0), good_threshold=99),
         "RECENT_PSEUDO_PCT": str(pseudo.get("recent_pct", pseudo.get("pct", 0))),
-        "RECENT_PSEUDO_COLOR": _pct_color(pseudo.get("recent_pct", pseudo.get("pct", 0)), good_threshold=99),
+        "RECENT_PSEUDO_COLOR": _pct_color(
+            pseudo.get("recent_pct", pseudo.get("pct", 0)), good_threshold=99
+        ),
         "RECENT_PSEUDO_TOTAL": f"{pseudo.get('recent_total', 0):,}",
         "PSEUDO_YES": f"{pseudo.get('pseudo_yes', 0):,}",
         "PSEUDO_MODIFIED": f"{pseudo.get('pseudo_modified', 0):,}",
@@ -1158,6 +1269,7 @@ def render_html(
 # Main
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Klaus Proxy — Genera dashboard HTML de auditoría"
@@ -1175,11 +1287,17 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--output",
         default=str(
-            Path(__file__).parent.parent / "docs" / "reports" / "web" / "audit-dashboard.html"
+            Path(__file__).parent.parent
+            / "docs"
+            / "reports"
+            / "web"
+            / "audit-dashboard.html"
         ),
         help="Ruta de salida del dashboard HTML",
     )
-    parser.add_argument("--open", action="store_true", help="Abre el dashboard en el navegador")
+    parser.add_argument(
+        "--open", action="store_true", help="Abre el dashboard en el navegador"
+    )
     args = parser.parse_args(argv)
 
     captures_dir = Path(args.captures_dir)
@@ -1196,7 +1314,9 @@ def main(argv: list[str] | None = None) -> None:
     total = len(original)
     print(f"   ✅ {total:,} capturas originales | {len(sent):,} enviadas")
 
-    dates = sorted(c.get("captured_at", "")[:10] for c in original if c.get("captured_at"))
+    dates = sorted(
+        c.get("captured_at", "")[:10] for c in original if c.get("captured_at")
+    )
     date_range = f"{dates[0]} → {dates[-1]}" if dates else "sin datos"
 
     print("🔐 Auditoría de seguridad...")
@@ -1228,23 +1348,31 @@ def main(argv: list[str] | None = None) -> None:
     print("│ Resumen de auditoría                                    │")
     print("├─────────────────────────────────────────────────────────┤")
     STATUS_ICON = {"good": "✅", "warning": "⚠️ ", "critical": "🔴", "no_data": "⬜"}
-    STATUS_LBL  = {"good": "OK      ", "warning": "Revisar ", "critical": "Crítico ", "no_data": "Sin datos"}
+    STATUS_LBL = {
+        "good": "OK      ",
+        "warning": "Revisar ",
+        "critical": "Crítico ",
+        "no_data": "Sin datos",
+    }
     for plan, emoji, label in [
         (security, "🔐", "Seguridad      "),
-        (pseudo,   "📊", "Pseudonimizac. "),
-        (perf,     "⚡", "Actividad      "),
-        (tests,    "🧪", "Tests          "),
-        (efdef,    "📋", "EFDEF          "),
+        (pseudo, "📊", "Pseudonimizac. "),
+        (perf, "⚡", "Actividad      "),
+        (tests, "🧪", "Tests          "),
+        (efdef, "📋", "EFDEF          "),
     ]:
         st = plan.get("status", "no_data")
-        print(f"│  {emoji} {label}  {STATUS_ICON.get(st,'⬜')} {STATUS_LBL.get(st,'?')}                        │")
+        print(
+            f"│  {emoji} {label}  {STATUS_ICON.get(st,'⬜')} {STATUS_LBL.get(st,'?')}                        │"
+        )
     print("└─────────────────────────────────────────────────────────┘")
     print()
-    print(f"🌐 Abrir en navegador:")
+    print("🌐 Abrir en navegador:")
     print(f"   file://{output_path.resolve()}")
 
     if args.open:
         import webbrowser
+
         webbrowser.open(f"file://{output_path.resolve()}")
 
 

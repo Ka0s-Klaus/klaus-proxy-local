@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Mock test requests through proxy (without API key)."""
 
-import os
 import json
 import time
 from pathlib import Path
+
 
 def create_mock_request(idx: int):
     """Create a mock request file in captures/sent/."""
@@ -18,7 +18,7 @@ def create_mock_request(idx: int):
         "captured_at": time.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
         "method": "POST",
         "host": "api.anthropic.com",
-        "path": f"/v1/messages",
+        "path": "/v1/messages",
         "status_code": 200,
         "pseudonymized": True,
         "blocked": False,
@@ -31,6 +31,7 @@ def create_mock_request(idx: int):
         json.dump(request_data, f, indent=2)
 
     return filename
+
 
 def main():
     """Create mock requests and display dashboard info."""
@@ -59,6 +60,7 @@ def main():
     print("  ✓ Vault coverage by type")
     print()
     print("💡 Tip: Refresh the dashboard to see updates")
+
 
 if __name__ == "__main__":
     main()
