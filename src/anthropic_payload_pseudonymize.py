@@ -1004,6 +1004,9 @@ class AnthropicPseudonymizer:
             print(out)
 
     def request(self, flow: Any) -> None:  # pragma: no cover - requiere mitmproxy
+        # Prueba de vida para klaus_pseudo_guard: si este addon no está cargado
+        # (p. ej. falló una recarga), el guardián bloquea la request (#71).
+        flow.metadata["klaus_pseudo_seen"] = True
         if not enabled():
             return
         req = flow.request
