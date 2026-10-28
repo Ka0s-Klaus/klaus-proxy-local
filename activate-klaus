@@ -1,19 +1,28 @@
 #!/bin/bash
 # Activar Klaus Proxy Local con Python 3.13
 
-VENV_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.venv-py313"
+# Venv global (instalado con install.sh)
+GLOBAL_VENV="${HOME}/.local/share/klaus/venv"
+# Venv local de desarrollo (fallback)
+LOCAL_VENV="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.venv"
 
-if [ ! -d "$VENV_DIR" ]; then
-    echo "❌ Virtual environment not found at $VENV_DIR"
-    echo "Create it with: python3.13 -m venv $VENV_DIR"
+if [ -d "$GLOBAL_VENV" ]; then
+    VENV_DIR="$GLOBAL_VENV"
+elif [ -d "$LOCAL_VENV" ]; then
+    VENV_DIR="$LOCAL_VENV"
+else
+    echo "❌ Entorno virtual no encontrado."
+    echo "   Ejecuta primero: ./install.sh"
     exit 1
 fi
 
 source "$VENV_DIR/bin/activate"
-echo "✅ Klaus Proxy Local environment activated (Python 3.13)"
-echo "Commands available:"
-echo "  klaus-install-python  - Install Python 3.13+"
-echo "  claude-proxy          - Start the audit proxy"
-echo "  klaus-scan            - Scan for sensitive data"
+PYTHON_VER=$(python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+echo "✅ Klaus Proxy Local activado (Python ${PYTHON_VER})"
 echo ""
-echo "Deactivate with: deactivate"
+echo "Comandos disponibles:"
+echo "  claude-proxy          - Arrancar el proxy de auditoría"
+echo "  klaus-scan            - Escanear datos sensibles"
+echo "  Klaus-proxy           - Alias del proxy principal"
+echo ""
+echo "Desactivar con: deactivate"

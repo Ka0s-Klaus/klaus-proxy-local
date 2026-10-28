@@ -18,7 +18,11 @@ fi
 
 # Install package
 echo "📦 Installing Klaus Proxy Local..."
-pip install -e . > /dev/null 2>&1 || {
+if [ -f "$PROJECT_DIR/.venv/bin/pip" ]; then
+    "$PROJECT_DIR/.venv/bin/pip" install -e . > /dev/null 2>&1
+else
+    python3 -m pip install -e . > /dev/null 2>&1
+fi || {
     echo "❌ Failed to install"
     exit 1
 }
