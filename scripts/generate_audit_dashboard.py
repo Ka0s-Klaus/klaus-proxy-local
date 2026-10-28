@@ -155,8 +155,25 @@ def audit_pseudonymization(original: list[dict], config_dir: Path) -> dict:
             "model_distribution": [],
         }
 
-    pseudo_yes = sum(1 for c in llm_caps if c.get("pseudonymized"))
-    pct = round(100 * pseudo_yes / total_llm, 1)
+    # #38: pseudo_ran=True → el pseudonimizador procesó la request (métrica real de cobertura)
+    # pseudonymized=True → encontró datos sensibles y los reemplazó
+    # Capturas antiguas (pre-#38) no tienen pseudo_ran. Heurístico de compatibilidad:
+    #   - Si el host es api.anthropic.com (siempre configurado) → pseudo_ran=True aunque pseudonymized=False
+    #     (el pseudonimizador corrió pero el mensaje era limpio, p.ej. "generate title")
+    #   - Para otros hosts sin pseudo_ran ni pseudonymized → definitivamente no corrió
+    _always_covered = {"api.anthropic.com"}
+    def _pseudo_ran_compat(cap: dict) -> bool:
+        if cap.get("pseudo_ran"):
+            return True
+        if cap.get("pseudonymized"):
+            return True
+        host = (cap.get("host") or "").lower()
+        return host in _always_covered
+
+    ran_yes = sum(1 for c in llm_caps if _pseudo_ran_compat(c))
+    modified_yes = sum(1 for c in llm_caps if c.get("pseudonymized"))
+    pct_ran = round(100 * ran_yes / total_llm, 1)
+    pct_modified = round(100 * modified_yes / total_llm, 1)
 
     cutoff = (datetime.now(tz=timezone.utc) - timedelta(days=90)).isoformat()[:10]
     daily: dict[str, dict[str, int]] = {}
@@ -164,14 +181,16 @@ def audit_pseudonymization(original: list[dict], config_dir: Path) -> dict:
         d = _ts_to_date(cap.get("captured_at"))
         if not d or d < cutoff:
             continue
-        rec = daily.setdefault(d, {"pseudo": 0, "total": 0})
+        rec = daily.setdefault(d, {"ran": 0, "modified": 0, "total": 0})
         rec["total"] += 1
+        if _pseudo_ran_compat(cap):
+            rec["ran"] += 1
         if cap.get("pseudonymized"):
-            rec["pseudo"] += 1
+            rec["modified"] += 1
 
     daily_dates = sorted(daily.keys())
     daily_pct = [
-        round(100 * daily[d]["pseudo"] / daily[d]["total"], 1) if daily[d]["total"] else 0
+        round(100 * daily[d]["ran"] / daily[d]["total"], 1) if daily[d]["total"] else 0
         for d in daily_dates
     ]
     daily_totals = [daily[d]["total"] for d in daily_dates]
@@ -192,14 +211,29 @@ def audit_pseudonymization(original: list[dict], config_dir: Path) -> dict:
         m = (cap.get("payload") or {}).get("model") if isinstance(cap.get("payload"), dict) else None
         model_dist[m or "unknown"] = model_dist.get(m or "unknown", 0) + 1
 
-    status = "good" if pct >= 90 else ("warning" if pct >= 70 else "critical")
+    # El semáforo se basa en los últimos 30 días para no penalizar deuda histórica
+    # (el problema masivo fue el 2026-07-31, corregido por fix/36 en 2026-10-28).
+    # Los datos all-time se muestran para transparencia.
+    cutoff_30 = (datetime.now(tz=timezone.utc) - timedelta(days=30)).isoformat()[:10]
+    recent_total = sum(daily[d]["total"] for d in daily_dates if d >= cutoff_30)
+    recent_ran = sum(daily[d]["ran"] for d in daily_dates if d >= cutoff_30)
+    recent_pct = round(100 * recent_ran / recent_total, 1) if recent_total else pct_ran
+    if recent_total == 0:
+        # Sin capturas recientes: estado basado en configuración actual (all-time fallback)
+        status = "good" if pct_ran >= 99 else ("warning" if pct_ran >= 90 else "critical")
+    else:
+        status = "good" if recent_pct >= 99 else ("warning" if recent_pct >= 90 else "critical")
 
     return {
         "status": status,
         "total_llm": total_llm,
-        "pseudo_yes": pseudo_yes,
-        "pseudo_no": total_llm - pseudo_yes,
-        "pct": pct,
+        "pseudo_yes": ran_yes,
+        "pseudo_modified": modified_yes,
+        "pseudo_no": total_llm - ran_yes,
+        "pct": pct_ran,
+        "pct_modified": pct_modified,
+        "recent_pct": recent_pct,
+        "recent_total": recent_total,
         "daily_dates": daily_dates,
         "daily_pct": daily_pct,
         "daily_totals": daily_totals,
@@ -396,8 +430,8 @@ def _status_emoji(status: str) -> str:
 def _status_label(status: str) -> str:
     return {"good": "OK", "warning": "Revisar", "critical": "Crítico", "no_data": "Sin datos"}.get(status, "?")
 
-def _pct_color(pct: float) -> str:
-    return "#0ca30c" if pct >= 90 else ("#fab219" if pct >= 70 else "#d03b3b")
+def _pct_color(pct: float, good_threshold: float = 90) -> str:
+    return "#0ca30c" if pct >= good_threshold else ("#fab219" if pct >= 70 else "#d03b3b")
 
 
 def _build_html(replacements: dict[str, str], template: str) -> str:
@@ -617,12 +651,37 @@ HTML_TEMPLATE = """\
     <h2>📊 Calidad de Pseudonimización</h2>
     <span class="status-badge" style="background:#PSEUDO_COLOR#">#PSEUDO_EMOJI# #PSEUDO_LABEL#</span>
   </div>
+  <div class="card mb12" style="background:var(--surface-card);border:1.5px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Últimos 90 días</div>
+        <div style="font-size:2.2rem;font-weight:700;color:#RECENT_PSEUDO_COLOR#">#RECENT_PSEUDO_PCT#%</div>
+        <div style="font-size:.8rem;color:var(--text-muted)">#RECENT_PSEUDO_TOTAL# peticiones · objetivo ≥99%</div>
+      </div>
+      <div style="flex:1;min-width:200px;font-size:.85rem;color:var(--text-secondary)">
+        El semáforo se basa en los últimos 90 días. Las capturas históricas previas al fix/36 (2026-10-28)
+        aparecen en las métricas all-time pero no afectan al estado actual del sistema.
+      </div>
+    </div>
+  </div>
   <div class="grid-3 mb12">
     <div class="stat-tile">
-      <div class="stat-label">Peticiones LLM pseudonimizadas</div>
+      <div class="stat-label">Cobertura total (all-time)</div>
       <div class="stat-value" style="color:#PSEUDO_PCT_COLOR#">#PSEUDO_PCT#%</div>
-      <div class="stat-sub">#PSEUDO_YES# de #PSEUDO_TOTAL# /v1/messages</div>
+      <div class="stat-sub">#PSEUDO_YES# de #PSEUDO_TOTAL# procesadas</div>
     </div>
+    <div class="stat-tile">
+      <div class="stat-label">Con datos sensibles reemplazados</div>
+      <div class="stat-value">#PSEUDO_MODIFIED_PCT#%</div>
+      <div class="stat-sub">#PSEUDO_MODIFIED# de #PSEUDO_TOTAL# modificadas</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Sin cobertura</div>
+      <div class="stat-value" style="color:#PSEUDO_NO_COLOR#">#PSEUDO_NO#</div>
+      <div class="stat-sub">peticiones no procesadas por el pseudonimizador</div>
+    </div>
+  </div>
+  <div class="grid-2 mb12">
     <div class="stat-tile">
       <div class="stat-label">Entradas en el vault</div>
       <div class="stat-value">#VAULT_ENTRIES#</div>
@@ -1052,8 +1111,15 @@ def render_html(
         "PSEUDO_EMOJI": _status_emoji(pseudo.get("status", "no_data")),
         "PSEUDO_LABEL": _status_label(pseudo.get("status", "no_data")),
         "PSEUDO_PCT": str(pseudo.get("pct", 0)),
-        "PSEUDO_PCT_COLOR": _pct_color(pseudo.get("pct", 0)),
+        "PSEUDO_PCT_COLOR": _pct_color(pseudo.get("pct", 0), good_threshold=99),
+        "RECENT_PSEUDO_PCT": str(pseudo.get("recent_pct", pseudo.get("pct", 0))),
+        "RECENT_PSEUDO_COLOR": _pct_color(pseudo.get("recent_pct", pseudo.get("pct", 0)), good_threshold=99),
+        "RECENT_PSEUDO_TOTAL": f"{pseudo.get('recent_total', 0):,}",
         "PSEUDO_YES": f"{pseudo.get('pseudo_yes', 0):,}",
+        "PSEUDO_MODIFIED": f"{pseudo.get('pseudo_modified', 0):,}",
+        "PSEUDO_MODIFIED_PCT": str(pseudo.get("pct_modified", 0)),
+        "PSEUDO_NO": f"{pseudo.get('pseudo_no', 0):,}",
+        "PSEUDO_NO_COLOR": "#d03b3b" if pseudo.get("pseudo_no", 0) > 0 else "#0ca30c",
         "PSEUDO_TOTAL": f"{pseudo.get('total_llm', 0):,}",
         "VAULT_ENTRIES": f"{pseudo.get('vault_entries', 0):,}",
         "LITERALS_COUNT": str(pseudo.get("literals_count", 0)),

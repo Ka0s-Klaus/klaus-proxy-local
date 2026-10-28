@@ -212,6 +212,19 @@ def is_target_host(host: str) -> bool:
     return any(host == h or host.endswith("." + h) for h in _configured_hosts())
 
 
+_LLM_PATH_PATTERNS = (
+    "/v1/messages",
+    "/v1/complete",
+    "/messages",
+)
+
+
+def is_llm_path(path: str) -> bool:
+    """True si la ruta parece una llamada a un LLM (defense-in-depth para hosts desconocidos)."""
+    p = (path or "").lower().split("?")[0].rstrip("/")
+    return any(p == pat or p.endswith(pat) for pat in _LLM_PATH_PATTERNS)
+
+
 def _salt() -> str:
     """Load pseudonymization salt; must be explicitly configured.
 
@@ -735,8 +748,21 @@ class AnthropicPseudonymizer:
         if not enabled():
             return
         req = flow.request
-        if not is_target_host(req.pretty_host):
-            return
+        is_configured = is_target_host(req.pretty_host)
+        is_llm = is_llm_path(req.path)
+        if not is_configured:
+            if is_llm:
+                # Defense-in-depth: host desconocido pero ruta LLM → pseudonimizar
+                # igualmente y advertir para que el usuario añada el host a config.json.
+                self._log(
+                    f"[anthropic-pseudo] WARN host desconocido con ruta LLM: "
+                    f"{req.pretty_host}{req.path} — pseudonimizando igualmente. "
+                    f"Añade este host a ~/.Klaus-proxy/config.json",
+                    level="warn",
+                )
+                flow.metadata["anthropic_unknown_host"] = req.pretty_host
+            else:
+                return
         # Fail-closed: si CUALQUIER paso de la seudonimización falla (no se puede
         # leer el cuerpo, reescribirlo, etc.), NO dejamos salir la request — la
         # abortamos localmente. Un cuerpo que no hemos podido seudonimizar nunca
@@ -764,6 +790,7 @@ class AnthropicPseudonymizer:
         new = pseudonymize_body(text, vault, rules)
         flow.metadata["anthropic_original_body"] = original
         flow.metadata["anthropic_pseudonymized"] = bool(new != original)
+        flow.metadata["anthropic_pseudo_ran"] = True  # #38: corrió aunque no modificó nada
         # Mapa real→seudónimo YA poblado por el cuerpo, para que la captura
         # seudonimice también url/host/cabeceras del registro `sent` con los
         # MISMOS seudónimos y sin acuñar ninguno nuevo.
