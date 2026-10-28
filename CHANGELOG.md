@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] — 2026-10-28
+
+### Added
+- **Instalador bootstrap `install.sh`** (#31, #33) — Instalación en 3 fases (prerequisitos → venv global en `~/.local/share/klaus/venv` → configuración) con modo `--check`. Enlaza los comandos en `~/.local/bin`.
+- **Dashboard HTML de auditoría** (#34, #35) — `klaus-audit-dashboard --open` con 5 planes: seguridad, pseudonimización, actividad, tests y EFDEF.
+- **Detección por ruta** (#39, #41) — Cualquier petición a `/v1/messages*` se pseudonimiza aunque el host no esté configurado, con aviso para añadirlo a `config.json`.
+- **Flag `pseudo_ran`** (#38, #41) — Distingue "el pseudonimizador no corrió" (exposición real) de "corrió pero no había nada que sustituir". El dashboard mide % de peticiones procesadas, con umbral ≥ 99 %.
+- Python 3.10 en la matriz de CI (#45).
+
+### Fixed
+- **Seguridad: el proxy escuchaba en todas las interfaces** (#47) — `mitmdump` se lanzaba sin `--listen-host` (`*:8899`), lo que lo convertía en un proxy abierto para la LAN. Ahora solo escucha en `127.0.0.1`.
+- **`install.sh` fallaba en equipos limpios** (#43) — `mitmproxy`/`mitmdump` se buscaban en el PATH en lugar de en el venv, y la CA se generaba con la consola interactiva `mitmproxy`, que falla sin TTY. Ahora se resuelven desde el venv y la CA se genera con `mitmdump` sin interfaz.
+- **`klaus-audit-dashboard` no se enlazaba** en `~/.local/bin` (#43).
+- **`pseudo_literals` se perdían al reiniciar** (#28, #29) — Ahora persisten en `~/.klaus-proxy/config.json`.
+- **Placeholder `customer1.es` hardcodeado** (#36, #37) — Los hosts se leen de `config.json` (prioridad: env → config → `api.anthropic.com`).
+- **CodeQL #58** (#45) — Comparación de hosts por igualdad / etiquetas DNS en lugar de subcadenas en `klaus-fix-pseudonymization`.
+- **CI bloqueado** (#45) — El job Lint fallaba en `main` y `Test` nunca se ejecutaba; deuda de ruff/black saneada.
+
+### Changed
+- `requires-python >= 3.10` y sin límite superior de `mitmproxy` (#33). Verificado con mitmproxy 12.3.1.
+- Documentación de instalación: el paquete no está en PyPI; se instala con `git clone` + `./install.sh` (#49).
+
+---
+
 ## [0.3.3] — 2026-09-20
 
 ### Fixed
