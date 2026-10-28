@@ -117,13 +117,19 @@ Klaus Proxy now **automatically configures** SSL/TLS certificate trust for all y
 When you start `claude-proxy`, it automatically generates `~/.klaus-proxy/klaus-env.sh` containing:
 
 ```bash
-export GIT_SSL_CAINFO="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
-export CURL_CA_BUNDLE="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
-export SSL_CERT_FILE="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
-export REQUESTS_CA_BUNDLE="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
+export GIT_SSL_CAINFO="$HOME/.klaus-proxy/ca-bundle.pem"
+export CURL_CA_BUNDLE="$HOME/.klaus-proxy/ca-bundle.pem"
+export SSL_CERT_FILE="$HOME/.klaus-proxy/ca-bundle.pem"
+export REQUESTS_CA_BUNDLE="$HOME/.klaus-proxy/ca-bundle.pem"
+export NODE_EXTRA_CA_CERTS="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
 ```
 
 This tells your tools (git, curl, Python, Node.js) to trust the proxy's certificate automatically.
+
+`ca-bundle.pem` = system CAs + the proxy CA, regenerated on every `claude-proxy` start.
+The first four variables **replace** the trust store, so pointing them at the proxy CA
+alone would break HTTPS that doesn't go through the proxy. `NODE_EXTRA_CA_CERTS` only
+**adds** to Node's store, so it uses the proxy CA directly.
 
 ### Setup Options
 
@@ -260,7 +266,7 @@ If you enabled auto-startup but want to disable it:
    ```bash
    source ~/.klaus-proxy/klaus-env.sh
    env | grep SSL
-   # Should show: GIT_SSL_CAINFO, CURL_CA_BUNDLE, SSL_CERT_FILE
+   # Should show: GIT_SSL_CAINFO, CURL_CA_BUNDLE, SSL_CERT_FILE (→ ~/.klaus-proxy/ca-bundle.pem)
    ```
 
 2. Verify certificate exists:
@@ -496,10 +502,10 @@ ANTHROPIC_PSEUDO_SALT=your-salt mitmdump \
 
 | Variable | Efecto | Status |
 | --- | --- | --- |
-| `GIT_SSL_CAINFO` | Certificado CA para `git` | ✅ Auto-generada |
-| `CURL_CA_BUNDLE` | Certificado CA para `curl` | ✅ Auto-generada |
-| `SSL_CERT_FILE` | Certificado CA para OpenSSL | ✅ Auto-generada |
-| `REQUESTS_CA_BUNDLE` | Certificado CA para Python | ✅ Auto-generada |
+| `GIT_SSL_CAINFO` | CAs del sistema + CA del proxy para `git` | ✅ Auto-generada |
+| `CURL_CA_BUNDLE` | CAs del sistema + CA del proxy para `curl` | ✅ Auto-generada |
+| `SSL_CERT_FILE` | CAs del sistema + CA del proxy para OpenSSL | ✅ Auto-generada |
+| `REQUESTS_CA_BUNDLE` | CAs del sistema + CA del proxy para Python | ✅ Auto-generada |
 | `NODE_EXTRA_CA_CERTS` | Certificado CA para Node.js | ✅ Auto-generada |
 | `HTTPS_PROXY` | Dirección del proxy (usuario) | Manual: `http://127.0.0.1:8899` |
 
