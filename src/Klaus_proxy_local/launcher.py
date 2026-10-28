@@ -336,7 +336,7 @@ class ProxyLauncher:
             print("   Proxy continues running without monitor.\n")
 
 
-def main() -> None:
+def main(argv=None) -> None:
     """Entry point for claude-proxy command."""
     parser = argparse.ArgumentParser(
         prog="claude-proxy",
@@ -359,7 +359,7 @@ def main() -> None:
         version=f"%(prog)s {__version__}"
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     launcher = ProxyLauncher(enable_monitor=args.monitor)
     launcher.run()
