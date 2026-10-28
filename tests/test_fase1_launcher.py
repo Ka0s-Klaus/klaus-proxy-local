@@ -158,6 +158,13 @@ class TestShowDashboard:
 
         assert "~/.klaus-proxy/captures/" in captured.out
 
+    def test_show_dashboard_outputs_log_path(self, capsys):
+        """show_dashboard() shows where the proxy log lives (#55)."""
+        launcher = ProxyLauncher()
+        launcher.cert_file = Path("/tmp/cert.pem")
+        launcher.show_dashboard()
+        assert "logs/proxy.log" in capsys.readouterr().out
+
     def test_show_dashboard_outputs_cert_path(self, capsys):
         """show_dashboard() outputs certificate path."""
         launcher = ProxyLauncher()
@@ -256,6 +263,33 @@ class TestLaunchMitmdump:
                 call_args = mock_popen.call_args[0][0]
                 host_idx = call_args.index("--listen-host")
                 assert call_args[host_idx + 1] == "127.0.0.1"
+
+    def test_launch_mitmdump_includes_file_log_addon_first(self):
+        """launch_mitmdump() loads the file log addon before the others (#55)."""
+        launcher = ProxyLauncher()
+        with patch("subprocess.Popen") as mock_popen:
+            with patch("pathlib.Path.exists", return_value=True):
+                mock_process = MagicMock()
+                mock_process.poll.return_value = None
+                mock_popen.return_value = mock_process
+
+                with patch("time.sleep"):
+                    launcher.launch_mitmdump()
+
+                call_args = mock_popen.call_args[0][0]
+                scripts = [
+                    call_args[i + 1] for i, a in enumerate(call_args) if a == "-s"
+                ]
+                assert scripts[0].endswith("klaus_file_log.py")
+
+    def test_launch_mitmdump_raises_if_file_log_addon_missing(self):
+        """launch_mitmdump() raises if file log addon not found (#55)."""
+        launcher = ProxyLauncher()
+        with patch("pathlib.Path.exists") as mock_exists:
+            mock_exists.side_effect = [True, True, False]
+
+            with pytest.raises(RuntimeError, match="File log addon not found"):
+                launcher.launch_mitmdump()
 
     def test_launch_mitmdump_raises_if_pseudonymize_addon_missing(self):
         """launch_mitmdump() raises if pseudonymization addon not found."""

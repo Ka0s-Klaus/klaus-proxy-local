@@ -497,6 +497,19 @@ ANTHROPIC_PSEUDO_SALT=your-salt mitmdump \
 | `ANTHROPIC_PSEUDO_WORD_LITERALS` | Literales con frontera de palabra (org/proj IDs) | — |
 | `ANTHROPIC_PSEUDO_PROJECT_ROOT` | Raíz del proyecto **auditado** (palanca de rutas + git) | `cwd` del proceso |
 | `ANTHROPIC_PSEUDO_VAULT` | Ruta del vault de seudonimización | `captures/.pseudonym_vault.json` |
+| `KLAUS_LOG_DIR` | Directorio del log del proxy (`proxy.log`) | `~/.klaus-proxy/logs/` |
+
+### Logs del proxy
+
+Además de verse en la terminal, todo lo que registra el proxy se guarda en `~/.klaus-proxy/logs/proxy.log`. Lo escribe el addon `src/klaus_file_log.py`, que `claude-proxy` carga automáticamente:
+
+- Arranque, avisos y errores de mitmproxy y de los addons de seudonimización y captura.
+- Una línea por petición: `POST api.anthropic.com/v1/messages → 200 1234B 850ms`.
+- Rotación a 5 MB × 5 ficheros (`proxy.log.1` … `proxy.log.5`), sin colores ANSI y con permisos `0600`.
+
+```bash
+tail -f ~/.klaus-proxy/logs/proxy.log
+```
 
 ### SSL/TLS (Auto-Exportadas)
 
