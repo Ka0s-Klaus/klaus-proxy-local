@@ -200,6 +200,28 @@ def test_is_target_host(host, expected):
     assert ps.is_target_host(host) is expected
 
 
+# --- is_llm_path (#39) -------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "path,expected",
+    [
+        ("/v1/messages", True),
+        ("/v1/messages?beta=true", True),
+        ("/v1/messages/", True),
+        ("/prefix/v1/messages", True),
+        ("/v1/complete", True),
+        ("/messages", True),
+        ("/v1/count_tokens", False),
+        ("/v1/models", False),
+        ("/health", False),
+        ("", False),
+    ],
+)
+def test_is_llm_path(path, expected):
+    assert ps.is_llm_path(path) is expected
+
+
 # --- palanca de rutas --------------------------------------------------------
 
 

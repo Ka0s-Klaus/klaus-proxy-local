@@ -200,6 +200,8 @@ def build_record(
     redact: bool = True,
     variant: str = "sent",
     pseudonymized: bool = False,
+    pseudo_ran: bool = False,
+    unknown_host: str | None = None,
     counterpart: str | None = None,
     blocked: bool = False,
     client_addr: str | None = None,
@@ -222,6 +224,8 @@ def build_record(
         "captured_at": captured_at.isoformat(),
         "variant": variant,
         "pseudonymized": pseudonymized,
+        "pseudo_ran": pseudo_ran,
+        "unknown_host": unknown_host,
         "blocked": blocked,
         "counterpart": counterpart,
         "method": method,
@@ -317,9 +321,12 @@ class AnthropicPayloadCapture:
         meta = getattr(flow, "metadata", {}) or {}
         original_body = meta.get("anthropic_original_body")
         pseudonymized = bool(meta.get("anthropic_pseudonymized"))
+        pseudo_ran = bool(meta.get("anthropic_pseudo_ran"))
+        unknown_host = meta.get("anthropic_unknown_host")
         if original_body is None:
             original_body = req.raw_content
             pseudonymized = False
+            pseudo_ran = False
         # El seudonimizador aborta (fail-closed) las requests que no pudo
         # seudonimizar: no salieron, así que su cuerpo NO se registra como enviado.
         blocked = bool(meta.get("anthropic_blocked"))
@@ -347,6 +354,8 @@ class AnthropicPayloadCapture:
             captured_at=now,
             redact=self.redact,
             pseudonymized=pseudonymized,
+            pseudo_ran=pseudo_ran,
+            unknown_host=unknown_host,
             counterpart=name,
             blocked=blocked,
             client_addr=client_addr,
