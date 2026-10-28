@@ -11,6 +11,8 @@ This removes the manual salt configuration burden from FASE 0.
 import json
 import os
 import secrets
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -159,6 +161,57 @@ def migrate_config_paths() -> None:
             json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8"
         )
         os.chmod(cfg_file, 0o600)
+
+
+def _remote_tokens(url: str) -> list[str]:
+    """org/repo de una URL de remote, con el mismo parser que el seudonimizador."""
+    src_path = Path(__file__).resolve().parent.parent
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+    from anthropic_payload_pseudonymize import _parse_remote_tokens
+
+    return _parse_remote_tokens(url)
+
+
+def remember_repo_tokens(cwd: Path | None = None) -> tuple[list[str], list[str]]:
+    """Persist org/repo of the git remote in ``cwd`` as pseudo_word_literals.
+
+    The pseudonymizer only detects org/repo from the remote of mitmdump's working
+    directory, so starting claude-proxy outside the repo silently dropped them
+    (#61). Saving them in config.json keeps them protected wherever the proxy
+    starts from.
+
+    Returns ``(added, protected)``: tokens added now and the full list in config.
+    Best-effort: without git, a remote or a readable config it changes nothing.
+    """
+    cfg_file = config_file()
+    try:
+        config = json.loads(cfg_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return [], []
+    protected = list(config.get("pseudo_word_literals") or [])
+
+    try:
+        out = subprocess.run(
+            ["git", "config", "--get", "remote.origin.url"],
+            cwd=str(cwd or Path.cwd()),
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+        tokens = _remote_tokens((out.stdout or "").strip())
+    except Exception:
+        tokens = []
+
+    added = [t for t in tokens if t not in protected]
+    if added:
+        protected.extend(added)
+        config["pseudo_word_literals"] = protected
+        cfg_file.write_text(
+            json.dumps(config, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        os.chmod(cfg_file, 0o600)
+    return added, protected
 
 
 def load_config() -> dict:

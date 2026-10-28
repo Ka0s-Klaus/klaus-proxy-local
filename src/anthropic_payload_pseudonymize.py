@@ -88,9 +88,11 @@ def project_root() -> Path:
     """Raíz del proyecto AUDITADO (no la del tooling).
 
     Es la raíz de la palanca de rutas y el cwd para detectar identidad/remote
-    git. Por defecto el directorio de trabajo del proceso mitmdump (el
-    `claude-proxy` hace `cd` al repo auditado); override explícito con
-    ANTHROPIC_PSEUDO_PROJECT_ROOT.
+    git. Por defecto el directorio de trabajo del proceso mitmdump, que hereda
+    el de quien lanzó `claude-proxy` (no hace `cd`); override explícito con
+    ANTHROPIC_PSEUDO_PROJECT_ROOT. Para que org/repo no dependan de ese
+    directorio, `claude-proxy` los guarda en ``pseudo_word_literals`` de
+    config.json (#61).
     """
     override = os.environ.get("ANTHROPIC_PSEUDO_PROJECT_ROOT")
     return Path(override) if override else Path.cwd()
