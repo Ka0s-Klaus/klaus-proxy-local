@@ -26,6 +26,7 @@ from Klaus_proxy_local.certs import (
     ensure_mitmproxy_certs,
     generate_env_vars_file,
     generate_mitmproxy_certs,
+    mitm_executable,
     mitmproxy_cert_dir,
     mitmproxy_cert_file,
 )
@@ -177,7 +178,7 @@ class ProxyLauncher:
         # then capture (evidence collection)
         # NOTE: No -q flag to show all logs with version prefix
         mitmdump_cmd = [
-            "mitmdump",
+            mitm_executable("mitmdump"),
             "-s",
             str(pseudonymize_addon),
             "-s",
