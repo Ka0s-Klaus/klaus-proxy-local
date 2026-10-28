@@ -192,7 +192,7 @@ def test_vault_load_missing_returns_empty(tmp_path):
     "host,expected",
     [
         ("api.anthropic.com", True),
-        ("llm.tools.cloud.customer1.es", True),
+        ("llm.tools.cloud.customer1.es", False),
         ("api.openai.com", False),
     ],
 )

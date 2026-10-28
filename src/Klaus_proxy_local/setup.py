@@ -94,7 +94,6 @@ def init_config_if_missing() -> dict:
         "salt": salt,
         "hosts": [
             "api.anthropic.com",
-            "llm.tools.cloud.customer1.es",
         ],
         "capture_dir": str(capture_dir()),
         "vault_path": str(vault_path()),
