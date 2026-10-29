@@ -486,3 +486,94 @@ def test_tool_source_keeps_end_of_long_paths(dashboard):
     assert len(src) == 120
     cmd = dashboard._tool_source({"command": "cd /repo && " + "y" * 200})
     assert cmd.startswith("cd /repo && ") and cmd.endswith("…")
+
+
+# --- tabla de hosts del plan de seguridad (#123) ------------------------------
+
+
+def test_security_unexpected_hosts_follow_config(dashboard, monkeypatch):
+    monkeypatch.setattr(
+        dashboard, "EXPECTED_HOSTS", {"api.anthropic.com", "telemetry.example"}
+    )
+    caps = [
+        {"host": "api.anthropic.com"},
+        {"host": "telemetry.example"},
+        {"host": "other.example"},
+    ]
+    sec = dashboard.audit_security(caps, [], {})
+    assert sec["unexpected_hosts"] == ["other.example"]
+    assert dict(sec["host_distribution"]) == {
+        "api.anthropic.com": 1,
+        "telemetry.example": 1,
+        "other.example": 1,
+    }
+
+
+def test_hosts_table_uses_unexpected_hosts(dashboard):
+    # La tabla no puede tener su propia lista fija de hosts esperados
+    src = (ROOT / "scripts" / "generate_audit_dashboard.py").read_text(encoding="utf-8")
+    assert "new Set(['api.anthropic.com'])" not in src
+    assert "new Set(DATA.security.unexpected_hosts" in src
+
+
+def _write_log(path, lines):
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def test_uncaptured_hosts_from_proxy_log(dashboard, monkeypatch, tmp_path):
+    monkeypatch.setattr(dashboard, "EXPECTED_HOSTS", {"api.anthropic.com"})
+    monkeypatch.setenv("KLAUS_LOG_DIR", str(tmp_path))
+    _write_log(
+        tmp_path / "proxy.log.1",
+        [
+            "2026-10-28 10:00:00,001 INFO    klaus.flow: GET pypi.org/simple/ → 200 5B 3ms",
+            "2026-10-28 10:00:01,001 INFO    klaus.flow: POST api.anthropic.com/v1/messages"
+            " → 200 9B 4ms",
+        ],
+    )
+    _write_log(
+        tmp_path / "proxy.log",
+        [
+            "2026-10-29 10:00:00,001 INFO    klaus.flow: TÚNEL pypi.org:443 (sin descifrar)",
+            "2026-10-29 10:00:02,001 INFO    klaus.flow: TÚNEL edge.api.anthropic.com:443"
+            " (sin descifrar)",
+            "2026-10-29 10:00:03,001 ERROR   klaus.flow: GET mcp.example/x → - - - ✖ boom",
+            "2026-10-29 10:00:04,001 INFO    mitmproxy.proxy.server: client connect",
+            "sin fecha klaus.flow: TÚNEL raro.example:443 (sin descifrar)",
+        ],
+    )
+    files = dashboard.proxy_log_files()
+    assert [f.name for f in files] == ["proxy.log.1", "proxy.log"]
+    res = dashboard.audit_uncaptured_hosts(files)
+    assert res["since"] == "2026-10-28 10:00:00"
+    by_host = {h["host"]: h for h in res["hosts"]}
+    # api.anthropic.com y sus subdominios se capturan: no aparecen
+    assert set(by_host) == {"pypi.org", "mcp.example"}
+    assert by_host["pypi.org"]["tunnel"] == 1
+    assert by_host["pypi.org"]["decrypted"] == 1
+    assert by_host["pypi.org"]["last_decrypted"] == "2026-10-28 10:00:00"
+    assert by_host["pypi.org"]["last_tunnel"] == "2026-10-29 10:00:00"
+    assert by_host["mcp.example"]["decrypted"] == 1
+
+
+def test_uncaptured_hosts_html(dashboard):
+    sec = {
+        "uncaptured": {
+            "since": "2026-10-28 10:00:00",
+            "hosts": [
+                {
+                    "host": "<x>.example",
+                    "tunnel": 2,
+                    "decrypted": 0,
+                    "last_tunnel": "2026-10-29 10:00:00",
+                    "last_decrypted": "",
+                }
+            ],
+        }
+    }
+    out = dashboard._uncaptured_hosts_html(sec)
+    assert "Hosts no capturados" in out
+    assert "&lt;x&gt;.example" in out and "<x>" not in out
+    assert dashboard._uncaptured_hosts_html({}) == ""
+    empty = dashboard._uncaptured_hosts_html({"uncaptured": {"hosts": [], "since": ""}})
+    assert "Ningún host" in empty
