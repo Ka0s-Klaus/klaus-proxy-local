@@ -56,6 +56,7 @@ Después, **reinicia `claude-proxy`**. También puedes usar `python3 scripts/add
 ```
 
 - Cada petición genera un par `original` + `sent` con el mismo nombre.
+- Las de `capture_only_hosts` llevan `"capture_only": true`: salieron **sin pseudonimizar** (los dos lados tienen los datos reales y los secretos redactados) y las herramientas de verificación no las cuentan como fugas.
 - **El vault guarda los valores reales en claro** (`{"valor real": "seudónimo"}`), con permisos `0600`. No lo compartas.
 - Los seudónimos se calculan con la SALT de `config.json`: sin ella no se pueden deducir los valores, pero el vault sí los contiene.
 - Nada de esto se versiona ni se sincroniza. Para borrar la evidencia: `rm -rf ~/.klaus-proxy/captures/original ~/.klaus-proxy/captures/sent`.

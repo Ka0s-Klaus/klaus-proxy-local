@@ -51,6 +51,8 @@ klaus-fix-pseudonymization --show-config      # config.json (la SALT sale oculta
 | Host que no está en `hosts` y cuya ruta no es de LLM | Host distinto de `api.anthropic.com` | Añádelo a `hosts` de `config.json` y reinicia `claude-proxy` |
 | Capturas anteriores al campo `pseudo_ran` (#38) | Fechas antiguas | Nada: no se puede saber a posteriori |
 
+> Las capturas de `capture_only_hosts` (`"capture_only": true`, #125) no se cuentan: se auditan sin pseudonimizar a propósito.
+
 > Si el pseudonimizador **no está cargado**, el guardián bloquea la petición con un 502 y no sale: no aparece como «no procesada», sino como bloqueada en el log.
 
 ---

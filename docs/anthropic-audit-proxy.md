@@ -266,6 +266,9 @@ cada `original/<n>` con su `sent/<n>` (mismo nombre) y comprueba que **ningún d
 sensible del original sobrevive verbatim en el sent**, derivando "lo sensible" del
 propio original + el entorno + los mismos patrones del seudonimizador.
 
+Los pares con `"capture_only": true` (hosts de `capture_only_hosts`, #125) se
+omiten: no se seudonimizan a propósito, así que sus valores reales no son fugas.
+
 ```bash
 python3 src/anthropic_pair_verify.py               # barrido de todos los pares
 python3 src/anthropic_pair_verify.py <nombre.json> # un par concreto

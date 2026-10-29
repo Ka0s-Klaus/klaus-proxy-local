@@ -75,8 +75,34 @@ echo $HTTPS_PROXY       # en la terminal de Claude Code: debe ser http://127.0.0
 
 ## 📭 No hay capturas
 
-- Solo se capturan y pseudonimizan los hosts de `hosts` en `config.json` (por defecto `api.anthropic.com`). Si usas un gateway propio, añádelo ahí o en `ANTHROPIC_CAPTURE_HOSTS`.
+- Solo se capturan los hosts de `hosts` (que además se pseudonimizan) y de `capture_only_hosts` (sin pseudonimizar) en `config.json`; por defecto, `api.anthropic.com`. Si usas un gateway propio, añádelo a `hosts`.
+- Si `ANTHROPIC_CAPTURE_HOSTS` está exportada en la terminal donde arrancas el proxy, **sustituye** a `hosts` de `config.json` para la captura. Si no la necesitas: `unset ANTHROPIC_CAPTURE_HOSTS` y reinicia `claude-proxy`.
+- Para ver qué tráfico pasa por el proxy sin capturarse, mira la sección «Hosts no capturados» del dashboard (`klaus-audit-dashboard --open`).
 - Las capturas van a `~/.klaus-proxy/captures/original/` y `sent/`. El log muestra una línea `[anthropic-capture] … → sent/<fichero>` por petición.
+
+---
+
+## 🧩 Quiero auditar los conectores MCP de claude.ai
+
+Pasan por `mcp-proxy.anthropic.com`. Si lo añades a `hosts`, los conectores recibirán seudónimos y pueden fallar (una búsqueda por un valor real no encontrará nada). Para auditarlos sin tocar la petición, añádelo a `capture_only_hosts`:
+
+```json
+"capture_only_hosts": ["mcp-proxy.anthropic.com"]
+```
+
+Reinicia `claude-proxy`. Las capturas llevan `"capture_only": true`, los secretos redactados y no cuentan como fugas.
+
+---
+
+## 📝 El log dice «config.json ilegible»
+
+`[anthropic-pseudo] WARN config.json ilegible (…)`: `~/.klaus-proxy/config.json` no se puede leer o no es JSON válido, normalmente por una edición a mano (una coma de más, comillas sin cerrar). **Mientras tanto no se aplican tus `pseudo_literals`, `pseudo_word_literals` ni `pseudo_patterns`**: solo las reglas integradas.
+
+```bash
+python3 -m json.tool ~/.klaus-proxy/config.json   # señala la línea del error
+```
+
+Corrígelo (o recupera una copia `config.json.bak-*` si la tienes) y reinicia `claude-proxy`.
 
 ---
 
