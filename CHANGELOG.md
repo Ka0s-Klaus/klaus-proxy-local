@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **El menú `klaus` fallaba con «No module named Klaus_proxy_local»** (#103) — Usaba el `python3` del sistema, pero `install.sh` instala el paquete en `~/.local/share/klaus/venv`. Ahora usa el Python de ese venv si existe.
+
+### Removed
+- **`claude-proxy --monitor`** (#103) — El monitor TUI se eliminó en v0.3.3; la opción solo imprimía un aviso de que faltaba el módulo.
+
 ---
 
 ## [0.5.2] — 2026-10-29
