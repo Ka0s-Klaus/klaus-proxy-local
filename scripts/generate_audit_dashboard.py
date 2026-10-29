@@ -106,7 +106,13 @@ def _tool_source(tool_input: object) -> str:
         value = tool_input.get(key)
         if isinstance(value, str) and value.strip():
             value = " ".join(value.split())
-            return value if len(value) <= 120 else value[:119] + "…"
+            if len(value) <= 120:
+                return value
+            # En una ruta lo que identifica la fuente es el final (el fichero);
+            # en un comando o una URL, el principio.
+            if key in ("file_path", "path"):
+                return "…" + value[-119:]
+            return value[:119] + "…"
     return ""
 
 

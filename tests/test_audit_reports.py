@@ -477,3 +477,12 @@ def test_detector_sources_do_not_trigger_detector(dashboard):
     ):
         text = (ROOT / rel).read_text(encoding="utf-8")
         assert not dashboard._INJECTION_RE.search(text), rel
+
+
+def test_tool_source_keeps_end_of_long_paths(dashboard):
+    long_dir = "/tmp/" + "x" * 200
+    src = dashboard._tool_source({"file_path": f"{long_dir}/vendor-lib/README.md"})
+    assert src.startswith("…") and src.endswith("/vendor-lib/README.md")
+    assert len(src) == 120
+    cmd = dashboard._tool_source({"command": "cd /repo && " + "y" * 200})
+    assert cmd.startswith("cd /repo && ") and cmd.endswith("…")
