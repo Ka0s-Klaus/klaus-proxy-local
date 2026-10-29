@@ -253,9 +253,7 @@ def interactive_review():
 
         # Filter for likely sensitive data
         sensitive = [
-            s
-            for s in missing_in_sent
-            if re.search(r"@|[\d\.]{7,}|/|_empresa", s, re.IGNORECASE)
+            s for s in missing_in_sent if re.search(r"@|[\d\.]{7,}|/", s, re.IGNORECASE)
         ]
 
         if sensitive and len(sensitive) <= 5:  # Manageable number

@@ -67,8 +67,8 @@ flowchart TD
 **Estructura de `config.json` tras el fix:**
 ```json
 {
-  "pseudo_literals": ["asantacana1970"],
-  "pseudo_word_literals": ["usuario_empresa", "empresa", "Cliente", "clientex"]
+  "pseudo_literals": ["mi-usuario"],
+  "pseudo_word_literals": ["usuario_empresa", "Empresa", "ClienteX", "Cliente X"]
 }
 ```
 
