@@ -18,7 +18,7 @@ import anthropic_payload_capture as cap
         ("api.anthropic.com", True),
         ("API.ANTHROPIC.COM", True),
         ("edge.api.anthropic.com", True),
-        ("llm.tools.cloud.customer1.es", True),
+        ("llm.tools.cloud.customer1.es", False),
         ("api.openai.com", False),
         ("anthropic.com.evil.example", False),
         ("", False),
@@ -34,6 +34,35 @@ def test_configured_hosts_env_override(monkeypatch):
     assert cap.is_anthropic_host("bar.example") is True
     # Con override, el default deja de aplicar.
     assert cap.is_anthropic_host("api.anthropic.com") is False
+
+
+def test_configured_hosts_pseudo_env(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_PSEUDO_HOSTS", "gw.example")
+    assert cap.is_anthropic_host("gw.example") is True
+
+
+@pytest.fixture
+def no_hosts_env(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_CAPTURE_HOSTS", raising=False)
+    monkeypatch.delenv("ANTHROPIC_PSEUDO_HOSTS", raising=False)
+
+
+def test_configured_hosts_from_config_json(_isolated_config_json, no_hosts_env):
+    # #119: un host de `hosts` de config.json se captura sin variables de entorno
+    _isolated_config_json.write_text(
+        '{"hosts": ["api.anthropic.com", "telemetry.example"]}', encoding="utf-8"
+    )
+    assert cap.is_anthropic_host("telemetry.example") is True
+    assert cap.is_anthropic_host("api.anthropic.com") is True
+    assert cap.is_anthropic_host("other.example") is False
+
+
+def test_configured_hosts_broken_config_uses_default(
+    _isolated_config_json, no_hosts_env
+):
+    _isolated_config_json.write_text("{no json", encoding="utf-8")
+    assert cap.is_anthropic_host("api.anthropic.com") is True
+    assert cap.is_anthropic_host("telemetry.example") is False
 
 
 # --- redact_headers ----------------------------------------------------------

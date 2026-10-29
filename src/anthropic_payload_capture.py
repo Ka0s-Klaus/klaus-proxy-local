@@ -73,20 +73,30 @@ def colorize(text: str, level: str, *, enabled: bool | None = None) -> str:
 
 # --- Configuración -----------------------------------------------------------
 
-# Hosts a auditar. Por defecto se incluye tanto la API pública de Anthropic como
-# el gateway LLM corporativo de customer 1, ya que la inferencia real (/v1/messages)
-# se enruta a través de este último. Ampliable vía ANTHROPIC_CAPTURE_HOSTS
-# (lista separada por comas).
-_DEFAULT_HOSTS = (
-    "api.anthropic.com",
-    "llm.tools.cloud.customer1.es",
-)
+# Hosts a auditar: las mismas fuentes y prioridad que el seudonimizador, para
+# que todo host que se seudonimiza quede también capturado (#119):
+# ANTHROPIC_CAPTURE_HOSTS / ANTHROPIC_PSEUDO_HOSTS → `hosts` de config.json →
+# api.anthropic.com.
+_DEFAULT_HOSTS = ("api.anthropic.com",)
+
+
+def config_path() -> Path:
+    return Path.home() / ".klaus-proxy" / "config.json"
 
 
 def _configured_hosts() -> tuple[str, ...]:
-    override = os.environ.get("ANTHROPIC_CAPTURE_HOSTS")
+    override = os.environ.get("ANTHROPIC_CAPTURE_HOSTS") or os.environ.get(
+        "ANTHROPIC_PSEUDO_HOSTS"
+    )
     if override:
         return tuple(h.strip().lower() for h in override.split(",") if h.strip())
+    try:
+        cfg = json.loads(config_path().read_text(encoding="utf-8"))
+        hosts = [str(h).strip().lower() for h in cfg.get("hosts", []) if str(h).strip()]
+        if hosts:
+            return tuple(hosts)
+    except (OSError, ValueError, AttributeError):
+        pass
     return _DEFAULT_HOSTS
 
 

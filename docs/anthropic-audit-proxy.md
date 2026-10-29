@@ -318,7 +318,7 @@ descubrir qué identificadores añadir a `ANTHROPIC_PSEUDO_WORD_LITERALS`
 
 | Variable | Efecto | Default |
 | --- | --- | --- |
-| `ANTHROPIC_CAPTURE_HOSTS` | Lista de hosts a capturar (coma-separada) | `api.anthropic.com,llm.tools.cloud.customer1.es` |
+| `ANTHROPIC_CAPTURE_HOSTS` | Lista de hosts a capturar (coma-separada); sustituye a `hosts` de `config.json`. Sin ella, se capturan los mismos hosts que se seudonimizan (#119) | `hosts` de `config.json` (`api.anthropic.com`) |
 | `ANTHROPIC_CAPTURE_REDACT` | `0` para capturar secretos tal cual (⚠️ no versionar) | `1` (redacta) |
 | `ANTHROPIC_CAPTURE_DIR` | Directorio **base** de salida (los pares caen en sus subdirs `sent/` y `original/`) | `captures/` |
 
