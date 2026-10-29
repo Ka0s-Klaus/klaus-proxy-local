@@ -8,29 +8,32 @@
 
 ---
 
-## 📦 Ubicación y layout (proyecto standalone)
-
-Este tooling vive de forma independiente en **`klaus-proxy-local`**:
+## 📦 Ubicación y layout
 
 ```text
-klaus-proxy-local/
-├── src/         # addons + CLIs (capture, pseudonymize, verify, analyze, cleanup)
-├── tests/       # suite pytest espejo (157 tests)
-├── docs/        # este doc + MANIFIESTO + MANUAL + plantilla del LaunchAgent
-└── captures/    # DATOS SENSIBLES (gitignored): original/, sent/, .pseudonym_vault.json
+klaus-proxy-local/                 # el clon (instalación editable: no lo muevas)
+├── src/                      # addons de mitmproxy + paquete Klaus_proxy_local (CLIs)
+├── scripts/                  # dashboard, prune_vault, add_to_vault, inspect_vault…
+├── tests/                    # suite pytest
+├── docs/                     # documentación (docs/archive/: histórica)
+└── informes/                 # informes locales del dashboard (gitignored)
+
+~/.klaus-proxy/               # estado local (nunca versionado)
+├── config.json               # SALT, hosts y reglas (pseudo_*)
+├── addons/<hash>/            # snapshot inmutable de los addons en ejecución
+├── captures/{original,sent}/ + .pseudonym_vault.json
+├── logs/proxy.log
+└── klaus-env.sh, ca-bundle.pem
 ```
 
-- **`src/` + `tests/` + `docs/` se versionan; `captures/` NO** (gitignored — prompts,
-  contenido real de ficheros y el vault real↔seudónimo nunca salen a git).
-- **Anclaje de rutas:** las capturas y el vault se resuelven relativas al tooling
-  (`Path(__file__).parents[1]/captures/`), mientras que la **raíz del proyecto
-  auditado** (palanca de rutas + identidad git) sale del **cwd** del proceso
-  `mitmdump` (o de `ANTHROPIC_PSEUDO_PROJECT_ROOT`). Así el tooling audita cualquier
-  repo sin acoplarse a él.
+- Se versionan el código, los tests y la documentación; **nunca** `~/.klaus-proxy/` ni `informes/`: contienen prompts, ficheros reales y el vault real ↔ seudónimo.
+- La **raíz del proyecto auditado** (palanca de rutas, org/repo) sale del directorio desde el que se arranca `claude-proxy` (o de `ANTHROPIC_PSEUDO_PROJECT_ROOT`). Así se audita cualquier repo sin acoplarse a él.
 
 ---
 
 ## 🧭 Hallazgo principal: hay DOS destinos, no uno
+
+> ℹ️ **Contexto:** este hallazgo es del entorno donde nació la herramienta (julio de 2026), con `ANTHROPIC_BASE_URL` apuntando a un gateway corporativo. **Por defecto el proxy audita y pseudonimiza `api.anthropic.com`** (clave `hosts` de `config.json`). Si usas un gateway, añádelo a `hosts`; un host desconocido con ruta de LLM también se pseudonimiza, con un aviso en el log.
 
 La inferencia **no** viaja directamente a `api.anthropic.com`. Claude Code (v2.1.216) reparte el tráfico así:
 
@@ -90,57 +93,42 @@ flowchart LR
    - `original/` — los **mismos datos antes** de seudonimizar (con los secretos
      Tier-1 igualmente redactados). Comparación directa: `diff original/X sent/X`.
 
-### 🚀 Arranque — modelo MANUAL en primer plano (actual)
+### 🚀 Arranque
 
-El modelo activo es **manual**: el proxy corre **en primer plano** en una terminal
-dedicada (logs de cada petición en vivo) y `claude` se enruta por él de forma
-**fail-closed**. Tres funciones de shell en `~/.zshrc` (local, no versionado):
+El proxy corre **en primer plano** en una terminal dedicada (logs de cada petición en vivo) y `claude` se enruta por él desde otra:
 
 ```text
-claude  →  mitmproxy 127.0.0.1:8899 (seudonimiza + captura)  →  proveedor
+claude  →  mitmdump 127.0.0.1:8899 (seudonimiza + captura + guardián)  →  api.anthropic.com
 ```
 
-| Comando | Efecto |
+| Paso | Efecto |
 | --- | --- |
-| `claude-proxy` | Arranca `mitmdump` **en PRIMER PLANO** en ESTA terminal, en `127.0.0.1:8899`. Carga 4 addons desde un **snapshot inmutable** en `~/.klaus-proxy/addons/<hash>/` (#71): log en disco → seudonimizador → captura → guardián fail-closed. No hace `cd`: el directorio desde el que se lanza solo sirve para aprender el org/repo y la carpeta de proyectos, que se guardan en `config.json` (#61, #42). Capturas y vault en `~/.klaus-proxy/captures/`; log en `~/.klaus-proxy/logs/proxy.log`. **Los cambios en `src/` solo se aplican al reiniciarlo.** **Ctrl-C** lo detiene. Opción `--monitor` para la TUI. |
-| `claude [args…]` | `claude` **siempre** enrutado por el proxy. **Solo enruta**: NO levanta el proxy. Fail-closed — si `:8899` no escucha o falta la CA, **aborta** (no deja salir tráfico sin auditar). |
-| `claude-noaudit [args…]` | Bypass deliberado: `claude` directo al gateway, **sin** auditar (`command claude`). |
-
-> Flujo de uso: **terminal 1** → `claude-proxy` (déjala abierta, logs en vivo);
-> **terminal 2** → `claude` (va siempre por el proxy).
-
-**Credenciales — las funciones NO las tocan.** `ANTHROPIC_BASE_URL` y
-`ANTHROPIC_AUTH_TOKEN` (el proveedor real y su token) **se heredan del entorno**
-del shell; las funciones solo anteponen
-`HTTPS_PROXY`/`HTTP_PROXY`/`NODE_EXTRA_CA_CERTS`. No viven en ningún fichero de
-arranque ni las escribe el tooling: no hay secretos en disco por parte de la
-auditoría. Si en una terminal nueva no están exportadas, hay que exportarlas antes.
+| Terminal 1: `claude-proxy` (desde dentro de un repo) | Arranca `mitmdump` en `127.0.0.1:8899` con 4 addons desde un **snapshot inmutable** en `~/.klaus-proxy/addons/<hash>/` (#71): log en disco → seudonimizador → captura → guardián fail-closed. El directorio de arranque solo sirve para registrar su org/repo y la carpeta de proyectos en `config.json` (#61, #42). **Los cambios en `src/` y en `config.json` se aplican al reiniciarlo.** Ctrl+C lo detiene. |
+| Terminal 2: `source ~/.klaus-proxy/klaus-env.sh` | Confianza en la CA del proxy (`NODE_EXTRA_CA_CERTS` para Claude Code; bundle de CAs para git/curl/Python). |
+| Terminal 2: `export HTTPS_PROXY=http://127.0.0.1:8899` y `claude` | Enruta Claude Code por el proxy. Solo afecta a esa terminal. |
 
 ```mermaid
 flowchart LR
     subgraph t1[terminal 1]
-      P[claude-proxy<br/>mitmdump PRIMER PLANO<br/>2 addons · logs en vivo]
+      P[claude-proxy<br/>mitmdump · 4 addons<br/>logs en vivo]
     end
-    subgraph t2[terminal 2 · ~/.zshrc]
-      C[claude «args»] -->|inyecta HTTPS_PROXY + CA<br/>fail-closed: aborta si :8899 no escucha| P
-      NA[claude-noaudit] -.bypass deliberado.-> GW
+    subgraph t2[terminal 2]
+      C[claude] -->|HTTPS_PROXY + klaus-env.sh| P
     end
-    P --> GW[proveedor<br/>llm.tools.cloud.customer1.es]
+    P --> A[api.anthropic.com]
 ```
 
-> ⚠️ **Fail-closed:** si borras la CA o el proxy no está en marcha, `claude` se
-> negará a ejecutarse (para no filtrar inferencia sin auditar). Usa `claude-noaudit`
-> solo cuando quieras saltarte la auditoría a propósito.
+**Credenciales:** el proxy no las toca ni las guarda. Las cabeceras de autenticación se redactan en las capturas.
 
-> ℹ️ La sesión de Claude Code que pide la auditoría **no puede autocapturarse**
-> (su request ya está en vuelo). Audita siempre un proceso `claude` **nuevo**
-> lanzado por el proxy.
+> ⚠️ **Fail-closed:** si el pseudonimizador no está cargado, el guardián responde 502 y la petición no sale. Si `claude-proxy` no está en marcha, Claude Code no puede conectar con `HTTPS_PROXY` apuntando a él. No hay un comando incluido que impida lanzar `claude` sin proxy: lo que lo enruta es el `export` de la terminal 2 ([#105](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/105)).
 
-> 🔁 **Hot-reload de addons:** `mitmproxy` recarga en caliente los `.py` pasados con
-> `-s` al guardarlos — **no hace falta reiniciar** `claude-proxy` para aplicar cambios
-> de código. (Útil: si esta propia sesión sale por `:8899`, matar el proxy la tumbaría.)
+> ℹ️ La sesión de Claude Code que pide la auditoría **no puede autocapturarse** (su petición ya está en vuelo). Audita siempre un proceso `claude` **nuevo** lanzado por el proxy.
 
-### 🛡️ Alternativa opcional — LaunchAgent (actualmente DESHABILITADA)
+> 🔁 **Sin recarga en caliente:** mitmproxy recarga los scripts `-s` cuando cambian en disco; por eso `claude-proxy` los ejecuta desde una copia inmutable. Un `git checkout` no cambia ni rompe el proxy en marcha; para aplicar cambios, reinícialo.
+
+### 🛡️ Alternativa opcional — LaunchAgent (no mantenida)
+
+> ⚠️ Sección conservada como referencia: no se prueba con las versiones actuales y supone funciones de shell propias para enrutar `claude`, que el proyecto no incluye.
 
 > ⚠️ **No es el modelo activo.** Se revirtió al modelo manual de arriba para ver los
 > logs en vivo. El plist está en
@@ -199,14 +187,16 @@ En **dos terminales** que ya tengan exportadas tus credenciales del proveedor
 # Terminal 1 — arranca el proxy en primer plano (déjala abierta, logs en vivo):
 claude-proxy
 
-# Terminal 2 — lanza claude enrutado por el proxy (fail-closed):
+# Terminal 2 — lanza claude enrutado por el proxy:
+source ~/.klaus-proxy/klaus-env.sh
+export HTTPS_PROXY=http://127.0.0.1:8899
 claude -p "responde solo con la palabra: pong"
 
 # Terminal 2 — verifica en un comando lo que salió del equipo:
 python3 src/anthropic_capture_verify.py
 ```
 
-Esperado: `✅ TODO CORRECTO` con destino = gateway, cabeceras redactadas y sin fugas.
+Esperado: `✅ TODO CORRECTO` con destino `api.anthropic.com`, cabeceras redactadas y sin fugas.
 
 > ⚠️ La sesión de Claude Code que pide la auditoría **no puede autocapturarse**:
 > lanza siempre un proceso `claude` **nuevo** por el proxy, que sí es auditable.
@@ -515,20 +505,8 @@ Cinco scripts **versionados** en `src/`, cada uno con su test espejo en
 
 ## 🧪 Tests
 
-Espejo en `tests/`. La configuración de pytest vive en `pyproject.toml`
-(`[tool.pytest.ini_options]`); las dependencias de test (`pytest`, `pytest-cov`)
-se instalan con `pip install -e ".[dev]"`. Ejecuta toda la suite con `pytest`:
+Espejo en `tests/`. La configuración de pytest vive en `pyproject.toml` (`[tool.pytest.ini_options]`); las dependencias de test se instalan con `pip install -e ".[dev]"` (ver [entorno de desarrollo](./setup.md)). Ejecuta toda la suite con `pytest`.
 
-| Test | Nº | Cubre |
-| --- | --- | --- |
-| [`test_anthropic_payload_capture.py`](../tests/test_anthropic_payload_capture.py) | 27 | redacción, parseo de body, nombre de fichero, filtro de host |
-| [`test_anthropic_payload_pseudonymize.py`](../tests/test_anthropic_payload_pseudonymize.py) | 43 | round-trip forward/restore, palanca de rutas, word-literals, JSON estructural, secret-kv |
-| [`test_anthropic_capture_verify.py`](../tests/test_anthropic_capture_verify.py) | 30 | selección inferencia/telemetría, destino, redacción, fugas, códigos de salida |
-| [`test_anthropic_pair_verify.py`](../tests/test_anthropic_pair_verify.py) | 26 | emparejado/huérfanos, categorías HARD/SECRET, `message_text`, `collect_survivors`, códigos de salida, regresión del hallazgo |
-| [`test_anthropic_artifacts_cleanup.py`](../tests/test_anthropic_artifacts_cleanup.py) | 22 | dry-run, contención de rutas, symlinks protegidos, idempotencia |
-| [`test_anthropic_payload_analyze.py`](../tests/test_anthropic_payload_analyze.py) | 9 | ayuda/uso del CLI, detección de payload, summarize, render_dump, análisis de fichero |
-
-> Nota: los linters/formateadores están **fijados** en `pyproject.toml`
-> (`ruff==0.16.0`, `black==25.11.0`) para que el formato sea reproducible entre
-> local y CI. La suite completa (157 tests de auditoría + 1 placeholder del
-> paquete base = **158**) corre en el job `Test` del CI sobre Python 3.10/3.11/3.12.
+- Cada addon y cada CLI tiene su fichero de tests (`test_anthropic_payload_pseudonymize.py`, `test_anthropic_pair_verify.py`, `test_anthropic_payload_capture.py`, `test_addons_snapshot.py`, `test_audit_reports.py`…).
+- `tests/conftest.py` genera una SALT de prueba y redirige `config.json` a un fichero temporal: ningún test escribe en el `~/.klaus-proxy/` real.
+- CI ejecuta la suite completa en Python 3.10, 3.11, 3.12 y 3.13, y el lint con `black==25.11.0` y `ruff<1` (fijados en `pyproject.toml`).

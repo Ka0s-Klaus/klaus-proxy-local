@@ -216,7 +216,7 @@ curl https://api.github.com
 source ~/.klaus-proxy/klaus-env.sh
 export HTTPS_PROXY=http://127.0.0.1:8899
 
-python -c "import requests; print(requests.get('https://api.github.com').status_code)"
+python3 -c "import requests; print(requests.get('https://api.github.com').status_code)"
 # ✅ REQUESTS_CA_BUNDLE is set automatically
 ```
 
@@ -497,7 +497,7 @@ git clone https://github.com/Ka0s-Klaus/klaus-proxy-local.git
 cd klaus-proxy-local
 
 # Setup de desarrollo
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 

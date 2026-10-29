@@ -42,7 +42,7 @@ Issue abierta → Fork o rama → Implementación → Tests → PR → Review �
 
 ### Pasos concretos
 
-1. **Crea una rama** desde `main` con el formato `GH-{N}-descripcion-breve` (donde `N` es el número de Issue).
+1. **Crea una rama** desde `main` con el formato `<tipo>/<N>-descripcion-breve` (`feat/42-add-tls-support`, `fix/99-…`, `docs/98-…`), donde `N` es el número de la Issue. Los commits referencian la Issue con `#N`.
 2. **Implementa** los cambios. Un PR = un cambio cohesionado.
 3. **Tests**: añade o actualiza tests para cubrir los cambios.
 4. **Abre el PR** contra `main` usando la plantilla incluida.
@@ -68,6 +68,8 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
+Detalle (tests, lint, probar cambios en el proxy): [docs/setup.md](./docs/setup.md).
+
 ### Ejecutar tests
 
 ```bash
@@ -89,7 +91,7 @@ black --check .
 - **Linter**: `ruff`
 - **Type hints**: obligatorios en funciones públicas
 - **Docstrings**: Google style para módulos y clases públicas
-- **Idioma del código**: inglés (variables, funciones, comentarios técnicos)
+- **Idioma**: identificadores en inglés; comentarios, docstrings y documentación mayoritariamente en español (sigue el estilo del fichero que tocas)
 
 ---
 

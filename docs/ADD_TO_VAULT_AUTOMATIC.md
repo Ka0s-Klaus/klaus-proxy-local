@@ -397,9 +397,9 @@ python3 scripts/add_to_vault.py /ruta/proyecto
 # Ejecuta claude-proxy primero
 claude-proxy
 
-# O reinicia el vault
-rm -rf ~/.klaus-proxy/captures/.pseudonym_vault.json
 ```
+
+> ⚠️ No borres el vault para «arreglarlo»: perderías la tabla real ↔ seudónimo y la respuesta de cualquier sesión abierta dejaría de restaurarse. Si está corrupto, restaura una copia (`prune_vault.py` deja una `.bak-…` cada vez que lo modifica).
 
 ### Se añadieron valores duplicados
 
