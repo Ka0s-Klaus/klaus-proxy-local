@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![Version](https://img.shields.io/badge/version-0.5.2-green)](./docs/RELEASE_v0.5.2_NOTES.md)
-[![Tests](https://img.shields.io/badge/tests-666%20passed-brightgreen)](./docs/FIX_SUMMARY.md)
+[![Tests](https://img.shields.io/badge/tests-670%20passed-brightgreen)](./.github/workflows/ci.yml)
 [![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.5.2_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
@@ -97,17 +97,12 @@ klaus-fix-pseudonymization --show-payloads
 klaus-audit-payloads --export=csv
 ```
 
-**Alternativamente, configuración automática al arrancar el shell:**
-```bash
-# Setup de una vez (auto-startup en nuevos terminales)
-klaus-setup
-# Selecciona 'y' para auto-startup, luego: exec $SHELL
-```
+**Opcional: `klaus-setup`** añade al shell un hook que carga `klaus-env.sh` y arranca el proxy en segundo plano si no está en marcha. **No exporta `HTTPS_PROXY`**, así que sigue haciendo falta el `export` del terminal 2 ([#105](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/105)).
 
 > ⚠️ La instalación es *editable*: el venv apunta al clon del repositorio. **No borres
 > ni muevas esa carpeta.** Para actualizar: `git pull && ./install.sh`.
 
-✨ **Eso es todo.** Todo es automático: configuración, certificados, SALT, auditoría, corrección de fugas, **y ahora con captura en usuario-local + colores + Ctrl+C rápido**.
+✨ **Eso es todo.** `install.sh` y `claude-proxy` generan la configuración, la SALT y los certificados, y protegen el org/repo y la carpeta de proyectos desde el primer arranque. Para proteger un valor propio (un cliente, un código interno), añádelo a `pseudo_word_literals` o `pseudo_literals` de `~/.klaus-proxy/config.json` y reinicia el proxy ([guía de uso](./docs/USER_GUIDE.md)).
 
 ---
 
@@ -221,7 +216,7 @@ curl https://api.github.com
 source ~/.klaus-proxy/klaus-env.sh
 export HTTPS_PROXY=http://127.0.0.1:8899
 
-python -c "import requests; print(requests.get('https://api.github.com').status_code)"
+python3 -c "import requests; print(requests.get('https://api.github.com').status_code)"
 # ✅ REQUESTS_CA_BUNDLE is set automatically
 ```
 
@@ -446,7 +441,7 @@ If you enabled auto-startup but want to disable it:
 - 📚 **6 comprehensive guides** (50+ pages)
 - 🔐 **Auto-SALT generation** + zero-config setup
 
-[📖 Release Notes](./docs/RELEASE_v0.3.0_NOTES.md) | [📋 Full Details](./docs/FIX_SUMMARY.md)
+[📖 Release Notes](./docs/RELEASE_v0.3.0_NOTES.md)
 
 ### v0.2.0 — Sensitive Data Scanner ✅
 - 🔍 Multi-tier secret detection (3 tiers independent)
@@ -477,7 +472,8 @@ Release notes no conservadas en `docs/`.
 |---|---|---|
 | 🏗️ **Arquitectura** | Diseño interno, componentes y flujos | [docs/architecture/](./docs/architecture/README.md) |
 | 📖 **Guías** | Quick start, runbooks, troubleshooting | [docs/guides/](./docs/guides/README.md) |
-| 📊 **Informes** | Auditorías, releases y resúmenes ejecutivos | [docs/reports/](./docs/reports/README.md) |
+| 📊 **Informes** | Audit dashboard, informes locales y notas de releases | [docs/reports/](./docs/reports/README.md) |
+| 🗄️ **Archivo** | Documentos de versiones anteriores (no reflejan el estado actual) | [docs/archive/](./docs/archive/README.md) |
 | 🧭 **Decisiones (ADRs)** | Decisiones técnicas y sus alternativas descartadas | [docs/decisions/](./docs/decisions/README.md) |
 
 ### ⚡ Accesos directos más usados
@@ -489,7 +485,6 @@ Release notes no conservadas en `docs/`.
 | [🌐 Audit Dashboard](./docs/reports/web/README.md) | Dashboard HTML interactivo de auditoría |
 | [🛠️ Troubleshooting](./docs/TROUBLESHOOTING.md) | Solución de problemas comunes |
 | [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
-| [📊 Executive Summary](./docs/EXECUTIVE_SUMMARY.md) | Estado actual del sistema |
 | [🚀 Release v0.5.2](./docs/RELEASE_v0.5.2_NOTES.md) | Notas de la última release |
 
 ---
@@ -502,7 +497,7 @@ git clone https://github.com/Ka0s-Klaus/klaus-proxy-local.git
 cd klaus-proxy-local
 
 # Setup de desarrollo
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 
@@ -641,12 +636,12 @@ Ver sección anterior: [📚 Documentación](#-documentación)
 ## 🧪 Tests
 
 ```bash
-pytest -q          # 666 passed, 3 skipped (v0.5.2)
+pytest -q          # 670 passed, 3 skipped
                    # Includes: capture, pseudonymize, guard, verify, audit, dashboard, vault
 ```
 
 ### Test Coverage
-- ✅ **666 tests passing** en Python 3.10–3.13 (CI)
+- ✅ **670 tests passing** en Python 3.10–3.13 (CI)
 - ✅ Security tests for vault + pseudonymization
 - ✅ Integration tests for audit workflows
 - ✅ Unit tests for all components

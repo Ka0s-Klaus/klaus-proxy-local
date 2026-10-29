@@ -1,6 +1,8 @@
 # 🔧 Auto-Fix Detectadas Fugas — Guía Completa
 
-**Detecta automáticamente fugas y las añade al vault sin intervención manual.**
+**Detecta fugas en las capturas y añade los valores al vault y a las reglas del proxy (`config.json`).** Después hay que reiniciar `claude-proxy` para que se apliquen; las peticiones ya enviadas no cambian.
+
+> ⚠️ La detección es por patrones y da falsos positivos (p. ej. `python@3.13` como email). Usa `--dry-run` o el modo con confirmación antes de `--auto`.
 
 ---
 
@@ -8,9 +10,9 @@
 
 ```bash
 # Ejecuta el workflow completo (detecta + arregla + verifica)
-python full_audit_with_fixes.py --auto
+python3 full_audit_with_fixes.py --auto
 
-# ✅ Resultado: Pseudonimización 100% correcta
+# Después: reinicia claude-proxy y comprueba peticiones nuevas con src/anthropic_pair_verify.py
 ```
 
 ---
@@ -20,13 +22,13 @@ python full_audit_with_fixes.py --auto
 ### Opción 1: Workflow Completo (Recomendado)
 
 ```bash
-python full_audit_with_fixes.py --auto
+python3 full_audit_with_fixes.py --auto
 ```
 
 **Qué hace:**
 1. 📊 Genera reporte de auditoría
 2. 🚨 Detecta fugas en sent/
-3. ✅ Auto-añade al vault
+3. ✅ Añade los valores al vault y a `config.json`
 4. 🔍 Re-verifica que funcione
 
 **Output:**
@@ -42,13 +44,13 @@ python full_audit_with_fixes.py --auto
 ### Opción 2: Solo Detectar (No Arreglar)
 
 ```bash
-python full_audit_with_fixes.py --no-fix
+python3 full_audit_with_fixes.py --no-fix
 ```
 
 O:
 
 ```bash
-python audit_captures.py --find-leaks
+python3 audit_captures.py --find-leaks
 ```
 
 **Output:**
@@ -65,13 +67,13 @@ python audit_captures.py --find-leaks
 
 ```bash
 # Interactive (pide confirmación para cada valor)
-python auto_add_detected_leaks.py
+python3 auto_add_detected_leaks.py
 
 # Auto (añade todo sin preguntar)
-python auto_add_detected_leaks.py --auto
+python3 auto_add_detected_leaks.py --auto
 
 # Dry-run (preview, sin cambios)
-python auto_add_detected_leaks.py --dry-run
+python3 auto_add_detected_leaks.py --dry-run
 ```
 
 **Output:**
@@ -154,13 +156,13 @@ Re-ejecuta `audit_captures.py --find-leaks` para confirmar:
 
 ```bash
 # Ejecutar localmente
-python full_audit_with_fixes.py --auto
+python3 full_audit_with_fixes.py --auto
 
 # Con SALT del config
-python auto_add_detected_leaks.py --auto
+python3 auto_add_detected_leaks.py --auto
 
 # Verificar después
-python audit_captures.py --find-leaks
+python3 audit_captures.py --find-leaks
 ```
 
 ### ❌ NO Hacer
@@ -179,7 +181,7 @@ python audit_captures.py --find-leaks
 
 ```bash
 #!/bin/bash
-python full_audit_with_fixes.py --auto
+python3 full_audit_with_fixes.py --auto
 
 if [ $? -eq 0 ]; then
     echo "✅ Auditoría exitosa"
@@ -196,19 +198,19 @@ fi
 #!/bin/bash
 
 # 1. Generar reporte
-python generate_audit_report.py
+python3 generate_audit_report.py
 
 # 2. Mostrar fugas
 echo ""
 echo "Fugas detectadas:"
-python audit_captures.py --find-leaks
+python3 audit_captures.py --find-leaks
 
 # 3. Confirmar con usuario
 read -p "¿Añadir fugas detectadas al vault? (y/n) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    python auto_add_detected_leaks.py --auto
-    python audit_captures.py --find-leaks
+    python3 auto_add_detected_leaks.py --auto
+    python3 audit_captures.py --find-leaks
 fi
 ```
 
@@ -216,7 +218,7 @@ fi
 
 ```bash
 # Añade a crontab -e:
-0 */4 * * * cd /path && python full_audit_with_fixes.py --auto >> audit.log 2>&1
+0 */4 * * * cd /path && python3 full_audit_with_fixes.py --auto >> audit.log 2>&1
 ```
 
 ---
@@ -227,7 +229,7 @@ fi
 
 ```bash
 # Terminal
-$ python full_audit_with_fixes.py
+$ python3 full_audit_with_fixes.py
 
 # Output:
 # 📊 Paso 1: Generando reporte...
@@ -248,7 +250,7 @@ $ python full_audit_with_fixes.py
 ### Ejemplo 2: Solo Preview (--dry-run)
 
 ```bash
-$ python auto_add_detected_leaks.py --dry-run
+$ python3 auto_add_detected_leaks.py --dry-run
 
 # Output:
 # ⚠️ Encontradas 3 fugas:
@@ -266,7 +268,7 @@ $ python auto_add_detected_leaks.py --dry-run
 ### Ejemplo 3: Auto-fix sin Salida
 
 ```bash
-$ python full_audit_with_fixes.py --auto >/dev/null 2>&1 && \
+$ python3 full_audit_with_fixes.py --auto >/dev/null 2>&1 && \
   echo "✅ OK" || echo "❌ FAILED"
 
 ✅ OK
@@ -281,10 +283,10 @@ $ python full_audit_with_fixes.py --auto >/dev/null 2>&1 && \
 **Solución:**
 ```bash
 # Opción 1: Generar y exportar
-export ANTHROPIC_PSEUDO_SALT=$(python -c 'import secrets; print(secrets.token_hex(16))')
+export ANTHROPIC_PSEUDO_SALT=$(python3 -c 'import secrets; print(secrets.token_hex(16))')
 
 # Opción 2: O usar launcher (genera config.json)
-python -m Klaus_proxy_local.launcher
+claude-proxy   # genera config.json con la SALT
 ```
 
 ### Problema: "No captures found"
@@ -311,7 +313,7 @@ chmod 600 captures/.pseudonym_vault.json
 
 ```
 🎉 PERFECTO
-- Pseudonimización 100% funcionando
+- Sin fugas detectadas en la muestra
 - Todas las fugas han sido corregidas
 - Listo para producción
 ```
@@ -320,7 +322,7 @@ chmod 600 captures/.pseudonym_vault.json
 
 ```
 Opciones:
-1. Auto-añadir: python auto_add_detected_leaks.py --auto
+1. Auto-añadir: python3 auto_add_detected_leaks.py --auto
 2. Revisar manualmente: grep -r "valor" captures/sent/
 3. Investigar origen: audit_captures.py --review
 ```
@@ -350,7 +352,7 @@ echo "Vault entries:  $VAULT_SIZE"
 echo "Last audit:     $(date -r informes/audit_*.md | tail -1)"
 echo ""
 echo "Status:"
-python audit_captures.py --find-leaks | grep -E "(detected|No CRITICAL)"
+python3 audit_captures.py --find-leaks | grep -E "(detected|No CRITICAL)"
 ```
 
 ---
@@ -381,8 +383,8 @@ jobs:
 
       - name: Run full audit with auto-fix
         run: |
-          export ANTHROPIC_PSEUDO_SALT=$(python -c 'import secrets; print(secrets.token_hex(16))')
-          python full_audit_with_fixes.py --auto
+          export ANTHROPIC_PSEUDO_SALT=$(python3 -c 'import secrets; print(secrets.token_hex(16))')
+          python3 full_audit_with_fixes.py --auto
 
       - name: Upload audit report
         if: always()
@@ -420,7 +422,7 @@ jobs:
 | Archivo | Propósito |
 |---------|-----------|
 | **full_audit_with_fixes.py** | Workflow completo (detecta + arregla + verifica) |
-| **auto_add_detected_leaks.py** | Auto-añadir leaks al vault |
+| **auto_add_detected_leaks.py** | Añadir las fugas detectadas al vault y a `config.json` |
 | **audit_captures.py** | Análisis manual de payloads |
 | **generate_audit_report.py** | Generar reportes |
 | **.gitignore** | Excluye informes (contienen datos sensibles) |
@@ -433,12 +435,12 @@ jobs:
 ┌─────────────────────────────────────────────────────────┐
 │ OPCIÓN                       COMANDO                    │
 ├─────────────────────────────────────────────────────────┤
-│ Workflow completo (automático) python full_audit...     │
-│ Workflow con confirmación      python full_audit...     │
-│ Solo preview (--dry-run)       python auto_add_...      │
-│ Solo detectar                  python audit_captures... │
-│ Auto-add detectadas            python auto_add_...      │
-│ Generar reporte                python generate_audit... │
+│ Workflow completo (automático) python3 full_audit...     │
+│ Workflow con confirmación      python3 full_audit...     │
+│ Solo preview (--dry-run)       python3 auto_add_...      │
+│ Solo detectar                  python3 audit_captures... │
+│ Auto-add detectadas            python3 auto_add_...      │
+│ Generar reporte                python3 generate_audit... │
 └─────────────────────────────────────────────────────────┘
 ```
 

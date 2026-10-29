@@ -134,8 +134,8 @@ All updates made to 3 locations (main + distribution copies):
 
 | File | Commits | Status |
 |------|---------|--------|
-| `/Users/<usuario>/proyectos/klaus-proxy-local/klaus` | d9c9839, f52564f, 8bf2f8a | ✅ |
-| `/Users/<usuario>/proyectos/klaus-proxy-local/scripts/klaus` | d9c9839, f52564f, 8bf2f8a | ✅ |
+| `~/proyectos/klaus-proxy-local/klaus` | d9c9839, f52564f, 8bf2f8a | ✅ |
+| `~/proyectos/klaus-proxy-local/scripts/klaus` | d9c9839, f52564f, 8bf2f8a | ✅ |
 | `~/.local/bin/klaus` | d9c9839, f52564f, 8bf2f8a | ✅ |
 
 ---

@@ -1,268 +1,126 @@
-# Klaus Proxy Local - User Guide
+# 📋 Guía de uso — Klaus Proxy Local
 
-## Overview
+> Uso diario: qué se protege, dónde queda la evidencia y cómo comprobarlo. Para instalar y arrancar, ve al [inicio rápido](./QUICK_START.md). Para el detalle técnico y todas las variables, al [runbook](./anthropic-audit-proxy.md).
 
-Klaus Proxy Local is a **privacy-first audit proxy** for Claude Code. It sits between your CLI and Anthropic's API, intercepting requests to audit what you send, redacting secrets, and ensuring compliance.
+**Versión:** v0.5.2
 
-**Key Benefits:**
-- ✅ See exactly what Claude sends to Anthropic
-- ✅ Secrets automatically redacted (pseudonymized)
-- ✅ Audit trail for compliance
-- ✅ Zero configuration needed (auto-setup)
+---
 
-## Installation
+## 🔐 Qué se protege
 
-```bash
-# From PyPI
-pip install Klaus-proxy-local
+Cada petición de Claude Code a `api.anthropic.com` pasa por estos pasos antes de salir:
 
-# Or from source
-git clone https://github.com/Ka0s-Klaus/klaus-proxy-local.git
-cd klaus-proxy-local
-pip install -e .
-```
+| Qué | Cómo | Ejemplo |
+| --- | --- | --- |
+| **Secretos reconocibles** (claves privadas, claves de AWS y Google, tokens de GitHub y Slack, JWT; `password=…` solo con `ANTHROPIC_PSEUDO_SECRET_KV=1`) | Se **redactan** de forma irreversible | `ghp_…` → `«REDACTED:github-token»` |
+| **Rutas** del repo y del home | Seudónimo de ruta | `~/proyectos/mi-repo` → `/proj_1a2b3c4d` |
+| **Usuario** de cualquier `/Users/<u>` o `/home/<u>` | Seudónimo | `ana` → `user_5e6f7a8b` |
+| **Carpetas de proyectos**, también fuera de una ruta | Seudónimo | `cliente-x` → `dir_9c0d1e2f` |
+| **Org/repo** de los remotes de git | Seudónimo con frontera de palabra | `acme/mi-repo` → `org_…/org_…` |
+| **Emails e IPv4** | Seudónimo | `email_d8da9a55` → `email_…` |
+| **Tus valores** (`pseudo_literals`, `pseudo_word_literals`, `pseudo_patterns`) | Seudónimo | un cliente, un código de proyecto… |
 
-## Quick Start (2 minutes)
+En la respuesta, los seudónimos se **restauran** a los valores reales, así que Claude Code lee y escribe tus rutas de verdad. Los secretos redactados no se restauran.
 
-### Terminal 1: Start the proxy
+El org/repo se registra al arrancar `claude-proxy` dentro de un repo y, en los modos de permisos `auto` y `plan`, también desde cada petición. Las reglas completas están en el [runbook](./anthropic-audit-proxy.md).
 
-```bash
-claude-proxy
-```
+---
 
-**First run:** Auto-generates config, certificates, and shell integration.
+## ➕ Proteger un valor concreto
 
-Output:
-```
-🚀 Klaus Proxy Local
-  ▶️  Proxy running at http://127.0.0.1:8899
-  📁 Captures in: ~/.klaus-proxy/../captures/
-  🔑 Vault at: ~/.klaus-proxy/../captures/.pseudonym_vault.json
-  ⚙️  Config at: ~/.klaus-proxy/config.json
-```
-
-### Terminal 2: Use Claude Code with proxy
-
-**macOS/Linux:**
-```bash
-export HTTPS_PROXY=http://127.0.0.1:8899
-export NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca.pem
-claude "write me a hello world"
-```
-
-**Windows (PowerShell):**
-```powershell
-$env:HTTPS_PROXY = "http://127.0.0.1:8899"
-$env:NODE_EXTRA_CA_CERTS = "$env:USERPROFILE\.mitmproxy\mitmproxy-ca.pem"
-claude "write me a hello world"
-```
-
-**Or use the auto-setup aliases:**
-```bash
-# These are auto-created by claude-proxy on first run
-claude-with-proxy "your prompt here"
-```
-
-## What Gets Captured
-
-### Before (Real data)
+Para algo que el proxy no reconoce solo (el nombre de un cliente, un código interno), añádelo a `~/.klaus-proxy/config.json`:
 
 ```json
 {
-  "messages": [
-    {
-      "content": "Read /home/alice/secrets.env and analyze for SQL vulnerabilities"
-    }
-  ]
+  "pseudo_word_literals": ["cliente-x", "PRJ-2041"],
+  "pseudo_literals": ["Cliente Uno S.A."]
 }
 ```
 
-### After (Pseudonymized)
+- `pseudo_word_literals`: solo casan como palabra completa; para tokens cortos.
+- `pseudo_literals`: casan en cualquier parte del texto; para valores largos o con espacios.
 
-```json
-{
-  "messages": [
-    {
-      "content": "Read /proj_a1b2c3d4/secrets.env and analyze for SQL vulnerabilities"
-    }
-  ]
-}
-```
+Después, **reinicia `claude-proxy`**. También puedes usar `python3 scripts/add_to_vault.py <carpeta>`, que busca secretos en una carpeta y los añade a estas listas ([guía](./ADD_TO_VAULT_AUTOMATIC.md)).
 
-### Captured
+> ⚠️ Añadir un valor **solo al vault** no lo protege: el vault guarda el seudónimo de lo que ya casa con una regla.
+
+---
+
+## 📍 Dónde queda la evidencia
 
 ```
-captures/
-├── original/
-│   └── 20260903_120000_payload.json  ← Your REAL paths, emails, IPs
-├── sent/
-│   └── 20260903_120000_payload.json  ← Pseudonymized before sending
-└── .pseudonym_vault.json              ← The mapping (keep SECRET!)
+~/.klaus-proxy/captures/
+├── original/<fecha>_anthropic_payload.json   ← la petición con tus datos reales
+├── sent/<fecha>_anthropic_payload.json       ← lo que salió de tu máquina
+└── .pseudonym_vault.json                     ← tabla real → seudónimo
 ```
 
-## Understanding the Vault
+- Cada petición genera un par `original` + `sent` con el mismo nombre.
+- **El vault guarda los valores reales en claro** (`{"valor real": "seudónimo"}`), con permisos `0600`. No lo compartas.
+- Los seudónimos se calculan con la SALT de `config.json`: sin ella no se pueden deducir los valores, pero el vault sí los contiene.
+- Nada de esto se versiona ni se sincroniza. Para borrar la evidencia: `rm -rf ~/.klaus-proxy/captures/original ~/.klaus-proxy/captures/sent`.
 
-The `.pseudonym_vault.json` file is the **key to your audit trail**:
+---
 
-```json
-{
-  "real_to_pseudo": {
-    "/home/alice/project": "/proj_a1b2c3d4",
-    "alice": "/user_x9y8z7w6",
-    "alice@example.com": "/email_z9y8x7w6"
-  },
-  "pseudo_to_real": {
-    "/proj_a1b2c3d4": "/home/alice/project",
-    "/user_x9y8z7w6": "alice",
-    "/email_z9y8x7w6": "alice@example.com"
-  }
-}
-```
+## 🔍 Comprobar qué ha salido
 
-**⚠️ IMPORTANT:** This file contains your real values encrypted by hash. Keep it secret!
+| Herramienta | Para qué |
+| --- | --- |
+| `python3 src/anthropic_pair_verify.py` | Compara cada `original` con su `sent` y marca cualquier valor real que haya salido. Es la comprobación de referencia. |
+| `klaus-audit-dashboard --open` | Dashboard HTML con 5 planes (seguridad, pseudonimización, actividad, tests, EFDEF) e histórico ([guía](./reports/web/README.md)). |
+| `klaus-audit-payloads` | Estadísticas de pseudonimización por payload ([guía](./AUDIT_ALL_PAYLOADS.md)). |
+| `klaus-fix-pseudonymization --show-payloads` | Lista las peticiones que no se pseudonimizaron ([guía](./FIX_PSEUDONYMIZATION.md)). |
+| `python3 scripts/inspect_vault.py --stats` | Qué hay en el vault ([guía](./INSPECT_ANONYMIZATIONS.md)). |
+
+Los scripts con `python3 …` se ejecutan desde el clon del repositorio.
+
+---
+
+## 🔎 Buscar secretos en un proyecto
+
+`klaus-scan` revisa **una carpeta de tu disco** (no el tráfico) en busca de claves, credenciales y datos sensibles:
 
 ```bash
-# Secure it
-chmod 600 ~/.klaus-proxy/../captures/.pseudonym_vault.json
+klaus-scan ~/proyectos/mi-repo --min-confidence HIGH
+klaus-scan ~/proyectos/mi-repo --approve-all   # añade los CRITICAL a las reglas del proxy
 ```
 
-## Audit Workflow
+Los valores aprobados se añaden al vault y a `config.json`; reinicia `claude-proxy` para que se apliquen.
 
-### Step 1: Review what was sent
+---
 
-```bash
-cat ~/.klaus-proxy/../captures/sent/latest_payload.json | jq .
-```
+## ⚙️ Configuración
 
-No real values visible! Only pseudonyms.
+`~/.klaus-proxy/config.json` lo crea `install.sh`. Las claves que usa el proxy:
 
-### Step 2: Reference the vault
+| Clave | Para qué |
+| --- | --- |
+| `salt` | SALT de los seudónimos. No la cambies: los seudónimos dejarían de coincidir con el vault |
+| `hosts` | Hosts que se pseudonimizan (por defecto `api.anthropic.com`) |
+| `pseudo_literals`, `pseudo_word_literals` | Valores a proteger (ver arriba) |
+| `pseudo_patterns` | Expresiones regulares; `claude-proxy` añade una para tu carpeta de proyectos |
+| `pseudo_pattern_ignore` | Valores que los patrones no deben tocar |
+| `audit_injection_reviewed` | Avisos de prompt injection marcados como revisados en el dashboard |
 
-If you need to know what a pseudonym represents:
+Las variables de entorno (`ANTHROPIC_PSEUDO_*`, `ANTHROPIC_CAPTURE_*`, `KLAUS_LOG_DIR`) están en el [runbook](./anthropic-audit-proxy.md#configuración-por-entorno). Se aplican al proceso de `claude-proxy`, así que hay que exportarlas antes de arrancarlo.
 
-```bash
-cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.pseudo_to_real."<pseudonym>"'
-```
+---
 
-### Step 3: Delete when done
+## ❓ Preguntas frecuentes
 
-```bash
-rm -rf ~/.klaus-proxy/../captures/*
-```
+**¿Puedo desactivar la pseudonimización un momento?** Arrancando `claude-proxy` con `ANTHROPIC_PSEUDO_ENABLE=0`: las peticiones **salen sin pseudonimizar** (se siguen capturando). No lo hagas sin necesidad; para usar Claude Code sin proxy basta otra terminal sin `HTTPS_PROXY`.
 
-Captures are NOT versioned (see `.gitignore`).
+**¿Puedo cambiar el puerto?** No: el proxy escucha siempre en `127.0.0.1:8899`.
 
-## Security Scanning
+**¿Qué clientes funcionan?** Claude Code (CLI), que es con el que se prueba. Cualquier cliente que respete `HTTPS_PROXY` y confíe en la CA del proxy pasaría por él, pero no está probado.
 
-Klaus Proxy also scans outgoing payloads for accidental secret leaks:
+**¿Funciona en Windows?** No está soportado: el instalador y el arranque son para macOS y Linux.
 
-```bash
-# Launch the scanner
-klaus-scan
-```
+**¿Qué hago si algo falla?** Mira el [troubleshooting](./TROUBLESHOOTING.md) y el log, en `~/.klaus-proxy/logs/proxy.log`.
 
-**Detection includes:**
-- API keys (AWS, OpenAI, GitHub, etc.)
-- Database credentials
-- Private keys
-- OAuth tokens
-- High-entropy strings
+---
 
-**Review findings:**
-```bash
-cat ~/.klaus-proxy/../captures/scan_results.json | jq '.findings[] | {category, confidence}'
-```
+## 🔗 Ayuda
 
-## Configuration
-
-### Environment Variables
-
-Set before running `claude-proxy`:
-
-```bash
-export ANTHROPIC_CAPTURE_HOSTS="api.anthropic.com,my-llm-gateway.com"
-export ANTHROPIC_CAPTURE_DIR="./my-captures/"
-export ANTHROPIC_PSEUDO_ENABLE=1
-```
-
-### Config File
-
-Edit `~/.klaus-proxy/config.json`:
-
-```json
-{
-  "capture_dir": "./captures/",
-  "capture_hosts": [
-    "api.anthropic.com",
-    "llm.tools.cloud.customer1.es"
-  ],
-  "enable_pseudonymization": true,
-  "enable_scanning": true
-}
-```
-
-## Troubleshooting
-
-### Q: Port 8899 already in use
-
-```bash
-# Find what's using it
-lsof -i :8899
-
-# Kill it
-kill -9 <PID>
-
-# Or use a different port
-ANTHROPIC_PROXY_PORT=9000 claude-proxy
-```
-
-### Q: "certificate verify failed" errors
-
-```bash
-# Regenerate certs
-rm -rf ~/.mitmproxy/
-claude-proxy
-# (Will auto-regenerate on startup)
-```
-
-### Q: Where are my captures?
-
-```bash
-ls -la ~/.klaus-proxy/../captures/
-# or
-echo $ANTHROPIC_CAPTURE_DIR
-```
-
-### Q: How do I disable pseudonymization temporarily?
-
-```bash
-export ANTHROPIC_PSEUDO_ENABLE=0
-claude-with-proxy "test"
-```
-
-### Q: Can I use this with other Claude clients?
-
-Currently: Claude Code CLI only.
-
-Future: Claude Desktop, web access, etc.
-
-## Performance
-
-Klaus Proxy adds minimal overhead:
-
-- **Request latency:** +5ms (pseudonymization)
-- **Response latency:** +2ms (restoration)
-- **Memory:** ~50MB
-
-## Privacy Statement
-
-- ✅ Captures are **local only** (never uploaded)
-- ✅ Vault is **encrypted by hash** (cannot be reversed without salt)
-- ✅ Salt is **environment-based** (ANTHROPIC_PSEUDO_SALT)
-- ✅ Proxy runs on **localhost:8899** (not accessible remotely)
-
-## Getting Help
-
-- **Issues:** https://github.com/Ka0s-Klaus/klaus-proxy-local/issues
-- **Docs:** https://github.com/Ka0s-Klaus/klaus-proxy-local/tree/main/docs
-- **Security:** See SECURITY.md
+- Issues: https://github.com/Ka0s-Klaus/klaus-proxy-local/issues
+- Seguridad: [SECURITY.md](../SECURITY.md)

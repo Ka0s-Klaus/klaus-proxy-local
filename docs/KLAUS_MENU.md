@@ -119,6 +119,8 @@ klaus scan ~/my-project --json
   - Confidence level
   - Interactive prompt: Approve (A), Skip (S), Copy (C), Approve All (L), Quit (Q)
 
+Approved findings are added to the vault **and** to the proxy rules in `~/.klaus-proxy/config.json`; restart `claude-proxy` to apply them.
+
 **Example Workflow:**
 ```
 $ klaus scan ~/my-project --min-confidence HIGH
@@ -127,7 +129,7 @@ Found 3 findings:
 
 1. ~/.ssh/id_rsa (SSH private key) - CRITICAL
    Approve? (a/s/c/l/q): a
-   ✅ Added to vault
+   ✓ Approved: added to vault and config.json
 
 2. .env.example (AWS_SECRET_ACCESS_KEY) - HIGH
    Approve? (a/s/c/l/q): s
@@ -135,7 +137,7 @@ Found 3 findings:
 
 3. config.json (AUTH_TOKEN) - HIGH
    Approve? (a/s/c/l/q): a
-   ✅ Added to vault
+   ✓ Approved: added to vault and config.json
 ```
 
 ---
@@ -236,46 +238,7 @@ klaus fix --show-config
 klaus fix --captures-dir ~/.klaus-proxy/captures
 ```
 
-**Output (Summary):**
-```
-🔧 PSEUDONYMIZATION DIAGNOSTIC
-═════════════════════════════════════════════════════════════
-
-📊 STATUS
-─────────────────────────────────────────────────────────────
-  ✅ Pseudonymization is ENABLED
-  ✅ SALT is SET (…...)
-  ✅ Patterns configured: 5 custom patterns
-
-⚠️ FINDINGS
-─────────────────────────────────────────────────────────────
-  ❌ 2 payloads NOT pseudonymized (0.02%)
-     • Host: monitoring.internal.com (safe to skip)
-     • Host: datadog.com (monitoring service)
-
-💡 RECOMMENDATIONS
-─────────────────────────────────────────────────────────────
-  1. These are monitoring services — safe to exclude
-  2. No action needed unless you want to pseudonymize them
-  3. To include them, add patterns to ~/.klaus-proxy/config.json
-```
-
-**Output (Show Payloads):**
-```
-Non-pseudonymized Payloads:
-───────────────────────────────────────────────────────────
-
-Host: monitoring.internal.com
-  Path: /api/metrics
-  Files: 
-    - 20260919_110532_anthropic_payload.json
-    - 20260919_110604_anthropic_payload.json
-
-Host: datadog.com
-  Path: /api/v1/series
-  Files:
-    - 20260919_115438_anthropic_payload.json
-```
+Output and how to read it: see [Diagnosticar la pseudonimización](./FIX_PSEUDONYMIZATION.md). The SALT is always shown masked.
 
 ---
 
@@ -363,8 +326,8 @@ Klaus Proxy configuration is stored in `~/.klaus-proxy/config.json`:
     "api.anthropic.com",
     "llm.tools.cloud.customer1.es"
   ],
-  "capture_dir": "/Users/<usuario>/.klaus-proxy/captures",
-  "vault_path": "/Users/<usuario>/.klaus-proxy/captures/.pseudonym_vault.json",
+  "capture_dir": "~/.klaus-proxy/captures",
+  "vault_path": "~/.klaus-proxy/captures/.pseudonym_vault.json",
   "log_level": "info"
 }
 ```
@@ -414,10 +377,11 @@ chmod +x ~/proyectos/klaus-proxy-local/klaus
 
 If you see "ModuleNotFoundError: No module named 'Klaus_proxy_local'":
 
+The menu uses the Python of the venv created by `install.sh` (`~/.local/share/klaus/venv`). If it is missing, it falls back to `python3`, which does not have the package. Reinstall:
+
 ```bash
-# Reinstall Klaus Proxy Local in development mode
 cd ~/proyectos/klaus-proxy-local
-pip install -e .
+./install.sh
 ```
 
 ---

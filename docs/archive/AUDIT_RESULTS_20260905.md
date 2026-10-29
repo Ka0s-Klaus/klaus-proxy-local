@@ -88,9 +88,9 @@ Acción: Añadir a vault (si es valor real)
 ### Paths (3 entradas) ⚠️
 ```
 ⚠️ Cobertura baja
-- /Users/<usuario>/proyectos/cliente-x-b2b
+- ~/proyectos/cliente-x-b2b
 - /Users/usuario
-- /Users/<usuario>/proyectos/klaus-proxy-local
+- ~/proyectos/klaus-proxy-local
 ```
 
 **Recomendación:** ⚠️ Considerar añadir más rutas si se capturan en payloads. Actualmente suficiente.

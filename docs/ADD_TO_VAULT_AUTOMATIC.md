@@ -6,13 +6,15 @@ Este documento te muestra cómo **escanear una carpeta automáticamente y añadi
 
 ```bash
 # Escanear una carpeta y añadir automáticamente (solo CRITICAL)
-python scripts/add_to_vault.py /path/to/tu/proyecto
+python3 scripts/add_to_vault.py /path/to/tu/proyecto
 
 # Incluir también HIGH y MEDIUM
-python scripts/add_to_vault.py /path/to/tu/proyecto --all
+python3 scripts/add_to_vault.py /path/to/tu/proyecto --all
 ```
 
-¡Eso es todo! Los datos sensibles se añaden al vault automáticamente.
+Los datos sensibles se añaden al vault y a las reglas del proxy. Después, reinicia `claude-proxy`.
+
+> ℹ️ **Qué hace exactamente:** cada valor aprobado se guarda en el vault **y** en las reglas del proxy de `~/.klaus-proxy/config.json` (`pseudo_word_literals` si es un único token, `pseudo_literals` si no). **Reinicia `claude-proxy`** para que empiece a sustituirlo. Hasta la corrección de [#99](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/99), el valor solo iba al vault y seguía saliendo en claro.
 
 ---
 
@@ -21,7 +23,7 @@ python scripts/add_to_vault.py /path/to/tu/proyecto --all
 ### Básico: Solo CRITICAL (Por defecto)
 
 ```bash
-python scripts/add_to_vault.py /ruta/proyecto
+python3 scripts/add_to_vault.py /ruta/proyecto
 ```
 
 Añade solo hallazgos con confianza **CRITICAL** (0% falsos positivos).
@@ -29,7 +31,7 @@ Añade solo hallazgos con confianza **CRITICAL** (0% falsos positivos).
 ### Incluir HIGH
 
 ```bash
-python scripts/add_to_vault.py /ruta/proyecto --high
+python3 scripts/add_to_vault.py /ruta/proyecto --high
 ```
 
 Añade **CRITICAL + HIGH** (muy confiables, algunos falsos positivos posibles).
@@ -37,7 +39,7 @@ Añade **CRITICAL + HIGH** (muy confiables, algunos falsos positivos posibles).
 ### Incluir TODO (CRITICAL + HIGH + MEDIUM)
 
 ```bash
-python scripts/add_to_vault.py /ruta/proyecto --all
+python3 scripts/add_to_vault.py /ruta/proyecto --all
 ```
 
 Añade **CRITICAL + HIGH + MEDIUM** (cubre más casos, más falsos positivos).
@@ -45,7 +47,7 @@ Añade **CRITICAL + HIGH + MEDIUM** (cubre más casos, más falsos positivos).
 ### Ver qué se añadiría sin hacer cambios
 
 ```bash
-python scripts/add_to_vault.py /ruta/proyecto --dry-run
+python3 scripts/add_to_vault.py /ruta/proyecto --dry-run
 ```
 
 Muestra qué se añadiría al vault **sin hacer cambios reales**.
@@ -53,7 +55,7 @@ Muestra qué se añadiría al vault **sin hacer cambios reales**.
 ### Revisar hallazgos antes de añadir
 
 ```bash
-python scripts/add_to_vault.py /ruta/proyecto --review
+python3 scripts/add_to_vault.py /ruta/proyecto --review
 ```
 
 Muestra todos los hallazgos y pide confirmación antes de añadirlos.
@@ -61,7 +63,7 @@ Muestra todos los hallazgos y pide confirmación antes de añadirlos.
 ### Ver detalles de cada hallazgo
 
 ```bash
-python scripts/add_to_vault.py /ruta/proyecto --verbose
+python3 scripts/add_to_vault.py /ruta/proyecto --verbose
 ```
 
 Muestra información completa de cada hallazgo detectado.
@@ -73,7 +75,7 @@ Muestra información completa de cada hallazgo detectado.
 ### Ejemplo 1: Escanear proyecto y auto-añadir
 
 ```bash
-$ python scripts/add_to_vault.py ~/proyecto-api
+$ python3 scripts/add_to_vault.py ~/proyecto-api
 
 ════════════════════════════════════════════════════════════════════
 🔐 Klaus Add to Vault — Automatiza adición de secretos
@@ -111,7 +113,7 @@ Añadidos al vault: 7
 ### Ejemplo 2: Modo dry-run para ver qué se haría
 
 ```bash
-$ python scripts/add_to_vault.py ~/proyecto --dry-run
+$ python3 scripts/add_to_vault.py ~/proyecto --dry-run
 
 📁 Escaneando: /Users/alice/proyecto
 [████████████████████████████████████████████████] 100% (156/156 archivos)
@@ -132,7 +134,7 @@ Se habrían añadido 5 hallazgos al vault
 ### Ejemplo 3: Revisar antes de añadir
 
 ```bash
-$ python scripts/add_to_vault.py ~/proyecto --review --verbose
+$ python3 scripts/add_to_vault.py ~/proyecto --review --verbose
 
 📁 Escaneando: /Users/alice/proyecto
 [████████████████████████████████████████████████] 100% (156/156 archivos)
@@ -167,7 +169,7 @@ $ python scripts/add_to_vault.py ~/proyecto --review --verbose
 ### Ejemplo 4: Incluir detecciones de HIGH y usar contextual
 
 ```bash
-$ python scripts/add_to_vault.py ~/proyecto --high --contextual
+$ python3 scripts/add_to_vault.py ~/proyecto --high --contextual
 
 🔐 Klaus Add to Vault — Automatiza adición de secretos
 
@@ -234,7 +236,7 @@ Usa análisis de entropía:
 Para integración con otros sistemas, usa `--json`:
 
 ```bash
-python scripts/add_to_vault.py /ruta/proyecto --json
+python3 scripts/add_to_vault.py /ruta/proyecto --json
 ```
 
 Salida:
@@ -272,7 +274,7 @@ Salida:
 ### Habilitar detección contextual
 
 ```bash
-python scripts/add_to_vault.py ~/proyecto --high --contextual
+python3 scripts/add_to_vault.py ~/proyecto --high --contextual
 ```
 
 Usa análisis contextual para detectar más secretos (más falsos positivos).
@@ -280,7 +282,7 @@ Usa análisis contextual para detectar más secretos (más falsos positivos).
 ### Habilitar detección heurística
 
 ```bash
-python scripts/add_to_vault.py ~/proyecto --all --heuristic
+python3 scripts/add_to_vault.py ~/proyecto --all --heuristic
 ```
 
 Usa análisis de entropía (menos preciso, más cobertura).
@@ -288,7 +290,7 @@ Usa análisis de entropía (menos preciso, más cobertura).
 ### Combinar opciones
 
 ```bash
-python scripts/add_to_vault.py ~/proyecto \
+python3 scripts/add_to_vault.py ~/proyecto \
   --all \
   --contextual \
   --heuristic \
@@ -308,7 +310,7 @@ python scripts/add_to_vault.py ~/proyecto \
 
 PROJECT_PATH="${1:-.}"
 
-python scripts/add_to_vault.py "$PROJECT_PATH" \
+python3 scripts/add_to_vault.py "$PROJECT_PATH" \
   --high \
   --contextual \
   --json > vault-scan-$(date +%Y%m%d).json
@@ -329,7 +331,7 @@ En **GitHub Actions**:
 ```yaml
 - name: Scan and add to vault
   run: |
-    python scripts/add_to_vault.py . \
+    python3 scripts/add_to_vault.py . \
       --high \
       --contextual \
       --json > scan-results.json
@@ -357,23 +359,23 @@ En **GitHub Actions**:
 1. **Nunca subas captures/ a git:**
    ```bash
    # .gitignore
-   .klaus-proxy/../captures/
+   .klaus-proxy/captures/
    ~/.klaus-proxy/
    ```
 
 2. **Protege permisos:**
    ```bash
-   chmod 600 ~/.klaus-proxy/../captures/.pseudonym_vault.json
-   chmod 600 ~/.klaus-proxy/.salt
+   chmod 600 ~/.klaus-proxy/captures/.pseudonym_vault.json
+   chmod 600 ~/.klaus-proxy/config.json   # contiene la SALT
    ```
 
 3. **Revisa antes de auto-añadir:**
    ```bash
    # Mejor: revisar primero
-   python scripts/add_to_vault.py ~/proyecto --review
+   python3 scripts/add_to_vault.py ~/proyecto --review
 
    # O dry-run
-   python scripts/add_to_vault.py ~/proyecto --dry-run
+   python3 scripts/add_to_vault.py ~/proyecto --dry-run
    ```
 
 ---
@@ -385,7 +387,7 @@ En **GitHub Actions**:
 ```bash
 # Asegurate que la ruta existe
 ls -la /ruta/proyecto
-python scripts/add_to_vault.py /ruta/proyecto
+python3 scripts/add_to_vault.py /ruta/proyecto
 ```
 
 ### Error: "Vault initialization failed"
@@ -395,15 +397,15 @@ python scripts/add_to_vault.py /ruta/proyecto
 # Ejecuta claude-proxy primero
 claude-proxy
 
-# O reinicia el vault
-rm -rf ~/.klaus-proxy/../captures/.pseudonym_vault.json
 ```
+
+> ⚠️ No borres el vault para «arreglarlo»: perderías la tabla real ↔ seudónimo y la respuesta de cualquier sesión abierta dejaría de restaurarse. Si está corrupto, restaura una copia (`prune_vault.py` deja una `.bak-…` cada vez que lo modifica).
 
 ### Se añadieron valores duplicados
 
 ```bash
 # Verificar el vault
-python scripts/inspect_vault.py --stats
+python3 scripts/inspect_vault.py --stats
 
 # No hay problema: VaultIntegration comprueba duplicados
 # automáticamente antes de añadir
@@ -413,10 +415,10 @@ python scripts/inspect_vault.py --stats
 
 ```bash
 # Usar solo CRITICAL (por defecto)
-python scripts/add_to_vault.py ~/proyecto
+python3 scripts/add_to_vault.py ~/proyecto
 
 # O revisar antes
-python scripts/add_to_vault.py ~/proyecto --high --review
+python3 scripts/add_to_vault.py ~/proyecto --high --review
 ```
 
 ---
@@ -427,20 +429,20 @@ python scripts/add_to_vault.py ~/proyecto --high --review
 
 ```bash
 # Buscar archivos capturados hoy
-find ~/.klaus-proxy/../captures/original/ -type f -mtime -1 | wc -l
+find ~/.klaus-proxy/captures/original/ -type f -mtime -1 | wc -l
 
 # Ver estadísticas actuales
-python scripts/inspect_vault.py --stats
+python3 scripts/inspect_vault.py --stats
 ```
 
 ### Verificar integridad
 
 ```bash
 # Comprobar vault es válido JSON
-cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq . > /dev/null && echo "✓ Vault válido"
+cat ~/.klaus-proxy/captures/.pseudonym_vault.json | jq . > /dev/null && echo "✓ Vault válido"
 
 # Ver ultimos valores añadidos
-cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.real_to_pseudo | keys | .[-5:]'
+cat ~/.klaus-proxy/captures/.pseudonym_vault.json | jq 'keys | .[-5:]'
 ```
 
 ---
@@ -451,27 +453,27 @@ cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.real_to_pseudo | key
 
 ```bash
 # Modo dry-run para ver primero
-python scripts/add_to_vault.py . --dry-run
+python3 scripts/add_to_vault.py . --dry-run
 
 # Luego revisar
-python scripts/add_to_vault.py . --review
+python3 scripts/add_to_vault.py . --review
 
 # Finalmente auto-añadir
-python scripts/add_to_vault.py .
+python3 scripts/add_to_vault.py .
 ```
 
 ### Para CI/CD
 
 ```bash
 # Auto-añadir solo CRITICAL (confiable)
-python scripts/add_to_vault.py . --json
+python3 scripts/add_to_vault.py . --json
 ```
 
 ### Para auditoría manual
 
 ```bash
 # Ver todos con detalles
-python scripts/add_to_vault.py /carpeta/a/auditar \
+python3 scripts/add_to_vault.py /carpeta/a/auditar \
   --all \
   --contextual \
   --verbose \

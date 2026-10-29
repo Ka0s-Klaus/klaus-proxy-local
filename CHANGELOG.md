@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Documentación revisada contra la funcionalidad real** (#98) — Reescritos el inicio rápido, la guía de uso, el entorno de desarrollo, el troubleshooting, la arquitectura y el diagnóstico de pseudonimización; corregidos el runbook, el README, `PRODUCT_DESCRIPTION.md`, `product.json`, `CONTRIBUTING.md`, `SECURITY.md` y las guías de auditoría y del vault. Fuera: instalación desde PyPI, opciones de `add_to_vault.py` y claves de `config.json` que no existen, la ruta `~/.klaus-proxy/../captures`, el formato antiguo del vault, `~/.klaus-proxy/.salt`, el monitor TUI y las funciones de shell no incluidas. Once documentos que describían versiones pasadas pasan a `docs/archive/`. Se sustituyen dos SALT de ejemplo con forma real.
+
 ### Fixed
 - **`klaus-fix-pseudonymization` daba diagnósticos falsos** (#110) — Leía claves de `config.json` que el proxy no usa (`patterns`, `pseudonymization_enabled`), por lo que siempre avisaba de que no había patrones, y recomendaba `python -m Klaus_proxy_local.setup`, que no hace nada. Contaba como «no pseudonimizada» cualquier petición que el pseudonimizador procesó sin cambiar nada, y las GET sin cuerpo. Ahora usa `pseudo_ran`, separa las peticiones sin cuerpo, comprueba la SALT, `hosts`, las reglas reales y `ANTHROPIC_PSEUDO_ENABLE`, y solo recomienda comandos que existen.
 - **`klaus-fix-pseudonymization --show-config` imprimía la SALT en claro** (#106) — Si lo ejecutaba un agente, la SALT viajaba a la API sin pseudonimizar en el resultado de la herramienta. Ahora se muestra enmascarada. `audit_captures.py --find-leaks` y `generate_audit_report.py` recomendaban `add_to_vault.py --manual`, que no existe; ahora indican cómo añadir los valores a `config.json`.

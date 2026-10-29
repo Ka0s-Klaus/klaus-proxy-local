@@ -7,8 +7,8 @@
 ## ⚡ Inicio Rápido (30 segundos)
 
 ```bash
-cd /Users/<usuario>/proyectos/klaus-proxy-local
-python generate_audit_report.py
+cd ~/proyectos/klaus-proxy-local
+python3 generate_audit_report.py
 ```
 
 **Output:**
@@ -42,7 +42,7 @@ informes/
 ### Caso 1: Auditoría Diaria
 ```bash
 # Cada mañana o antes de release
-python generate_audit_report.py
+python3 generate_audit_report.py
 
 # Revisar el reporte generado
 cat informes/audit_2026-09-05_*.md | less
@@ -51,7 +51,7 @@ cat informes/audit_2026-09-05_*.md | less
 ### Caso 2: Auditoría Semanal (con Timestamp)
 ```bash
 # Ejecuta script y guarda resultado
-python generate_audit_report.py | tee audit_log_$(date +%Y%m%d_%H%M%S).txt
+python3 generate_audit_report.py | tee audit_log_$(date +%Y%m%d_%H%M%S).txt
 
 # Luego revisa:
 tail -100 audit_log_*.txt
@@ -73,7 +73,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Generate audit report
         run: |
-          python generate_audit_report.py > audit_report.txt
+          python3 generate_audit_report.py > audit_report.txt
           cat audit_report.txt
       - name: Upload report
         uses: actions/upload-artifact@v3
@@ -86,8 +86,8 @@ jobs:
 ```bash
 # Cron job para monitoreo automático
 # Añade a crontab:
-0 */4 * * * cd /Users/<usuario>/proyectos/klaus-proxy-local && \
-             python generate_audit_report.py >> audit_monitor.log 2>&1
+0 */4 * * * cd ~/proyectos/klaus-proxy-local && \
+             python3 generate_audit_report.py >> audit_monitor.log 2>&1
 ```
 
 ---
@@ -154,7 +154,7 @@ Cada reporte generado contiene:
 - Hay valores no pseudonimizados
 - Necesita investigación
 - Acción: Ejecutar audit_captures.py --find-leaks
-- Fix: python scripts/add_to_vault.py . --manual
+- Fix: añadir los valores reales a `pseudo_word_literals`/`pseudo_literals` de `config.json` (o `python3 auto_add_detected_leaks.py`) y reiniciar `claude-proxy`
 ```
 
 ### Escenario C: ">10 Fugas"
@@ -193,7 +193,7 @@ El sistema mantiene un índice automático:
 ### ✅ SÍ Hacer
 ```bash
 # Ejecutar el generador en máquina local
-python generate_audit_report.py
+python3 generate_audit_report.py
 
 # Revisar reportes localmente
 cat informes/audit_*.md
@@ -261,7 +261,7 @@ for line in entries[:100]:  # Guardar últimos 100 (cambiar aquí)
 ### Problema: "No captures found"
 ```
 Posible causa: Aún no has ejecutado audit_captures.py
-Solución: Ejecuta primero python audit_captures.py --stats
+Solución: Ejecuta primero python3 audit_captures.py --stats
 ```
 
 ### Problema: "Permiso denegado (informes/)"
@@ -292,7 +292,7 @@ Solución: source .venv/bin/activate
     ☐ Investigo cualquier fuga nueva
 
 [ ] Acciono si hay problemas
-    ☐ Fugas detectadas → Ejecuto add_to_vault.py
+    ☐ Fugas reales → las añado a config.json y reinicio claude-proxy
     ☐ Cobertura baja → Reviso audit_captures.py --patterns
     ☐ Cambios grandes → Investigo root cause
 
@@ -310,13 +310,13 @@ Solución: source .venv/bin/activate
 #!/bin/bash
 # Auditoría semanal automatizada
 
-cd /Users/<usuario>/proyectos/klaus-proxy-local
+cd ~/proyectos/klaus-proxy-local
 
 echo "📊 Iniciando auditoría semanal..."
 echo ""
 
 # 1. Generar reporte
-python generate_audit_report.py
+python3 generate_audit_report.py
 
 # 2. Extraer métricas
 PAYLOAD_COUNT=$(grep "Original payloads" informes/audit_*.md | tail -1 | awk '{print $NF}')
@@ -334,7 +334,7 @@ echo ""
 # 3. Alerta si hay fugas
 if [ "$LEAK_COUNT" -gt 0 ]; then
     echo "⚠️  ATENCIÓN: Se detectaron $LEAK_COUNT fugas"
-    echo "Ejecuta: python audit_captures.py --find-leaks"
+    echo "Ejecuta: python3 audit_captures.py --find-leaks"
     exit 1
 else
     echo "✅ Pseudonimización: 100% OK"

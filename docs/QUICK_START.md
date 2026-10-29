@@ -1,349 +1,123 @@
-# 🚀 Quick Start — Klaus Proxy Local
+# 🚀 Inicio rápido — Klaus Proxy Local
 
-> **Get started in 2 minutes.**
+> Instalar, arrancar el proxy y usar Claude Code a través de él.
 
-**Status:** ✅ Ready for v0.5.2  
-**Audience:** Individual developers  
-**Related:** [setup.md](./setup.md) | [USER_GUIDE.md](./USER_GUIDE.md)
+**Versión:** v0.5.2 · **Relacionado:** [Guía de uso](./USER_GUIDE.md) · [Runbook técnico](./anthropic-audit-proxy.md) · [Troubleshooting](./TROUBLESHOOTING.md)
 
 ---
 
-## 🤔 What is Klaus Proxy?
+## 🤔 Qué hace
 
-Klaus Proxy is a **privacy tool** that sits between your Claude Code and Anthropic's API.
+Klaus Proxy Local se pone entre Claude Code y la API de Anthropic, en tu máquina:
 
-- 🔐 **Your data stays yours** — sensitive info is pseudonymized before leaving your machine
-- 📋 **You control the evidence** — captures stored locally, never synced
-- 🎯 **No configuration** — just install and run
-- ❌ **Fail-closed** — if the proxy stops, Claude Code stops (never leaks without audit)
+- 🔐 **Pseudonimiza** lo sensible antes de que salga: rutas, usuario, org/repo, nombres de carpetas de proyectos, emails, IPs y los valores que añadas. Los secretos reconocibles se redactan de forma irreversible.
+- 🔁 **Restaura** los valores reales en la respuesta, así que Claude Code trabaja con tus rutas de verdad.
+- 📋 **Guarda evidencia local** de cada petición: lo que había (`original/`) y lo que salió (`sent/`).
+- 🚧 **Fail-closed:** si el pseudonimizador no ha procesado una petición, el guardián la bloquea con un 502 en lugar de dejarla salir.
 
-**Example:**
 ```
-Your prompt:   "Read /home/dev/secret-project/main.py and fix the bug"
-Anthropic sees: "Read /proj_a1b2c3d4/main.py and fix the bug"
-You see:       "Read /home/dev/secret-project/main.py and fix the bug"
-               (Claude Code works normally)
+Tu prompt:        "Lee /Users/ana/proyectos/cliente-x/main.py"
+Sale a Anthropic: "Lee /Users/user_1a2b3c4d/proyectos/dir_5e6f7a8b/main.py"
+Claude Code ve:   "Lee /Users/ana/proyectos/cliente-x/main.py"
 ```
-
-See [USER_GUIDE.md](./USER_GUIDE.md) for detailed setup and troubleshooting.
 
 ---
 
-## ⚡ 3 Ways to Use Klaus Proxy
+## 📋 Requisitos
 
-Pick the one that fits your workflow.
+- **macOS o Linux.** Windows no está soportado.
+- **Python ≥ 3.10.** En macOS, `install.sh` instala Python 3.13 con Homebrew si no hay ninguno válido. En Debian/Ubuntu hace falta `python3-venv`.
+- **git.**
 
-### **Option 1: Wrapper Script** (Recommended 🟢)
+El paquete **no está publicado en PyPI**: se instala desde el repositorio.
 
-**Works everywhere.** Doesn't modify your shell config.
+---
 
-#### Install
+## 1️⃣ Instalar
+
 ```bash
-pip install Klaus-proxy-local
+git clone https://github.com/Ka0s-Klaus/klaus-proxy-local.git
+cd klaus-proxy-local
+./install.sh --check   # opcional: solo comprueba los requisitos
+./install.sh
 ```
 
-#### Use
+Crea un venv en `~/.local/share/klaus/venv`, instala mitmproxy, genera `~/.klaus-proxy/config.json` con una SALT aleatoria y el certificado CA del proxy, y enlaza los comandos en `~/.local/bin` (añádelo al `PATH` si el instalador lo avisa).
+
+> ⚠️ La instalación es *editable*: el venv apunta al clon. No borres ni muevas la carpeta. Para actualizar: `git pull && ./install.sh`.
+
+---
+
+## 2️⃣ Arrancar el proxy (terminal 1)
+
+**Desde dentro de un repo:**
+
 ```bash
-# Terminal 1: Start the proxy
+cd ~/proyectos/mi-repo
 claude-proxy
-
-# Terminal 2: Use Claude Code (in a different terminal)
-claude-with-proxy "your question"
 ```
 
-**Pros:**
-- ✅ Works on bash, zsh, fish, PowerShell, CMD
-- ✅ Doesn't modify your config files
-- ✅ Manual opt-in (only when you use `claude-with-proxy`)
-
-**Cons:**
-- ⚠️ You must use `claude-with-proxy` instead of `claude`
+Escucha solo en `127.0.0.1:8899`. Al arrancar dentro de un repo registra su org/repo y la carpeta de proyectos que lo contiene, para protegerlos. Muestra un resumen de lo protegido y deja el log en `~/.klaus-proxy/logs/proxy.log`. Se para con Ctrl+C.
 
 ---
 
-### **Option 2: Auto-Enable** (Recommended for daily use 🟡)
-
-**Automatic.** One-time setup, then Klaus Proxy activates whenever it's running.
-
-#### Install
-```bash
-pip install Klaus-proxy-local
-```
-
-#### One-time setup
-```bash
-klaus-setup
-```
-
-You'll see:
-```
-🔐 Klaus Proxy Local Setup
-
-Shell detected: zsh
-Config file: ~/.zshrc
-
-Enable Klaus Proxy auto-startup? [y/N]: 
-```
-
-Answer `y` and reload your shell:
-```bash
-exec $SHELL
-```
-
-#### Use
-```bash
-# Terminal 1: Start the proxy
-claude-proxy
-
-# Terminal 2: Use Claude Code normally
-claude "your question"
-# Automatically routed through proxy if it's running
-```
-
-**Pros:**
-- ✅ Fully automatic (just use `claude` as normal)
-- ✅ Works on bash, zsh, fish, PowerShell
-
-**Cons:**
-- ⚠️ Modifies your shell config (~/.zshrc, ~/.bashrc, etc.)
-- ⚠️ Environment variables only active if proxy is running
-
----
-
-### **Option 3: Manual** (For advanced users 🔵)
-
-**Explicit control.** You manage environment variables yourself.
+## 3️⃣ Usar Claude Code (terminal 2)
 
 ```bash
-# Set environment variables before running Claude Code
+source ~/.klaus-proxy/klaus-env.sh          # confianza en la CA del proxy
 export HTTPS_PROXY=http://127.0.0.1:8899
-export HTTP_PROXY=http://127.0.0.1:8899
-export NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem
-
-# Terminal 1: Start proxy
-claude-proxy
-
-# Terminal 2: Use Claude Code
-claude "your question"
+claude
 ```
 
-**Pros:**
-- ✅ Explicit (you know exactly what's happening)
-- ✅ Works anywhere
+`klaus-env.sh` hace que Claude Code (`NODE_EXTRA_CA_CERTS`) y git/curl/Python confíen en el certificado del proxy sin romper el resto de HTTPS. `HTTPS_PROXY` es lo que envía el tráfico al proxy: solo afecta a esa terminal.
 
-**Cons:**
-- ⚠️ Manual setup every shell session
-- ⚠️ Easy to forget
+> 💡 `klaus-setup` añade al shell un hook que carga `klaus-env.sh` y arranca el proxy si no está en marcha, pero **no exporta `HTTPS_PROXY`**: sigue haciendo falta el `export`. Y el wrapper `claude-with-proxy` no se instala con `install.sh`. Ver [#105](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/105).
 
 ---
 
-## 🎯 Complete Example (Option 1 — Recommended)
+## 4️⃣ Comprobar qué ha salido
 
-### Step 1: Install
 ```bash
-$ pip install Klaus-proxy-local
-Successfully installed Klaus-proxy-local-0.1.0
+# Desde el clon del repositorio
+python3 src/anthropic_pair_verify.py      # ¿algún valor real en lo enviado?
+klaus-audit-dashboard --open              # dashboard con 5 planes de auditoría
 ```
 
-### Step 2: Terminal 1 — Start the proxy
-```bash
-$ claude-proxy
-
-🔐 Klaus Proxy Local v0.1.0
-
-✅ Config initialized at ~/.klaus-proxy/
-✅ Certificates ready
-📡 Proxy listening on http://127.0.0.1:8899
-
-✨ Ready. Start Claude Code in another terminal with:
-   claude-with-proxy "your question"
-
-Press Ctrl+C to stop
-```
-
-### Step 3: Terminal 2 — Use Claude Code
-```bash
-$ claude-with-proxy "explain this code snippet"
-
-✅ Proxy detected on 127.0.0.1:8899
-
-> [loads Claude Code and routes through proxy]
-```
-
-### Step 4: After you're done
-Press Ctrl+C in Terminal 1 to stop the proxy.
-
-Check what was captured:
-```bash
-$ anthropic-capture-verify
-
-🔍 Verification Report
-
-✅ Destination: llm.tools.cloud.customer1.es/v1/messages
-✅ Secrets redacted: Authorization = «REDACTED»
-✅ No plaintext leaks: 14 values checked
-✅ Pseudonymization active: 8 seudónimos detected
-
-✅ TODO CORRECTO
-```
+- `anthropic_pair_verify.py` compara cada `original` con su `sent` y marca lo que haya salido en claro.
+- El [audit dashboard](./reports/web/README.md) guarda cada informe en `informes/` y muestra los cambios respecto al anterior.
 
 ---
 
-## 📍 Where Are My Captures?
-
-All captures stored locally:
+## 📍 Dónde está cada cosa
 
 ```
 ~/.klaus-proxy/
-├── captures/
-│   ├── original/          # What your code actually contains
-│   │   └── 20260730_143015_anthropic_payload.json
-│   ├── sent/              # What actually left your machine
-│   │   └── 20260730_143015_anthropic_payload.json
-│   └── .pseudonym_vault.json  # Mapping (real ↔ pseudonym)
-├── config.json            # Your configuration
-└── .mitmproxy-ca-cert.pem # SSL certificate
+├── config.json              # SALT y reglas (pseudo_literals, pseudo_word_literals, pseudo_patterns…)
+├── klaus-env.sh             # variables de confianza en la CA (se regenera al arrancar)
+├── ca-bundle.pem            # CAs del sistema + CA del proxy
+├── addons/<hash>/           # copia inmutable de los addons que ejecuta el proxy
+├── logs/proxy.log           # log rotado (5 MB × 5)
+└── captures/
+    ├── original/            # lo que había en la petición (datos reales)
+    ├── sent/                # lo que salió de tu máquina
+    └── .pseudonym_vault.json  # tabla real ↔ seudónimo (0600)
+~/.mitmproxy/                # certificado CA del proxy
 ```
 
-**Important:**
-- ✅ These files are **yours** — you control them
-- ✅ Never synced to internet
-- ✅ Never committed to git (they're gitignored)
-- ✅ Delete them anytime: `rm -rf ~/.klaus-proxy/captures/`
+Nada de esto se versiona ni se sincroniza. **No compartas `original/` ni el vault:** contienen tus datos reales.
 
 ---
 
-## ❓ FAQ
+## ❓ Preguntas frecuentes
 
-### Q: What if the proxy crashes?
-**A:** Claude Code will hang waiting for the proxy and eventually timeout. It will **never** send unaudited data. (This is by design — fail-closed.)
+**¿Y si el proxy se para?** Claude Code no puede conectar (la terminal 2 apunta a un proxy que no responde): no sale nada sin pasar por él. Vuelve a arrancar `claude-proxy`.
 
-**Solution:** Restart the proxy in Terminal 1.
+**¿Y si cambio el código del repo con el proxy en marcha?** No le afecta: ejecuta una copia inmutable de los addons. Los cambios se aplican al reiniciarlo.
 
----
+**¿Puedo proteger un valor concreto (un cliente, un proyecto)?** Sí: añádelo a `pseudo_literals` o `pseudo_word_literals` de `config.json`, o usa `python3 scripts/add_to_vault.py`, y reinicia `claude-proxy`. Ver [Añadir valores a proteger](./ADD_TO_VAULT_AUTOMATIC.md).
 
-### Q: Can I use Klaus Proxy with multiple projects?
-**A:** Yes! All captures go to the same vault. The mapping is per-machine, not per-project.
+**¿Varios proyectos?** Sí. El vault es por máquina: un mismo valor tiene siempre el mismo seudónimo.
 
----
+**¿Funciona en Linux?** Sí: probado en Debian 13 (Python 3.13) y Ubuntu 24.04 (Python 3.12).
 
-### Q: How much overhead does this add?
-**A:** Minimal. Klaus Proxy adds ~50-200ms latency (one extra hop) and ~5% CPU. The bottleneck is still Claude Code's inference.
-
----
-
-### Q: Can I disable Klaus Proxy for specific requests?
-**A:** Not easily. The proxy is all-or-nothing. If you need unproxied requests, stop the proxy and use `claude` directly.
-
----
-
-### Q: What if I want to share captures with others?
-**A:** The captures contain your real data (paths, usernames, emails). **Don't share them publicly.** If you need to share as evidence:
-
-1. Review the captures:
-   ```bash
-   ls ~/.klaus-proxy/captures/sent/
-   ```
-2. Share **only** the `sent/` directory (already pseudonymized)
-3. **Never** share the vault (`.pseudonym_vault.json`) — it reveals the mapping
-
----
-
-### Q: What's the vault file?
-**A:** It's the **real ↔ pseudonym mapping**. Example:
-
-```json
-{
-  "/home/dev/secret-project": "/proj_a1b2c3d4",
-  "dev@company.com": "email_m4n5o6p7",
-  "myusername": "id_x9y8z7w6"
-}
-```
-
-**Important:** This file is `chmod 0o600` (only you can read it). **Never share it.**
-
----
-
-### Q: What if I disconnect the internet?
-**A:** Klaus Proxy works locally. If you disconnect before using Claude Code, the request will fail (can't reach Anthropic). Klaus Proxy can't help with that.
-
----
-
-### Q: Does this work on Windows?
-**A:** Yes. Use PowerShell:
-
-```powershell
-# Option 1: Wrapper
-claude-with-proxy "your question"
-
-# Option 2: Auto-enable (PowerShell profile)
-klaus-setup
-
-# Option 3: Manual env vars
-$env:HTTPS_PROXY = "http://127.0.0.1:8899"
-$env:HTTP_PROXY = "http://127.0.0.1:8899"
-claude "your question"
-```
-
----
-
-### Q: Does this work on Linux?
-**A:** Yes. Same as macOS:
-
-```bash
-# Option 1: Wrapper
-claude-with-proxy "your question"
-
-# Option 2: Auto-enable (bash/zsh/fish)
-klaus-setup
-
-# Option 3: Manual env vars
-export HTTPS_PROXY=http://127.0.0.1:8899
-claude "your question"
-```
-
----
-
-### Q: What if Klaus Proxy has a bug?
-**A:** Report it to [SECURITY.md](../SECURITY.md). If it's critical, don't disclose publicly until it's fixed.
-
----
-
-## 📚 Learn More
-
-| Topic | Document |
-|-------|----------|
-| **How does it work?** | [ARCHITECTURE_DEEP_DIVE.md](./ARCHITECTURE_DEEP_DIVE.md) |
-| **What's protected?** | [Runbook técnico](./anthropic-audit-proxy.md) |
-| **Full setup guide** | [setup.md](./setup.md) |
-| **Security fixes** | [CHANGELOG.md](../CHANGELOG.md) |
-
----
-
-## ✅ Quick Checklist
-
-- [ ] `pip install Klaus-proxy-local` works
-- [ ] `claude-proxy` starts without errors
-- [ ] `claude-with-proxy "test"` routes through proxy
-- [ ] `~/.klaus-proxy/` directory created
-- [ ] `anthropic-capture-verify` shows captures
-- [ ] Ready to use!
-
----
-
-**Next steps:**
-1. Choose your method (Option 1 recommended)
-2. Start the proxy
-3. Use Claude Code
-4. Check captures with `anthropic-capture-verify`
-5. Read the [technical runbook](./anthropic-audit-proxy.md) to understand what's protected
-
----
-
-**Questions?** See [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) or [SECURITY.md](../SECURITY.md).
-
----
-
-**Version:** v0.1.0  
-**Last updated:** 2026-07-30  
-**Status:** ✅ Ready for release
+**¿He encontrado un fallo de seguridad?** Sigue [SECURITY.md](../SECURITY.md) y no lo publiques hasta que esté corregido.

@@ -29,8 +29,6 @@ Si descubres una vulnerabilidad de seguridad, por favor:
    - Impacto potencial estimado
    - (Opcional) Propuesta de fix o mitigación
 
-2. **Usa GitHub Private Vulnerability Reporting** si prefieres:
-   [Reportar vulnerabilidad](https://github.com/Ka0s-Klaus/klaus-proxy-local/security/advisories/new)
 
 ---
 
@@ -47,10 +45,11 @@ Si descubres una vulnerabilidad de seguridad, por favor:
 
 ## 🛡️ Buenas prácticas de seguridad para usuarios
 
-- **Nunca** commitees el contenido de `captures/` ni el vault `.pseudonym_vault.json`: contienen prompts, ficheros en claro y el mapa `real↔seudónimo`. Están en `.gitignore` — mantenlo así.
+- **Nunca** compartas ni versiones `~/.klaus-proxy/` (capturas, vault, `config.json` con la SALT) ni `informes/`: contienen prompts, ficheros en claro y el mapa real ↔ seudónimo.
+- No incluyas datos reales en issues, PRs, tests ni documentación: usa valores ficticios (`*.example`, `cliente-x`).
 - **Nunca** hardcodees credenciales. El proxy no persiste API keys; el token del proveedor (`ANTHROPIC_AUTH_TOKEN`) se hereda del entorno del proceso `claude`, no de disco.
 - El proxy solo debe escuchar en `127.0.0.1` — no exponerlo a interfaces públicas.
-- Mantén las dependencias actualizadas: `pip install --upgrade -r requirements.txt`.
+- Mantén la instalación actualizada: `git pull && ./install.sh`.
 
 ---
 

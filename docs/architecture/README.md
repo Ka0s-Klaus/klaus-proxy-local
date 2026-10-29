@@ -10,9 +10,9 @@ Aquí vive todo lo que explica **cómo está construido** Klaus Proxy Local. Com
 
 | Documento | Descripción |
 |---|---|
-| [🔬 Architecture Deep Dive](../ARCHITECTURE_DEEP_DIVE.md) | Análisis profundo de todos los componentes internos |
+| [🔬 Arquitectura](../ARCHITECTURE_DEEP_DIVE.md) | Arranque, los 4 addons, reglas de pseudonimización, garantías y límites |
 | [🔌 Anthropic Audit Proxy](../anthropic-audit-proxy.md) | Runbook técnico completo del proxy: flags, modos y operación |
-| [⚙️ Setup & Configuración](../setup.md) | Configuración técnica detallada: variables, rutas, dependencias |
+| [⚙️ Entorno de desarrollo](../setup.md) | Tests, lint y cómo probar cambios en el proxy |
 
 ---
 
@@ -22,6 +22,7 @@ Aquí vive todo lo que explica **cómo está construido** Klaus Proxy Local. Com
 flowchart TD
     A[🖥️ Claude Code] -->|HTTPS_PROXY=8899| B[🔀 mitmproxy :8899]
     B --> C{🔐 addon: pseudonymize}
+    B --> H{🚧 addon: guard<br/>502 si no se pseudonimizó}
     C -->|datos pseudonimizados| D[🌐 api.anthropic.com]
     D -->|respuesta| C
     C -->|datos reales restaurados| A
@@ -34,7 +35,7 @@ flowchart TD
     style G fill:#52C46A,color:#fff
 ```
 
-> 💡 **Cómo leerlo:** Klaus se sienta entre Claude Code y la API como un guardia de seguridad en la puerta. Deja pasar todo, pero revisa el contenido, lo pseudonimiza antes de que salga y guarda una copia de lo que llegó vs. lo que salió.
+> 💡 **Cómo leerlo:** Klaus se sienta entre Claude Code y la API como un guardia de seguridad en la puerta. Revisa cada petición, la pseudonimiza antes de que salga, guarda una copia de lo que llegó y de lo que salió, y bloquea lo que no haya podido pseudonimizar.
 
 ---
 

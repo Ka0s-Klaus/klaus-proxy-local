@@ -1,205 +1,109 @@
-# 🏗️ Klaus Proxy Local - Architecture Deep Dive
+# 🏗️ Arquitectura — Klaus Proxy Local
 
-## System Overview
+> Cómo está construido el proxy y qué garantiza. Para operarlo, ve al [runbook técnico](./anthropic-audit-proxy.md); para usarlo, al [inicio rápido](./QUICK_START.md).
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Claude Code Client                        │
-│                   (with HTTPS_PROXY env)                      │
-└────────────────────────┬────────────────────────────────────┘
-                         │ HTTPS://api.anthropic.com
-                         │ (intercept & pseudonymize)
-                         ▼
-┌──────────────────────────────────────────────────────────────┐
-│              Klaus Proxy Local (mitmproxy + addons)           │
-│                    mitmdump -p 8899                           │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │  Addon: anthropic_payload_pseudonymize.py            │    │
-│  │  - Bidirectional vault (real ↔ pseudo)               │    │
-│  │  - Salt-based deterministic hashing                  │    │
-│  │  - Request: real → pseudo                            │    │
-│  │  - Response: pseudo → real                           │    │
-│  └──────────────────────────────────────────────────────┘    │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │  Addon: anthropic_payload_capture.py                 │    │
-│  │  - Captures original/ and sent/ pairs                │    │
-│  │  - Stores in captures/ directory                     │    │
-│  │  - Enables audit trail                               │    │
-│  └──────────────────────────────────────────────────────┘    │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │  Addon: sensitive_data_scanner.py                    │    │
-│  │  - Tier 1: Pattern detection (20+ patterns)          │    │
-│  │  - Tier 2: Contextual detection (JSON, vars)         │    │
-│  │  - Tier 3: Heuristic (entropy, diversity)            │    │
-│  └──────────────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────────┘
-                         │ Anthropic API response
-                         │ (already reverted by addon)
-                         ▼
-┌──────────────────────────────────────────────────────────────┐
-│              Claude Code Client (response handling)           │
-│               Tool calls work with REAL values                │
-└──────────────────────────────────────────────────────────────┘
+**Versión:** v0.5.2
+
+---
+
+## 🗺️ Visión general
+
+```mermaid
+flowchart LR
+    CC[🖥️ Claude Code<br/>HTTPS_PROXY=:8899] -->|petición real| P
+    subgraph P[mitmdump en 127.0.0.1:8899 · addons desde snapshot]
+        direction TB
+        L[📝 klaus_file_log] --> S[🔐 pseudonymize]
+        S --> C[📸 capture]
+        C --> G[🚧 pseudo_guard]
+    end
+    P -->|petición pseudonimizada| A[🌐 api.anthropic.com]
+    A -->|respuesta con seudónimos| P
+    P -->|respuesta restaurada| CC
+    C --> O[(captures/original)]
+    C --> T[(captures/sent)]
+    S <--> V[(vault)]
 ```
 
-## Core Components
+El proxy es `mitmdump` (mitmproxy) con **cuatro addons**, lanzado por `claude-proxy`. Solo escucha en loopback. Todo el estado vive en `~/.klaus-proxy/` y la CA en `~/.mitmproxy/`.
 
-### 1. Pseudonymization Engine (`anthropic_payload_pseudonymize.py`)
+---
 
-**Design:**
-- Bidirectional vault: `real ↔ pseudo` mapping
-- Deterministic hashing: hash(salt + value)
-- Salt-based (ANTHROPIC_PSEUDO_SALT environment)
+## 🚀 Arranque: `claude-proxy` (`launcher.py`)
 
-**Key Classes:**
-- `Vault`: In-memory + persistent JSON mapping
-- `PseudonymizationRules`: Regex + path rules
-- Functions: `pseudonymize_text()`, `restore_text()`
+1. **Configuración** (`setup.py`): crea `~/.klaus-proxy/config.json` con una SALT aleatoria si no existe, y exporta la SALT al entorno de `mitmdump`.
+2. **Org/repo y carpeta de proyectos**: si se arranca dentro de un repo, guarda su org/repo en `pseudo_word_literals` (#61) y añade un `pseudo_patterns` para la carpeta que lo contiene (#42).
+3. **Certificados** (`certs.py`): genera la CA de mitmproxy si falta, y escribe `ca-bundle.pem` (CAs del sistema + CA del proxy) y `klaus-env.sh`.
+4. **Snapshot de addons** (`addons_snapshot.py`, #71): copia los cuatro addons a `~/.klaus-proxy/addons/<hash>/` (ficheros `0400`). mitmproxy recarga los scripts cuando cambian en disco; ejecutarlos desde el clon permitía que un `git checkout` cambiase o rompiese el pseudonimizador en marcha.
+5. **Panel de arranque**: commit de los addons, org/repo protegidos y `pseudo_patterns` activos.
+6. **`mitmdump`** con los addons en este orden y `--listen-host` en loopback (#47). Ctrl+C o SIGTERM lo paran limpiamente (#51).
 
-**Flow:**
-```
-Request (real values)
-  ↓ [apply rules + hash]
-Pseudonymized payload → Anthropic/gateway
-  ↓ [response]
-Reverse vault (pseudo → real)
-  ↓ [restore all values]
-Response (real values) → Claude Code
-```
+---
 
-### 2. Sensitive Data Scanner (`sensitive_data_scanner.py`)
+## 🧩 Addons
 
-**Three Detection Tiers:**
+### 📝 `klaus_file_log.py` (#55)
 
-**Tier 1: Pattern-Based (CRITICAL confidence)**
-- 20+ regex patterns for known secret formats
-- AWS keys: `AKIA[0-9A-Z]{16}`
-- GitHub tokens: `gh[pousr]_[A-Za-z0-9]{36,}`
-- Private keys, URLs, emails, IPs, etc.
-- **False positive rate:** ~0%
+Primero, para registrar también lo que los demás registran al cargar. Escribe `~/.klaus-proxy/logs/proxy.log` (o `KLAUS_LOG_DIR`), sin colores, rotado 5 MB × 5, con una línea por petición.
 
-**Tier 2: Contextual (HIGH confidence)**
-- Variable names: `password=`, `api_key:`, `token:`
-- File types: `.env`, `.credentials`, `.pem`
-- JSON keys: `"password": "xxx"`
-- **False positive rate:** ~5%
+### 🔐 `anthropic_payload_pseudonymize.py`
 
-**Tier 3: Heuristic (MEDIUM confidence)**
-- Shannon entropy analysis (> 4.5 bits/char)
-- Character diversity (mixed charset)
-- Length heuristics (8-64 chars)
-- **False positive rate:** ~30% (review needed)
+**Petición** (hosts de `hosts` en `config.json`, por defecto `api.anthropic.com`; un host desconocido con ruta de LLM también se pseudonimiza, con un aviso). Recorre el JSON y aplica a cada texto, en este orden:
 
-### 3. Capture & Audit (`anthropic_payload_capture.py`)
+| # | Regla | Resultado | Reversible |
+| --- | --- | --- | --- |
+| 0 | Secretos reconocibles (claves privadas, AWS, Google, GitHub, Slack, JWT); `clave=valor` solo con `ANTHROPIC_PSEUDO_SECRET_KV=1` | `«REDACTED:<tipo>»` | ❌ |
+| 0b | `pseudo_patterns`: carpeta de proyectos (`dir_…`) y usuario de `/Users/<u>` o `/home/<u>` (`user_…`), ignorando marcadores y nombres genéricos (#92) | grupo 1 → seudónimo | ✅ |
+| 1 | Prefijos de ruta: raíz del repo (`/proj_…`) y home (`/home_…`) | seudónimo de ruta | ✅ |
+| 2 | `pseudo_literals` y usuario/identidad git | `id_…` | ✅ |
+| 3 | Emails e IPv4 (octetos 0–255; no tras `version=`) | `email_…`, `ip_…` | ✅ |
+| 4 | `pseudo_word_literals` (org/repo y tus tokens), con frontera de palabra | `org_…` | ✅ |
+| 5 | Nombres de carpeta del vault fuera de una ruta (≥ 5 caracteres, no genéricos, #93) | `dir_…` | ✅ |
 
-**Structure:**
-```
-captures/
-├── original/
-│   ├── 20260903_120000_payload_001.json  (real values)
-│   └── ...
-├── sent/
-│   ├── 20260903_120000_payload_001.json  (pseudonymized)
-│   └── ...
-├── .pseudonym_vault.json                 (mapping)
-└── scan_results.json                     (findings)
-```
+- **Seudónimo** = prefijo + 8 hex de `SHA-1(SALT + valor)`: el mismo valor tiene siempre el mismo seudónimo en la misma máquina.
+- **Aprendizaje por petición** (#63): extrae el org/repo de los remotes que Claude Code envía en `safeguards…git_state` y los añade a `pseudo_word_literals`. Solo llega en los modos de permisos `auto` y `plan` (#68).
+- Marca la petición como procesada (`klaus_pseudo_seen`) para el guardián.
 
-**Purpose:**
-- Immutable audit trail
-- Enables forensics & compliance
-- **Never versioned** (gitignored)
+**Respuesta**: sustituye cada seudónimo del vault por su valor real. En streaming (SSE), concatena los deltas de cada bloque antes de restaurar, porque un seudónimo puede llegar partido entre dos fragmentos (#67).
 
-### 4. Zero-Config Setup (`launcher.py`, `setup.py`, `setup_shell.py`)
+**Vault** (`captures/.pseudonym_vault.json`, `0600`): JSON plano `{"valor real": "seudónimo"}`. **Contiene los valores reales**. Solo da el seudónimo de algo que ya casó con una regla: un valor que solo está en el vault no se protege (salvo las carpetas `dir_…` del paso 5).
 
-**Auto-setup sequence:**
-1. Check for config → generate if missing
-2. Check for TLS certs → generate if missing
-3. Detect shell → add proxy env vars
-4. Start mitmproxy with addons
-5. Show dashboard with URLs
+### 📸 `anthropic_payload_capture.py`
 
-## Data Flow Examples
+Guarda cada petición a un host auditado como un par con el mismo nombre: `captures/original/` (antes de pseudonimizar; las cabeceras de autenticación, redactadas) y `captures/sent/` (lo que salió). Ficheros `0600`.
 
-### Example 1: Request Pseudonymization
+### 🚧 `klaus_pseudo_guard.py` (#71)
 
-```python
-# Input (Claude Code → Proxy)
-{
-  "messages": [
-    {
-      "content": "Read /home/alice/project/secrets.txt"
-    }
-  ]
-}
+Último. Si una petición no lleva la marca del pseudonimizador (no está cargado o falló al recargarse), responde **502** y la petición no sale. Es lo que hace el proxy *fail-closed*. Además, si el pseudonimizador no consigue reescribir un cuerpo, aborta la petición en lugar de dejarla salir con el original.
 
-# After pseudonymization (Proxy → Anthropic)
-{
-  "messages": [
-    {
-      "content": "Read /proj_a1b2c3d4/secrets.txt"
-    }
-  ]
-}
+> `ANTHROPIC_PSEUDO_ENABLE=0` **no** activa el guardián: el pseudonimizador está cargado (marca la petición) pero no sustituye nada, así que las peticiones salen sin pseudonimizar. Es un interruptor deliberado.
 
-# Vault mapping
-{
-  "/home/alice/project": "/proj_a1b2c3d4",
-  "alice": "/user_x9y8z7w6"
-}
-```
+---
 
-### Example 2: Response Restoration
+## 🔍 Herramientas fuera del proxy
 
-```python
-# Input (Anthropic → Proxy)
-{
-  "tool_calls": [
-    {
-      "arguments": "path: /proj_a1b2c3d4/file.txt"
-    }
-  ]
-}
+No corren dentro de `mitmdump`; trabajan sobre las capturas o sobre tu disco:
 
-# After restoration (Proxy → Claude Code)
-{
-  "tool_calls": [
-    {
-      "arguments": "path: /home/alice/project/file.txt"
-    }
-  ]
-}
+| Herramienta | Qué hace |
+| --- | --- |
+| `src/anthropic_pair_verify.py` | Compara cada `original` con su `sent` y marca los valores reales que hayan salido, por capas (email, IPv4, ruta, identidad, org, `pattern`, `dir`, vault) |
+| `klaus-audit-dashboard` | 5 planes de auditoría, histórico en `informes/` y avisos de prompt injection |
+| `klaus-scan` (`sensitive_data_scanner.py`) | Busca secretos en una carpeta: patrones, contexto (nombres de variable, `.env`) y entropía. Lo aprobado va al vault y a `config.json` (#99) |
+| `scripts/prune_vault.py` | Quita del vault valores que los patrones ya ignoran (#92) |
 
-# Tool execution works with REAL paths!
-```
+---
 
-## Security Guarantees
+## ✅ Garantías y límites
 
-### ✅ Guaranteed
+**Garantiza:**
+- Ninguna petición a un host auditado sale sin pasar por el pseudonimizador (guardián).
+- El proxy en marcha no cambia aunque cambie el código del clon (snapshot).
+- Mismo valor → mismo seudónimo; la respuesta llega a Claude Code con los valores reales.
+- Solo escucha en loopback.
+- Evidencia local de cada petición (`original` + `sent`), nunca versionada.
 
-1. **No plaintext secrets in transit** (pseudonymized)
-2. **Deterministic mapping** (same value → same pseudo)
-3. **Immutable audit trail** (captures/)
-4. **Fail-closed** (no request if pseudonymization fails)
-5. **Salt-based** (unpredictable without ANTHROPIC_PSEUDO_SALT)
-
-### ⚠️ Assumptions
-
-1. ANTHROPIC_PSEUDO_SALT kept secret
-2. captures/ directory kept private
-3. Proxy runs on localhost:8899
-4. TLS certs from ~/.mitmproxy/ trusted
-
-## Performance Characteristics
-
-| Operation | Latency | Throughput |
-|-----------|---------|-----------|
-| Pseudonymize request | ~5ms | 200/sec |
-| Restore response | ~2ms | 500/sec |
-| Scan payload (Tier 1-3) | ~50ms | 20/sec |
-| Vault lookup | <1ms | >1000/sec |
-
-**Optimization opportunities for v0.4.0:**
-- Vault caching (in-memory LRU)
-- Parallel scanning tiers
-- Batch pseudonymization
+**No garantiza:**
+- Proteger lo que **ninguna regla** reconoce: un nombre de cliente o un dato sin forma reconocible sale en claro hasta que lo añadas a `config.json`. `anthropic_pair_verify.py --survivors` ayuda a encontrarlos.
+- Una carpeta suelta en el texto solo se protege cuando el vault ya la conoce.
+- El vault y `original/` contienen los datos reales: su seguridad es la de tu cuenta de usuario.
+- Revertir lo ya enviado.
