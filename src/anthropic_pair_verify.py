@@ -66,6 +66,7 @@ from anthropic_payload_pseudonymize import (
     _SECRET_RES,
     Rules,
     build_rules,
+    is_dir_word,
     is_ignorable_pattern_value,
 )
 
@@ -201,9 +202,7 @@ class Span:
     """Un valor real que NO debería reaparecer verbatim en el sent."""
 
     value: str
-    category: (
-        str  # "email" | "ipv4" | "path" | "identity" | "org" | "vault" | "pattern"
-    )
+    category: str  # "email" | "ipv4" | "path" | "identity" | "org" | "vault" | "pattern" | "dir"
     # Solo en la capa "pattern": el regex de pseudo_patterns que lo detectó (#42).
     pattern: re.Pattern | None = field(default=None, compare=False)
 
@@ -286,6 +285,21 @@ def pattern_values(record: dict[str, Any], pattern: re.Pattern) -> set[str]:
     return found
 
 
+@functools.lru_cache(maxsize=4096)
+def _dir_word_re(value: str) -> re.Pattern:
+    """Como ``_word_boundary_re``, pero sobre JSON serializado: un ``\\n``,
+    ``\\t`` o ``\\r`` escapado justo antes también es frontera (#93)."""
+    return re.compile(
+        r"(?:(?<![A-Za-z0-9_])|(?<=\\[ntr]))" + re.escape(value) + r"(?![A-Za-z0-9_])"
+    )
+
+
+def _is_dir_word_span(prefix: str, value: str, rules: Rules) -> bool:
+    return (
+        prefix == "dir" and rules.dir_words and is_dir_word(value, rules.pattern_ignore)
+    )
+
+
 def sensitive_spans(
     record: dict[str, Any], vault: dict[str, str], rules: Rules
 ) -> list[Span]:
@@ -331,13 +345,23 @@ def sensitive_spans(
                 continue
             if len(value) >= _MIN_LEAK_LEN and value not in seen and value in text:
                 seen.add(value)
-                spans.append(Span(value, "pattern", pattern))
+                if _is_dir_word_span(prefix, value, rules):
+                    spans.append(Span(value, "dir"))
+                else:
+                    spans.append(Span(value, "pattern", pattern))
 
     # 3) Valores reales del vault presentes en el original. Los de email/IPv4
     # ya los cubre la capa 1 con contexto.
     pattern_prefixes = tuple(f"{prefix}_" for _p, prefix in rules.patterns)
     for real, pseudo in vault.items():
         if pseudo.startswith(_REGEX_PSEUDO_PREFIXES):
+            continue
+        # Nombres de carpeta que el seudonimizador sustituye también sueltos
+        # (#93): fuga si reaparecen como palabra, aunque no haya ruta.
+        if pseudo.startswith("dir_") and _is_dir_word_span("dir", real, rules):
+            if real not in seen and _dir_word_re(real).search(text):
+                seen.add(real)
+                spans.append(Span(real, "dir"))
             continue
         if pattern_prefixes and pseudo.startswith(pattern_prefixes):
             continue
@@ -364,6 +388,8 @@ def diff_leaks(
             if s.pattern not in by_pattern:
                 by_pattern[s.pattern] = pattern_values(sent_record, s.pattern)
             return s.value in by_pattern[s.pattern]
+        if s.category == "dir":
+            return bool(_dir_word_re(s.value).search(haystack))
         if s.category in sent_matches:
             return s.value in sent_matches[s.category]
         return s.value in haystack

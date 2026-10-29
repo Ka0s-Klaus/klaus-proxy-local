@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Nombres de carpeta de proyectos protegidos también fuera de una ruta** (#93) — `pseudo_patterns` solo los sustituía dentro de `/Users/<u>/proyectos/<carpeta>`, así que un `<carpeta>.md` o la raíz de un árbol en un README salían en claro aunque el vault los conociera (detectado vigilando una sesión en otro repo). Ahora los nombres `dir_…` del vault se sustituyen también como palabra completa, con el mismo seudónimo, si tienen 5 caracteres o más y no son genéricos ni están en `pseudo_pattern_ignore`. Cubre también las rutas codificadas con guiones (`-Users-u-proyectos-<carpeta>-…`) de carpetas ya conocidas. `anthropic-pair-verify` los marca como fuga (`[dir]`) si reaparecen como palabra. Se desactiva con `ANTHROPIC_PSEUDO_DIR_WORDS=0`.
+
 ### Fixed
 - **El patrón de usuarios `/Users/<u>` registraba marcadores y puntuación en el vault** (#92) — Una ruta con el usuario tapado (`…`, `|`, `«X»`, `{user}`) o genérica (`/Users/Shared`) entraba al vault como si fuera un usuario real, se sustituía por un seudónimo y el verificador la tomaba por fuga. Los patrones ignoran ahora los valores sin letras ni números, de un carácter, los marcadores de plantilla y, como usuario, los nombres genéricos; `pseudo_pattern_ignore` en `config.json` excluye valores concretos. `scripts/prune_vault.py` quita del vault los que ya habían entrado (con el proxy parado; copia de seguridad).
 

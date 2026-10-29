@@ -568,3 +568,38 @@ def test_ignored_pattern_values_are_not_leaks():
     assert _verify(text, text, rules=rules) == []
     leaked = "cd /home/ana.lopez/work"
     assert [s.value for s in _verify(leaked, leaked, rules=rules)] == ["ana.lopez"]
+
+
+# --- #93: nombres de carpeta como palabra -------------------------------------
+
+
+def _dir_word_rules():
+    rules = _pattern_rules()
+    rules.dir_words = True
+    return rules
+
+
+def test_dir_name_left_outside_path_is_a_leak_with_dir_words():
+    rules = _dir_word_rules()
+    original = "cd /Users/u/proyectos/cliente-x/src; el informe de cliente-x"
+    sent = "cd /Users/u/proyectos/dir_deadbeef/src; el informe de cliente-x"
+    leaks = _verify(original, sent, rules=rules)
+    assert [(s.value, s.category) for s in leaks] == [("cliente-x", "dir")]
+
+
+def test_vault_dir_name_without_path_in_record_is_checked():
+    rules = _dir_word_rules()
+    vault = {"cliente-x": "dir_12345678"}
+    text = "```\ncliente-x/\n├── README.md\n```"
+    assert [s.value for s in _verify(text, text, vault=vault, rules=rules)] == [
+        "cliente-x"
+    ]
+    sent = "```\ndir_12345678/\n├── README.md\n```"
+    assert _verify(text, sent, vault=vault, rules=rules) == []
+
+
+def test_generic_dir_names_are_not_word_leaks():
+    rules = _dir_word_rules()
+    vault = {"scripts": "dir_12345678", "docs": "dir_87654321"}
+    text = "ver scripts y docs"
+    assert _verify(text, text, vault=vault, rules=rules) == []
