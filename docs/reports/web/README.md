@@ -1,85 +1,109 @@
-# 🌐 Dashboards Web
+# 🌐 Audit Dashboard
 
-Dashboards HTML interactivos generados por el sistema de auditoría automatizada.
-Se abren directamente en el navegador — **sin servidor, con `file://`**.
+Dashboard HTML de auditoría de Klaus Proxy Local. Ejecuta 5 planes de auditoría sobre las capturas de `~/.klaus-proxy/captures/`, **guarda cada resultado como un informe nuevo en `informes/`** y permite abrir cualquier informe anterior y ver qué ha cambiado respecto al previo.
 
-## 📊 Dashboards disponibles
+Se abre directamente en el navegador, **sin servidor, con `file://`**.
 
-| Dashboard | Descripción | Actualizar |
-|---|---|---|
-| 🔍 Audit Dashboard → [`informes/audit-dashboard.html`](../../../informes/) (local, no versionado) | 5 planes de auditoría, histórico y cambios respecto al informe anterior | `python3 scripts/generate_audit_dashboard.py` |
-
-> ℹ️ Desde #77 el dashboard ya no se escribe aquí: contiene datos reales de la auditoría y este directorio está versionado en el repo público. Cada ejecución guarda su informe en `informes/` (en `.gitignore`).
-
-## 🗂️ Histórico de informes (#77)
-
-Cada ejecución crea en `informes/`, sin sobrescribir nada:
-
-| Fichero | Contenido |
-|---|---|
-| `audit-YYYYMMDD-HHMMSS.json` | Datos del informe (los 5 planes) |
-| `audit-YYYYMMDD-HHMMSS.html` | Dashboard de ese informe, con sus cambios respecto al anterior |
-| `audit-dashboard.html` | Copia del último: el que abre `--open` |
-| `index.js` | Lista de informes que usa el selector (se regenera en cada ejecución) |
-
-- **Selector `📂 Informe`** en la cabecera: lista todos los informes (el último primero, con su peor estado) y abre el elegido. En un informe antiguo aparece «Estás viendo un informe anterior · Ir al último».
-- **Panel «🔁 Cambios respecto al informe anterior»**: estados de cada plan, métricas que suben o bajan (▲ a mejor, ▼ a peor, • neutras), checks EFDEF que cambian y hosts inesperados nuevos o desaparecidos. Las series diarias y el detalle por petición no se comparan.
-- Funciona con `file://`, sin servidor. Ficheros `0600`, directorio `0700`.
+> ℹ️ Desde #77 el dashboard ya no se escribe en este directorio. Contiene datos reales de la auditoría y `docs/` está versionado en el repo público; `informes/` está en `.gitignore`.
 
 ## 🚀 Cómo usar
 
 ```bash
-# Generar (lee ~/.klaus-proxy/captures/ y produce el HTML)
-python3 scripts/generate_audit_dashboard.py
+# Ejecutar la auditoría, guardar el informe y abrir el último
+klaus-audit-dashboard --open
 
-# Generar y abrir en el navegador directamente
+# Equivalente desde el repositorio
 python3 scripts/generate_audit_dashboard.py --open
 
-# Con entrada instalada (pip install -e .)
-klaus-audit-dashboard --open
+# Abrir el último informe sin volver a auditar
+open informes/audit-dashboard.html        # macOS
+xdg-open informes/audit-dashboard.html    # Linux
 
 # Personalizar rutas
 python3 scripts/generate_audit_dashboard.py \
   --captures-dir /ruta/capturas \
-  --reports-dir /ruta/informes \
-  --output /ruta/salida/mi-dashboard.html   # copia adicional del último
+  --config-dir   /ruta/.klaus-proxy \
+  --reports-dir  /ruta/informes \
+  --output       /ruta/salida/mi-dashboard.html   # copia adicional del último
 ```
+
+| Opción | Efecto | Por defecto |
+| --- | --- | --- |
+| `--captures-dir` | Capturas a auditar | `~/.klaus-proxy/captures` |
+| `--config-dir` | Directorio de `config.json` y del vault | `~/.klaus-proxy` |
+| `--reports-dir` | Histórico de informes | `informes/` del repo |
+| `--output` | Copia adicional del último dashboard, con enlaces relativos al histórico | — |
+| `--open` | Abre `audit-dashboard.html` en el navegador | off |
+
+> ⏱️ El plan de tests ejecuta `pytest` completo, así que cada auditoría tarda unos segundos.
+
+## 🗂️ Histórico de informes
+
+Cada ejecución crea en `informes/`, **sin sobrescribir nunca un informe anterior**:
+
+| Fichero | Contenido |
+| --- | --- |
+| `audit-YYYYMMDD-HHMMSS.json` | Datos del informe: fecha, capturas y los 5 planes |
+| `audit-YYYYMMDD-HHMMSS.html` | Dashboard de ese informe, con sus cambios respecto al anterior |
+| `audit-dashboard.html` | Copia del último informe: el que abre `--open` |
+| `index.js` | Lista de informes que usa el selector (se regenera en cada ejecución) |
+
+- Si dos ejecuciones coinciden en el mismo segundo, la segunda lleva el sufijo `-2`.
+- Ficheros `0600`, directorio `0700`. Nada de esto se versiona.
+- El histórico no se poda solo: cada informe ocupa unos 30–35 KB de HTML más su JSON. Para limpiarlo, borra los `audit-*` antiguos; el índice se reconstruye en la siguiente ejecución.
+
+### 📂 Selector de informes
+
+En la cabecera, el selector **📂 Informe** lista todos los informes, el último primero, con el icono de su peor estado (✅ ⚠️ 🔴 ⬜). Al elegir uno se abre su HTML.
+
+En un informe antiguo aparece **«Estás viendo un informe anterior · Ir al último»**. Los informes antiguos listan también los más nuevos, porque todos leen el mismo `index.js`.
+
+### 🔁 Cambios respecto al informe anterior
+
+Debajo de las tarjetas, cada informe muestra en qué se diferencia del inmediatamente anterior:
+
+| Tipo de cambio | Ejemplo | Marca |
+| --- | --- | --- |
+| Estado de un plan | ✅ OK → ⚠️ Revisar | ▲ si mejora, ▼ si empeora |
+| Métrica numérica | Fallidos: 0 → 2 (+2) | ▲/▼ en las que tienen sentido de mejora (% pseudonimizadas, % tests superados, fallidos, hosts inesperados…); • en el resto (contadores) |
+| Check EFDEF | Check «vault»: ❌ falla | ▲ si pasa a cumplirse, ▼ si deja de cumplirse |
+| Hosts inesperados | + `otro-host.example` | ▼ si aparece, ▲ si desaparece |
+
+- La cabecera del panel resume el total: «N cambios · ▲ x a mejor · ▼ y a peor».
+- **No se comparan** las series diarias, el detalle por petición ni las distribuciones (hosts, modelos, rutas): cambian en cada ejecución y no reflejan el estado del sistema.
+- El primer informe lo indica: «no hay uno anterior con el que comparar».
+- Los cambios se calculan al generar cada informe y quedan fijos en su HTML.
 
 ## 📋 Planes de auditoría
 
-El dashboard cubre 5 dimensiones:
-
-| Plan | Qué mide |
-|---|---|
-| 🔐 Seguridad | Hosts capturados, secretos redactados, patrones de prompt injection |
-| 📊 Pseudonimización | % de payloads `/v1/messages` pseudonimizados, trend diario, vault |
-| ⚡ Actividad | Capturas por día (últimos 30 días), endpoints más usados, recientes |
-| 🧪 Tests | Pass rate de pytest, tests pasando/fallando |
-| 📋 EFDEF | Checklist de compliance Sección 22 y 23 |
+| Plan | Qué mide | ✅ OK | ⚠️ Revisar | 🔴 Crítico |
+| --- | --- | --- | --- | --- |
+| 🔐 Seguridad | Hosts capturados, secretos redactados, patrones de prompt injection | Sin hosts inesperados ni injection | Patrones de injection | Algún host inesperado |
+| 📊 Pseudonimización | % de peticiones `/v1/messages` en las que corrió el pseudonimizador (últimos 30 días), tendencia diaria, vault | ≥ 99 % | ≥ 90 % | < 90 % |
+| ⚡ Actividad | Capturas por día (30 días), endpoints, códigos de estado, últimas peticiones | Algún día activo | Sin actividad | — |
+| 🧪 Tests | Resultado de `pytest` | 0 fallos y 0 errores | Fallos + errores < 10 % | El resto |
+| 📋 EFDEF | Checklist de compliance (secciones 22 y 23) | ≥ 90 % de checks | ≥ 70 % | < 70 % |
 
 ## 🔄 Flujo de trabajo recomendado
 
 ```mermaid
 flowchart LR
-    A[Proxy activo\ncapturando] --> B[Ejecutar script\naudit-dashboard]
-    B --> C[HTML generado\nen docs/reports/web/]
-    C --> D[Abrir en navegador\nfile://...]
-    D --> E[Revisar semáforo\nde cada plan]
-    E --> F{¿Algo en rojo?}
-    F -->|Sí| G[Investigar\ny corregir]
+    A[Proxy activo\ncapturando] --> B[klaus-audit-dashboard]
+    B --> C[Informe nuevo\nen informes/]
+    C --> D[Abrir el último\nfile://]
+    D --> E[Revisar semáforos\ny panel de cambios]
+    E --> F{¿Algo ▼ o en rojo?}
+    F -->|Sí| G[Comparar con informes\nanteriores e investigar]
     F -->|No| H[Todo OK ✅]
     G --> A
 ```
 
-## 💡 Notas
+## 📝 Informes en Markdown (`generate_audit_report.py`)
 
-- El HTML se genera de cero en cada ejecución — no es incremental.
-- El dashboard es un snapshot del momento de la ejecución.
-- Los datos de capturas **nunca se suben al repo** (están en `~/.klaus-proxy/`, gitignoreados).
-- El HTML generado **sí se versiona** como evidencia del estado del sistema.
+`informes/` también recibe los informes en Markdown del auditor de payloads (`generate_audit_report.py` → `audit_YYYY-MM-DD_HHMMSS.md` y `audit_index.md`), descritos en la [guía de generación de reportes](../../GENERATE_REPORTS_GUIDE.md). Conviven sin conflicto: el dashboard solo lee y escribe los `audit-*` con guion, y el Markdown los `audit_*` con guion bajo.
 
 ## 🔗 Referencias
 
 - [📊 Índice de reportes](../README.md)
-- [Script generador](../../../scripts/generate_audit_dashboard.py)
+- [Script generador](../../../scripts/generate_audit_dashboard.py) y lógica del histórico en [`audit_reports.py`](../../../src/Klaus_proxy_local/audit_reports.py)
 - [Guía de auditoría](../../guides/README.md)

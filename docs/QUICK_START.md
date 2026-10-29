@@ -2,7 +2,7 @@
 
 > **Get started in 2 minutes.**
 
-**Status:** ✅ Ready for v0.4.0  
+**Status:** ✅ Ready for v0.5.0  
 **Audience:** Individual developers  
 **Related:** [setup.md](./setup.md) | [USER_GUIDE.md](./USER_GUIDE.md)
 
@@ -305,7 +305,7 @@ claude "your question"
 ---
 
 ### Q: What if Klaus Proxy has a bug?
-**A:** Report it to [SECURITY.md](./security.md). If it's critical, don't disclose publicly until it's fixed.
+**A:** Report it to [SECURITY.md](../SECURITY.md). If it's critical, don't disclose publicly until it's fixed.
 
 ---
 
@@ -313,10 +313,10 @@ claude "your question"
 
 | Topic | Document |
 |-------|----------|
-| **How does it work?** | [architecture.md](./architecture.md) |
-| **What's protected?** | [THREAT_MODEL.md](./THREAT_MODEL.md) |
+| **How does it work?** | [ARCHITECTURE_DEEP_DIVE.md](./ARCHITECTURE_DEEP_DIVE.md) |
+| **What's protected?** | [Runbook técnico](./anthropic-audit-proxy.md) |
 | **Full setup guide** | [setup.md](./setup.md) |
-| **Security fixes** | [SECURITY_HARDENING.md](./SECURITY_HARDENING.md) |
+| **Security fixes** | [CHANGELOG.md](../CHANGELOG.md) |
 
 ---
 
@@ -336,11 +336,11 @@ claude "your question"
 2. Start the proxy
 3. Use Claude Code
 4. Check captures with `anthropic-capture-verify`
-5. Read [THREAT_MODEL.md](./THREAT_MODEL.md) to understand what's protected
+5. Read the [technical runbook](./anthropic-audit-proxy.md) to understand what's protected
 
 ---
 
-**Questions?** See [THREAT_MODEL.md](./THREAT_MODEL.md) FAQ or [security.md](./security.md).
+**Questions?** See [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) or [SECURITY.md](../SECURITY.md).
 
 ---
 

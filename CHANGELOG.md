@@ -161,7 +161,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Links to Detailed Release Notes
 
-- [v0.3.3 Release Notes](./docs/RELEASE_v0.3.3_NOTES.md) (if available)
 - [v0.3.2 Release Notes](./docs/RELEASE_v0.3.2_NOTES.md)
 - [v0.3.1 Release Notes](./docs/RELEASE_v0.3.1_NOTES.md)
 - [v0.3.0 Release Notes](./docs/RELEASE_v0.3.0_NOTES.md)
