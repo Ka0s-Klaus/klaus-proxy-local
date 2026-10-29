@@ -147,10 +147,30 @@ def original_dir() -> Path:
     return output_dir() / ORIGINAL_SUBDIR
 
 
+def capture_only_hosts() -> tuple[str, ...]:
+    """``capture_only_hosts`` de config.json: se capturan sin seudonimizar (#125)."""
+    try:
+        cfg = json.loads(config_path().read_text(encoding="utf-8"))
+        hosts = cfg.get("capture_only_hosts") or []
+        return tuple(str(h).strip().lower() for h in hosts if str(h).strip())
+    except (OSError, ValueError, AttributeError):
+        # Sin config.json legible no hay hosts de solo captura
+        return ()
+
+
+def _matches(host: str, hosts: tuple[str, ...]) -> bool:
+    host = (host or "").lower()
+    return any(host == h or host.endswith("." + h) for h in hosts)
+
+
 def is_anthropic_host(host: str) -> bool:
     """True si el host está en la lista de hosts auditados (Anthropic o gateway)."""
-    host = (host or "").lower()
-    return any(host == h or host.endswith("." + h) for h in _configured_hosts())
+    return _matches(host, _configured_hosts())
+
+
+def is_captured_host(host: str) -> bool:
+    """Hosts auditados más los de solo captura (#125)."""
+    return is_anthropic_host(host) or _matches(host, capture_only_hosts())
 
 
 def redact_headers(headers: dict[str, str]) -> dict[str, str]:
@@ -218,6 +238,7 @@ def build_record(
     client_addr: str | None = None,
     client_port: int | None = None,
     status_code: int | None = None,
+    capture_only: bool = False,
 ) -> dict[str, Any]:
     """Construye el registro de auditoría de una request.
 
@@ -228,7 +249,8 @@ def build_record(
     hermano, para localizar el par a comparar. ``blocked`` marca las requests que
     el seudonimizador abortó (fail-closed) y que por tanto NO salieron del equipo.
     ``client_addr`` y ``client_port`` son la IP y puerto del cliente.
-    ``status_code`` es el código de respuesta HTTP.
+    ``status_code`` es el código de respuesta HTTP. ``capture_only`` marca los
+    hosts que se auditan sin seudonimizar (#125): no cuentan como fugas.
     """
     hdrs = redact_headers(headers) if redact else dict(headers)
     return {
@@ -238,6 +260,7 @@ def build_record(
         "pseudo_ran": pseudo_ran,
         "unknown_host": unknown_host,
         "blocked": blocked,
+        "capture_only": capture_only,
         "counterpart": counterpart,
         "method": method,
         "url": url,
@@ -321,7 +344,7 @@ class AnthropicPayloadCapture:
     def response(self, flow: Any) -> None:  # pragma: no cover - requiere mitmproxy
         """Captura request cuando ya tenemos la response (para status_code)."""
         req = flow.request
-        if not is_anthropic_host(req.pretty_host):
+        if not is_captured_host(req.pretty_host):
             return
         now = datetime.now()
 
@@ -341,6 +364,11 @@ class AnthropicPayloadCapture:
         # El seudonimizador aborta (fail-closed) las requests que no pudo
         # seudonimizar: no salieron, así que su cuerpo NO se registra como enviado.
         blocked = bool(meta.get("anthropic_blocked"))
+        # Solo captura (#125): lo enviado es el cuerpo original; en disco, los
+        # dos lados con los secretos redactados
+        capture_only = bool(meta.get("klaus_capture_only")) or (
+            not is_anthropic_host(req.pretty_host) and not pseudo_ran
+        )
 
         # Capturar información del cliente y respuesta
         client_addr = None
@@ -373,6 +401,7 @@ class AnthropicPayloadCapture:
             unknown_host=unknown_host,
             counterpart=name,
             blocked=blocked,
+            capture_only=capture_only,
             client_addr=client_addr,
             client_port=client_port,
             status_code=status_code,
@@ -386,7 +415,11 @@ class AnthropicPayloadCapture:
             host=apply_forward(req.pretty_host, fwd),
             path=apply_forward(req.path, fwd),
             headers=sent_headers,
-            body=BLOCKED_SENT_MARKER if blocked else req.raw_content,
+            body=(
+                BLOCKED_SENT_MARKER
+                if blocked
+                else original_body if capture_only else req.raw_content
+            ),
             variant="sent",
             **base,
         )

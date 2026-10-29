@@ -33,7 +33,7 @@ klaus-proxy-local/                 # el clon (instalación editable: no lo mueva
 
 ## 🧭 Hallazgo principal: hay DOS destinos, no uno
 
-> ℹ️ **Contexto:** este hallazgo es del entorno donde nació la herramienta (julio de 2026), con `ANTHROPIC_BASE_URL` apuntando a un gateway corporativo. **Por defecto el proxy audita y pseudonimiza `api.anthropic.com`** (clave `hosts` de `config.json`). Si usas un gateway, añádelo a `hosts` (o ponlo en `ANTHROPIC_BASE_URL`). Desde v0.6.0 solo se descifran esos hosts, `anthropic.com` y `claude.ai`; el resto va en túnel (#116). Un host desconocido con ruta de LLM solo se pseudonimiza, con un aviso en el log, si se descifra: con `"intercept_all": true`.
+> ℹ️ **Contexto:** este hallazgo es del entorno donde nació la herramienta (julio de 2026), con `ANTHROPIC_BASE_URL` apuntando a un gateway corporativo. **Por defecto el proxy audita y pseudonimiza `api.anthropic.com`** (clave `hosts` de `config.json`). Si usas un gateway, añádelo a `hosts` (o ponlo en `ANTHROPIC_BASE_URL`). Solo se descifra lo que se audita: esos hosts, `api.anthropic.com` y los `capture_only_hosts` (#125); el resto va en túnel (#116). Un host desconocido con ruta de LLM solo se pseudonimiza, con un aviso en el log, si se descifra: con `"intercept_all": true`.
 
 La inferencia **no** viaja directamente a `api.anthropic.com`. Claude Code (v2.1.216) reparte el tráfico así:
 
@@ -393,7 +393,7 @@ El log va primero para registrar la carga de los demás; el passthrough TLS desp
 | `KLAUS_INTERCEPT_ALL` | Descifrar todo el HTTPS, no solo los hosts de la API (equivale a `"intercept_all": true` en `config.json`) (#116) | `0` |
 | `KLAUS_LOG_DIR` | Directorio del log en disco (`proxy.log`, rotado 5 MB × 5) (#55) | `~/.klaus-proxy/logs/` |
 
-Además de las variables, `~/.klaus-proxy/config.json` admite `hosts` (hosts de la API que se descifran y pseudonimizan), `intercept_all`, `pseudo_literals`, `pseudo_word_literals`, `pseudo_patterns` y `pseudo_pattern_ignore`, que persisten entre reinicios.
+Además de las variables, `~/.klaus-proxy/config.json` admite `hosts` (hosts de la API que se descifran y pseudonimizan), `capture_only_hosts` (se descifran y capturan sin pseudonimizar, #125), `intercept_all`, `pseudo_literals`, `pseudo_word_literals`, `pseudo_patterns` y `pseudo_pattern_ignore`, que persisten entre reinicios.
 
 **Limpiar el vault (#92).** Los valores que entraron al vault antes de que los patrones los ignorasen se quitan con:
 

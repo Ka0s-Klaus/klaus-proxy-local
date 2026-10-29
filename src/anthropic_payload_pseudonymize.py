@@ -243,6 +243,26 @@ _LLM_PATH_PATTERNS = (
 )
 
 
+def capture_only_hosts() -> tuple[str, ...]:
+    """Hosts que se capturan sin seudonimizar (``capture_only_hosts``, #125).
+
+    Para tráfico que se quiere auditar pero que dejaría de funcionar con
+    seudónimos, como los conectores MCP: la petición sale tal cual.
+    """
+    try:
+        cfg = json.loads(config_path().read_text(encoding="utf-8"))
+        hosts = cfg.get("capture_only_hosts") or []
+        return tuple(str(h).strip().lower() for h in hosts if str(h).strip())
+    except (OSError, ValueError, AttributeError):
+        # Sin config.json legible no hay hosts de solo captura
+        return ()
+
+
+def is_capture_only_host(host: str) -> bool:
+    host = (host or "").lower()
+    return any(host == h or host.endswith("." + h) for h in capture_only_hosts())
+
+
 def is_llm_path(path: str) -> bool:
     """True si la ruta parece una llamada a un LLM (defense-in-depth para hosts desconocidos)."""
     p = (path or "").lower().split("?")[0].rstrip("/")
@@ -1291,6 +1311,9 @@ class AnthropicPseudonymizer:
                     level="warn",
                 )
                 flow.metadata["anthropic_unknown_host"] = req.pretty_host
+            elif is_capture_only_host(req.pretty_host):
+                self._mark_capture_only(flow, req)
+                return
             else:
                 return
         # Fail-closed: si CUALQUIER paso de la seudonimización falla (no se puede
@@ -1346,6 +1369,19 @@ class AnthropicPseudonymizer:
                 level="warn",
             )
             return []
+
+    def _mark_capture_only(self, flow: Any, req: Any) -> None:
+        """Host de solo captura (#125): la petición sale sin tocar.
+
+        Al addon de captura le deja el cuerpo con los secretos Tier-1
+        redactados, para que nunca caiga a disco una credencial.
+        """
+        flow.metadata["klaus_capture_only"] = True
+        text = req.get_text(strict=False)
+        if text:
+            flow.metadata["anthropic_original_body"] = redact_secrets_body(
+                text, self._get_rules()
+            )
 
     def _pseudonymize_request(self, flow: Any, req: Any) -> None:  # pragma: no cover
         """Reescribe el cuerpo de la request. Cualquier excepción sube a

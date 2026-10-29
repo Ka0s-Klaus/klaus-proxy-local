@@ -55,6 +55,8 @@ class PayloadAuditor:
                 try:
                     with open(file_path, "r") as f:
                         data = json.load(f)
+                        if data.get("capture_only"):
+                            continue
                         self.original_payloads.append(
                             {"file": file_path.name, "data": data}
                         )
@@ -67,6 +69,9 @@ class PayloadAuditor:
                 try:
                     with open(file_path, "r") as f:
                         data = json.load(f)
+                        # Solo captura (#125): no se seudonimiza a propósito
+                        if data.get("capture_only"):
+                            continue
                         self.sent_payloads.append(
                             {"file": file_path.name, "data": data}
                         )

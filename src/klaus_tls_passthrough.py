@@ -6,9 +6,10 @@ gh…) pasa por el proxy. Si mitmproxy lo descifrara todo, cada herramienta que
 no confíe en su CA daría errores de certificado. Este addon decide en el
 ClientHello:
 
-- Hosts de la API (los de ``config.json`` → ``hosts``, ``anthropic.com``,
-  ``claude.ai`` y el host de ``ANTHROPIC_BASE_URL``): se descifran, como hasta
-  ahora, para seudonimizarlos y capturarlos.
+- Hosts auditados: ``api.anthropic.com``, ``hosts`` y ``capture_only_hosts``
+  de ``config.json`` y el host de ``ANTHROPIC_BASE_URL``. Se descifran para
+  seudonimizarlos (salvo los de solo captura, #125) y capturarlos. Solo se
+  descifra lo que se audita: nada sale descifrado sin pasar por la captura.
 - Resto: túnel TLS sin descifrar. El cliente ve el certificado real del
   servidor (sin errores) y queda una línea ``TÚNEL host:puerto`` en el log.
 
@@ -29,8 +30,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-# Siempre descifrados, aunque config.json defina otros hosts
-ALWAYS_INTERCEPT = ("anthropic.com", "claude.ai")
+# Siempre descifrado, aunque config.json defina otros hosts
+ALWAYS_INTERCEPT = ("api.anthropic.com",)
 
 logger = logging.getLogger("klaus.flow")
 
@@ -74,16 +75,18 @@ def _base_url_hosts() -> list[str]:
 def intercept_hosts() -> tuple[str, ...]:
     """Hosts (y sus subdominios) que se descifran.
 
-    Mismas fuentes que el seudonimizador (``ANTHROPIC_PSEUDO_HOSTS`` /
-    ``ANTHROPIC_CAPTURE_HOSTS`` o ``hosts`` de config.json), más los fijos y
-    el gateway de ``ANTHROPIC_BASE_URL``: en caso de duda, se descifra.
+    Mismas fuentes que el seudonimizador y la captura (``ANTHROPIC_PSEUDO_HOSTS``
+    / ``ANTHROPIC_CAPTURE_HOSTS``, ``hosts`` y ``capture_only_hosts`` de
+    config.json), más ``api.anthropic.com`` y el gateway de ``ANTHROPIC_BASE_URL``.
     """
     hosts = list(ALWAYS_INTERCEPT)
     for var in ("ANTHROPIC_PSEUDO_HOSTS", "ANTHROPIC_CAPTURE_HOSTS"):
         hosts += os.environ.get(var, "").split(",")
-    cfg_hosts = _read_json(config_path()).get("hosts", [])
-    if isinstance(cfg_hosts, list):
-        hosts += [str(h) for h in cfg_hosts]
+    cfg = _read_json(config_path())
+    for key in ("hosts", "capture_only_hosts"):
+        cfg_hosts = cfg.get(key, [])
+        if isinstance(cfg_hosts, list):
+            hosts += [str(h) for h in cfg_hosts]
     hosts += _base_url_hosts()
     return tuple(dict.fromkeys(h.strip().lower() for h in hosts if h.strip()))
 

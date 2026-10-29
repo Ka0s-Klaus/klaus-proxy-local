@@ -63,14 +63,21 @@ def _ts_to_date(ts_str: str | None) -> str | None:
 
 
 def _load_expected_hosts() -> set[str]:
-    """Lee los hosts esperados desde config.json. Fallback: solo api.anthropic.com."""
+    """Hosts esperados: ``hosts`` y ``capture_only_hosts`` (#125) de config.json.
+
+    Fallback: solo api.anthropic.com.
+    """
     try:
         cfg_path = Path.home() / ".klaus-proxy" / "config.json"
         if cfg_path.exists():
             cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
             hosts = [h.strip().lower() for h in cfg.get("hosts", []) if h.strip()]
             if hosts:
-                return set(hosts)
+                return set(hosts) | {
+                    str(h).strip().lower()
+                    for h in cfg.get("capture_only_hosts") or []
+                    if str(h).strip()
+                }
     except (OSError, ValueError, AttributeError) as exc:
         # Sin config.json legible, el informe solo da por esperado api.anthropic.com
         print(
