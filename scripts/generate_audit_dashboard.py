@@ -16,6 +16,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -350,44 +351,83 @@ def audit_performance(original: list[dict]) -> dict:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+_PYTEST_MISSING = (
+    "pytest no está instalado en este entorno. Instálalo en el venv de Klaus "
+    "(~/.local/share/klaus/venv/bin/pip install pytest) o instala uv."
+)
+
+
+def _has_pytest(python: str) -> bool:
+    try:
+        return (
+            subprocess.run(
+                [python, "-c", "import pytest"], capture_output=True, timeout=30
+            ).returncode
+            == 0
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _pytest_command(project_root: Path) -> list[str] | None:
+    """Comando para ejecutar pytest (#82).
+
+    El venv instalado por install.sh no trae pytest (es un extra de
+    desarrollo), así que se prueba por orden: el intérprete actual, el .venv
+    del repo y, como último recurso, un entorno efímero de uv.
+    """
+    for python in (sys.executable, str(project_root / ".venv" / "bin" / "python")):
+        if Path(python).exists() and _has_pytest(python):
+            return [python, "-m", "pytest"]
+    uv = shutil.which("uv")
+    if uv:
+        uv_env = ["--no-project", "--with", "pytest", "--with", "mitmproxy"]
+        return [uv, "run", *uv_env, "python", "-m", "pytest"]
+    return None
+
+
 def audit_tests(project_root: Path) -> dict:
     test_count = passed = failed = errors = 0
     output_lines: list[str] = []
-    status = "warning"
+    status = "no_data"
 
-    try:
-        run_res = subprocess.run(
-            [sys.executable, "-m", "pytest", "--no-header", "--tb=no"],
-            cwd=project_root,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        summary_lines = (run_res.stdout + run_res.stderr).splitlines()
-        output_lines = [ln for ln in summary_lines if ln.strip()][-15:]
-        for line in summary_lines[-5:]:
-            m_pass = re.search(r"(\d+) passed", line)
-            m_fail = re.search(r"(\d+) failed", line)
-            m_err = re.search(r"(\d+) error", line)
-            if m_pass:
-                passed = int(m_pass.group(1))
-            if m_fail:
-                failed = int(m_fail.group(1))
-            if m_err:
-                errors = int(m_err.group(1))
-        test_count = passed + failed + errors
-        if failed == 0 and errors == 0 and test_count > 0:
-            status = "good"
-        elif failed + errors < max(test_count * 0.1, 1):
-            status = "warning"
-        else:
-            status = "critical"
-    except FileNotFoundError:
-        output_lines = ["pytest no disponible en este entorno"]
-    except subprocess.TimeoutExpired:
-        output_lines = ["Timeout ejecutando pytest (>120s)"]
-    except Exception as e:
-        output_lines = [f"Error: {e}"]
+    cmd = _pytest_command(project_root)
+    if cmd is None:
+        output_lines = [_PYTEST_MISSING]
+    else:
+        try:
+            run_res = subprocess.run(
+                cmd + ["--no-header", "--tb=no"],
+                cwd=project_root,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            summary_lines = (run_res.stdout + run_res.stderr).splitlines()
+            output_lines = [ln for ln in summary_lines if ln.strip()][-15:]
+            for line in summary_lines[-5:]:
+                m_pass = re.search(r"(\d+) passed", line)
+                m_fail = re.search(r"(\d+) failed", line)
+                m_err = re.search(r"(\d+) error", line)
+                if m_pass:
+                    passed = int(m_pass.group(1))
+                if m_fail:
+                    failed = int(m_fail.group(1))
+                if m_err:
+                    errors = int(m_err.group(1))
+            test_count = passed + failed + errors
+            if test_count == 0:
+                status = "no_data"
+            elif failed == 0 and errors == 0:
+                status = "good"
+            elif failed + errors < max(test_count * 0.1, 1):
+                status = "warning"
+            else:
+                status = "critical"
+        except subprocess.TimeoutExpired:
+            output_lines = ["Timeout ejecutando pytest (>300s)"]
+        except Exception as e:
+            output_lines = [f"Error: {e}"]
 
     return {
         "status": status,
