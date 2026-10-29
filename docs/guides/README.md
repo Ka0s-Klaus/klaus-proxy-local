@@ -12,7 +12,6 @@ Todo lo que necesitas para **usar, operar y solucionar problemas** de Klaus Prox
 |---|---|---|
 | [⚡ Quick Start](../QUICK_START.md) | 2 min | Instalación y primer uso |
 | [📋 User Guide](../USER_GUIDE.md) | 10 min | Guía completa de uso cotidiano |
-| [🖥️ Monitor Guide](../MONITOR_GUIDE.md) | 5 min | TUI de monitorización en tiempo real |
 | [🎯 Klaus Menu](../KLAUS_MENU.md) | 3 min | Menú interactivo de comandos |
 
 ---
@@ -48,11 +47,12 @@ Todo lo que necesitas para **usar, operar y solucionar problemas** de Klaus Prox
 
 ---
 
-## 🚢 Para releases y despliegues
+## 🛠️ Para desarrollar
 
 | Guía | Descripción |
 |---|---|
-| [🚀 Deployment Runbook](../DEPLOYMENT_RUNBOOK.md) | Proceso completo de despliegue a producción |
+| [⚙️ Entorno de desarrollo](../setup.md) | Tests, lint, probar cambios en el proxy y flujo de releases |
+| [🔌 Runbook técnico](../anthropic-audit-proxy.md) | Referencia completa: captura, pseudonimización, verificación y variables |
 
 ---
 
@@ -78,6 +78,12 @@ flowchart TD
     style I fill:#E85454,color:#fff
     style J fill:#E85454,color:#fff
 ```
+
+---
+
+## 🗄️ Guías antiguas
+
+Las guías de funcionalidades retiradas (monitor TUI, publicación en PyPI…) están en el [archivo histórico](../archive/README.md).
 
 ---
 

@@ -1,223 +1,120 @@
-# Troubleshooting Guide
+# 🛠️ Solución de problemas
 
-## Common Issues
+> Antes de nada, mira el log: `~/.klaus-proxy/logs/proxy.log` (una línea por petición, sin colores, rotado 5 MB × 5). La salida de la terminal de `claude-proxy` es la misma, con colores.
 
-### Proxy won't start
+---
 
-**Error:** `Address already in use` or `Port 8899 in use`
+## 📦 Instalación
 
-```bash
-# Check what's using port 8899
-lsof -i :8899
-# Output: mitmdump 12345 user IPv4 TCP localhost:8899
+**`Python ≥3.10 requerido`**: instala Python 3.10 o superior. En macOS, `install.sh` ofrece instalar la 3.13 con Homebrew; en Debian/Ubuntu: `sudo apt install python3 python3-venv`.
 
-# Kill the process
-kill -9 12345
+**`No se pudo crear el venv … falta el módulo venv/ensurepip`**: en Debian/Ubuntu, instala el paquete que indica el mensaje (`sudo apt install python3.12-venv`, o `python3-venv`) y vuelve a ejecutar `./install.sh`.
 
-# Or use a different port
-export ANTHROPIC_PROXY_PORT=9000
-claude-proxy
-```
-
-**Error:** `Permission denied` on macOS/Linux
+**`claude-proxy: command not found`**: añade `~/.local/bin` al `PATH` (el instalador lo avisa con «NO está en PATH»):
 
 ```bash
-# Check permissions on .mitmproxy directory
-ls -la ~/.mitmproxy/
-
-# Fix if needed
-chmod 700 ~/.mitmproxy/
-chmod 600 ~/.mitmproxy/mitmproxy-ca.pem
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc   # o ~/.bashrc
 ```
 
-### Certificate errors
+---
 
-**Error:** `certificate verify failed` or `CERTIFICATE_VERIFY_FAILED`
+## ▶️ El proxy no arranca
+
+**`Address already in use` en el puerto 8899**: ya hay otro `claude-proxy` (o un `mitmdump`) escuchando. El puerto es fijo.
 
 ```bash
-# The CA certificate isn't being used. Regenerate:
-rm -rf ~/.mitmproxy/
-claude-proxy
-# Will auto-regenerate and output the path
-
-# Then make sure Claude Code gets NODE_EXTRA_CA_CERTS (klaus-env.sh exports it)
-source ~/.klaus-proxy/klaus-env.sh
-# or manually:
-export NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem
+lsof -i :8899          # quién lo usa
+kill <PID>             # páralo (Ctrl+C si es tu otra terminal)
 ```
 
-**For Docker/containers:**
+**Errores al cargar los addons**: `claude-proxy` muestra el commit de los addons cargados («🧩 Addons: …»). Si falta esa línea o sale un error de Python, revisa el log y vuelve a arrancar.
+
+---
+
+## 🔐 Certificados
+
+**Claude Code: `UNABLE_TO_VERIFY_LEAF_SIGNATURE`, `self signed certificate` o `certificate verify failed`**: esa terminal no confía en la CA del proxy.
 
 ```bash
-# Install the cert in the system store instead
-docker exec <container> cp ~/.mitmproxy/mitmproxy-ca-cert.pem /usr/local/share/ca-certificates/
-docker exec <container> update-ca-certificates
+source ~/.klaus-proxy/klaus-env.sh       # exporta NODE_EXTRA_CA_CERTS y el bundle de CAs
 ```
 
-### Claude Code not connecting
+Si persiste, regenera la CA: para `claude-proxy`, borra `~/.mitmproxy/`, vuelve a arrancarlo (crea una CA nueva y regenera `klaus-env.sh` y `ca-bundle.pem`) y vuelve a hacer `source` en cada terminal.
 
-**Symptoms:** Proxy running, but Claude Code still talks directly to API
+**HTTPS falla fuera del proxy** (`pip`, `git`, `curl` contra otras webs) tras cargar `klaus-env.sh`: tienes un `klaus-env.sh` anterior a v0.5.0, que sustituía el almacén de CAs. Arranca `claude-proxy` una vez para regenerarlo y vuelve a hacer `source`.
 
-**Checks:**
+---
+
+## 🚧 Claude Code recibe un 502
+
+Respuesta `502` con el texto **«klaus-proxy: request BLOQUEADA (fail-closed)»**: es el **guardián**. Ha bloqueado una petición que el pseudonimizador no procesó, para que no salga sin pseudonimizar.
+
+- Busca en el log `[klaus-guard] BLOQUEADA` y el error anterior (fallo al cargar el addon, excepción…).
+- Reinicia `claude-proxy`.
+
+---
+
+## 🔌 Claude Code no pasa por el proxy
+
+No aparecen peticiones en el log ni capturas nuevas.
 
 ```bash
-# 1. Is proxy actually listening?
-curl -x http://127.0.0.1:8899 https://api.anthropic.com
-# Should return: "HTTP/1.0 200"
-
-# 2. Are environment variables set?
-echo $HTTPS_PROXY
-echo $NODE_EXTRA_CA_CERTS
-# Should show the proxy URL and cert path
-
-# 3. Is Claude Code using them?
-env | grep -i proxy
-# Should see HTTPS_PROXY
-
-# 4. Restart Claude Code after setting env vars
-# (environment changes don't apply to already-running processes)
+echo $HTTPS_PROXY       # en la terminal de Claude Code: debe ser http://127.0.0.1:8899
 ```
 
-### Missing captures
+- `HTTPS_PROXY` solo afecta a la terminal donde lo exportas y a los procesos que arranques **después**. Reinicia `claude` tras exportarlo.
+- `klaus-setup` no exporta `HTTPS_PROXY` (ver [#105](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/105)).
 
-**Symptom:** `~/.klaus-proxy/../captures/` is empty or doesn't exist
+---
+
+## 📭 No hay capturas
+
+- Solo se capturan y pseudonimizan los hosts de `hosts` en `config.json` (por defecto `api.anthropic.com`). Si usas un gateway propio, añádelo ahí o en `ANTHROPIC_CAPTURE_HOSTS`.
+- Las capturas van a `~/.klaus-proxy/captures/original/` y `sent/`. El log muestra una línea `[anthropic-capture] … → sent/<fichero>` por petición.
+
+---
+
+## 🔁 He cambiado el código y el proxy sigue igual
+
+`claude-proxy` ejecuta una **copia inmutable** de los addons, hecha al arrancar (`~/.klaus-proxy/addons/<hash>/`). Así un `git checkout` no cambia ni rompe el proxy en marcha. Para aplicar cambios, reinícialo **desde dentro de un repo**.
+
+Lo mismo con `config.json`: las reglas nuevas (`pseudo_literals`, `pseudo_word_literals`…) se aplican al reiniciar.
+
+---
+
+## 🕵️ Un valor sale en claro
+
+`python3 src/anthropic_pair_verify.py` (desde el clon) marca qué ha salido en claro y en qué capa.
+
+- **Un valor tuyo** (cliente, código de proyecto): añádelo a `pseudo_word_literals` o `pseudo_literals` de `config.json` y reinicia `claude-proxy`. Ponerlo **solo en el vault no basta**.
+- **El org/repo de un proyecto**: arranca `claude-proxy` desde ese repo, o añádelo a `pseudo_word_literals`. El aprendizaje por petición solo funciona en los modos de permisos `auto` y `plan`.
+- **Un nombre de carpeta suelto** (sin ruta): se protege cuando el vault ya conoce la carpeta, tras aparecer una vez en una ruta; si es corto (< 5) o genérico, no.
+- Lo que ya se envió no se puede deshacer; se puede archivar la evidencia (ver [runbook](./anthropic-audit-proxy.md)).
+
+---
+
+## 🧹 El vault tiene entradas que no son datos
+
+Valores como `…`, `|` o `{user}` que entraron antes de v0.5.2. Con `claude-proxy` **parado**:
 
 ```bash
-# Check config
-cat ~/.klaus-proxy/config.json | jq '.capture_dir'
-
-# Manually create if missing
-mkdir -p ~/.klaus-proxy/../captures/
-
-# Verify proxy is actually capturing
-curl -x http://127.0.0.1:8899 -s https://api.anthropic.com | head
-
-# Check proxy logs in Terminal 1
-# (should show capture lines like "[anthropic-capture] POST /v1/messages")
+python3 scripts/prune_vault.py --dry-run
+python3 scripts/prune_vault.py
 ```
 
-### Vault corruption or sync issues
+Con el proxy en marcha no sirve: guarda su copia en memoria del vault y volvería a escribirlas.
 
-**Symptom:** Pseudonyms don't reverse correctly, or vault seems out of sync
+---
 
-```bash
-# Check vault file integrity
-cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.real_to_pseudo | length'
-# Should return a number > 0 if data exists
+## 🧪 Tests
 
-# Reset vault (will lose mapping, but subsequent runs recreate it)
-rm ~/.klaus-proxy/../captures/.pseudonym_vault.json
-claude-proxy
-# Will auto-recreate on next request
-```
+- No hace falta exportar `ANTHROPIC_PSEUDO_SALT`: `tests/conftest.py` genera una SALT de prueba y aísla `config.json`.
+- Plan de tests del dashboard en ⬜: no encontró pytest. Crea el `.venv` del repo ([entorno de desarrollo](./setup.md)) o instala `uv`.
 
-### High memory usage
+---
 
-**Symptom:** Klaus Proxy consuming > 500MB RAM
+## 🆘 Si nada de esto funciona
 
-```bash
-# 1. Check how many captures exist
-find ~/.klaus-proxy/../captures/ -type f | wc -l
-# If > 10000 files, clean up:
+Abre una issue con la versión (`claude-proxy --version`), el sistema operativo, la versión de Python y las líneas relevantes del log, **sin datos reales**: https://github.com/Ka0s-Klaus/klaus-proxy-local/issues
 
-# 2. Clean old captures
-find ~/.klaus-proxy/../captures/ -mtime +7 -delete
-# Removes captures older than 7 days
-
-# 3. Or wipe everything and start fresh
-rm -rf ~/.klaus-proxy/../captures/*
-```
-
-### Tests failing with "ANTHROPIC_PSEUDO_SALT not found"
-
-**In CI/CD:** Set the environment variable before running tests
-
-```bash
-export ANTHROPIC_PSEUDO_SALT="test-salt-value-here-32-chars"
-pytest
-```
-
-**In GitHub Actions:**
-
-```yaml
-- name: Run tests
-  env:
-    ANTHROPIC_PSEUDO_SALT: ${{ secrets.ANTHROPIC_PSEUDO_SALT }}
-  run: pytest
-```
-
-### Shell integration not working
-
-**Symptom:** `claude-with-proxy` command not found
-
-```bash
-# Re-run setup
-klaus-setup
-
-# Or manually add to your shell:
-alias claude-with-proxy='HTTPS_PROXY=http://127.0.0.1:8899 \
-  NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem claude'
-
-# For fish shell:
-funcsave claude-with-proxy
-```
-
-## Performance Tuning
-
-### Slow pseudonymization
-
-Klaus Proxy should add < 5ms latency. If slower:
-
-```bash
-# 1. Check vault size
-du -h ~/.klaus-proxy/../captures/.pseudonym_vault.json
-
-# 2. If large (> 10MB), the vault is growing too much
-# Solution: archive old captures
-tar czf captures-archive-$(date +%Y%m%d).tar.gz ~/.klaus-proxy/../captures/
-rm -rf ~/.klaus-proxy/../captures/*
-
-# 3. Restart proxy
-claude-proxy
-```
-
-### Slow file scanning
-
-When using `klaus-scan`, it can be slow on large codebases:
-
-```bash
-# Only scan specific directories
-klaus-scan --path ./src --path ./config
-
-# Skip large directories
-klaus-scan --exclude node_modules --exclude .git
-
-# Or set in config.json
-{
-  "scan_exclude_paths": [".git", "node_modules", ".venv", "__pycache__"]
-}
-```
-
-## Getting Help
-
-If none of these fixes work:
-
-1. **Check the proxy logs** (Terminal 1 where `claude-proxy` runs)
-   - Look for error lines (red text)
-   - Note the timestamp and exact error
-
-2. **Gather debug info:**
-   ```bash
-   python -c "import sys; print(sys.version)"
-   pip show Klaus-proxy-local | grep Version
-   echo $HTTPS_PROXY
-   ls -la ~/.mitmproxy/ ~/.klaus-proxy/
-   ```
-
-3. **File an issue:**
-   - https://github.com/Ka0s-Klaus/klaus-proxy-local/issues
-   - Include proxy logs and debug info above
-
-4. **Security concern?**
-   - Email: security@example.com
-   - See SECURITY.md for responsible disclosure
+Si es un problema de seguridad, sigue [SECURITY.md](../SECURITY.md) y no lo publiques.

@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![Version](https://img.shields.io/badge/version-0.5.2-green)](./docs/RELEASE_v0.5.2_NOTES.md)
-[![Tests](https://img.shields.io/badge/tests-666%20passed-brightgreen)](./docs/FIX_SUMMARY.md)
+[![Tests](https://img.shields.io/badge/tests-669%20passed-brightgreen)](./.github/workflows/ci.yml)
 [![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.5.2_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
@@ -446,7 +446,7 @@ If you enabled auto-startup but want to disable it:
 - 📚 **6 comprehensive guides** (50+ pages)
 - 🔐 **Auto-SALT generation** + zero-config setup
 
-[📖 Release Notes](./docs/RELEASE_v0.3.0_NOTES.md) | [📋 Full Details](./docs/FIX_SUMMARY.md)
+[📖 Release Notes](./docs/RELEASE_v0.3.0_NOTES.md)
 
 ### v0.2.0 — Sensitive Data Scanner ✅
 - 🔍 Multi-tier secret detection (3 tiers independent)
@@ -477,7 +477,8 @@ Release notes no conservadas en `docs/`.
 |---|---|---|
 | 🏗️ **Arquitectura** | Diseño interno, componentes y flujos | [docs/architecture/](./docs/architecture/README.md) |
 | 📖 **Guías** | Quick start, runbooks, troubleshooting | [docs/guides/](./docs/guides/README.md) |
-| 📊 **Informes** | Auditorías, releases y resúmenes ejecutivos | [docs/reports/](./docs/reports/README.md) |
+| 📊 **Informes** | Audit dashboard, informes locales y notas de releases | [docs/reports/](./docs/reports/README.md) |
+| 🗄️ **Archivo** | Documentos de versiones anteriores (no reflejan el estado actual) | [docs/archive/](./docs/archive/README.md) |
 | 🧭 **Decisiones (ADRs)** | Decisiones técnicas y sus alternativas descartadas | [docs/decisions/](./docs/decisions/README.md) |
 
 ### ⚡ Accesos directos más usados
@@ -489,7 +490,6 @@ Release notes no conservadas en `docs/`.
 | [🌐 Audit Dashboard](./docs/reports/web/README.md) | Dashboard HTML interactivo de auditoría |
 | [🛠️ Troubleshooting](./docs/TROUBLESHOOTING.md) | Solución de problemas comunes |
 | [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
-| [📊 Executive Summary](./docs/EXECUTIVE_SUMMARY.md) | Estado actual del sistema |
 | [🚀 Release v0.5.2](./docs/RELEASE_v0.5.2_NOTES.md) | Notas de la última release |
 
 ---

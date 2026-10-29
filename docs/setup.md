@@ -1,137 +1,100 @@
-# ⚙️ Setup & Arranque — Klaus Proxy Local
+# ⚙️ Entorno de desarrollo — Klaus Proxy Local
 
-## 🤔 ¿Qué hago? ¿Cómo lo hago? ¿Y para qué lo hago?
-
-### ¿Qué hago?
-Guía para instalar el proxy de auditoría, arrancarlo, enrutar Claude Code por él y ejecutar la suite de tests en local.
-
-### ¿Cómo lo hago?
-El **runtime** es `mitmproxy` (el proxy) con los dos addons de [`src/`](../src). Para **desarrollo y tests** el paquete usa `setuptools` con layout `src/` y `pyproject.toml`; la instalación editable (`pip install -e ".[dev]"`) trae `pytest`, `ruff` y `black`.
-
-### ¿Y para qué lo hago?
-Que cualquier colaborador pueda clonar el repo, tener un entorno funcional y auditar una sesión de Claude Code en pocos minutos, sin pasos manuales ni credenciales en disco.
+> Para **usar** el proxy, sigue el [inicio rápido](./QUICK_START.md) (`install.sh`). Esta guía es para **desarrollar**: clonar, instalar las dependencias de desarrollo, ejecutar los tests y el lint, y probar cambios en el proxy.
 
 ---
 
 ## 📋 Requisitos
 
-| Requisito | Versión mínima | Para qué |
+| Requisito | Versión | Para qué |
 | --- | --- | --- |
-| Python | 3.10 | ejecutar addons y tests |
-| mitmproxy | 10 (`< 12`) | el proxy (`mitmdump`) |
-| pip | 23.0 | instalación editable |
-| Git | cualquiera | detección de identidad/remote del repo auditado |
+| Python | ≥ 3.10 (CI: 3.10, 3.11, 3.12 y 3.13) | código y tests |
+| mitmproxy | ≥ 11.0.2 (se instala como dependencia) | el proxy (`mitmdump`) |
+| git | cualquiera | detección del org/repo y flujo de trabajo |
 
 ---
 
-## 🚀 Quickstart
+## 🚀 Preparar el entorno
 
 ```bash
-# 1. Clonar
 git clone https://github.com/Ka0s-Klaus/klaus-proxy-local.git
 cd klaus-proxy-local
-
-# 2. Entorno virtual (recomendado)
-python -m venv .venv
-source .venv/bin/activate           # Linux/macOS
-# .venv\Scripts\activate            # Windows
-
-# 3. Runtime del proxy: mitmproxy (vía Homebrew o pip)
-brew install mitmproxy              # o: pip install -r requirements.txt
-
-# 4. Dependencias de desarrollo (tests + linters)
-pip install -e ".[dev]"
-
-# 5. Generar la CA de mitmproxy (primer arranque de mitmdump la crea en ~/.mitmproxy)
-mitmdump --version
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"      # paquete + pytest, pytest-cov, ruff y black
 ```
 
-> No hay `.env` ni `ANTHROPIC_API_KEY` que gestionar: el proxy **no** almacena credenciales. Las credenciales del proveedor (`ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`) las hereda del entorno el proceso `claude` que enrutes; el proxy solo antepone `HTTPS_PROXY`/`NODE_EXTRA_CA_CERTS`.
+`.venv` es un entorno de desarrollo independiente del de `install.sh` (`~/.local/share/klaus/venv`). El plan de tests del audit dashboard usa el `.venv` del repo si existe.
 
 ---
 
-## ▶️ Arrancar el proxy y auditar una sesión
+## 🧪 Tests
 
 ```bash
-# Terminal 1 — proxy de auditoría en primer plano (logs en vivo):
-mitmdump -s src/anthropic_payload_pseudonymize.py \
-         -s src/anthropic_payload_capture.py --listen-host 127.0.0.1 -p 8899
-
-# Terminal 2 — un claude NUEVO enrutado por el proxy (Node no usa el keychain
-# del sistema, de ahí NODE_EXTRA_CA_CERTS):
-HTTPS_PROXY=http://127.0.0.1:8899 HTTP_PROXY=http://127.0.0.1:8899 \
-NODE_EXTRA_CA_CERTS=~/.mitmproxy/mitmproxy-ca-cert.pem \
-claude -p "responde solo con la palabra: pong"
-
-# Terminal 2 — verifica en un comando lo que salió del equipo:
-python3 src/anthropic_capture_verify.py
+pytest                                         # suite completa
+pytest tests/test_anthropic_payload_pseudonymize.py   # un fichero
+pytest --cov=src --cov-report=term-missing     # con cobertura
 ```
 
-> El runbook completo (funciones `claude-proxy`/`claude` fail-closed de `~/.zshrc`, LaunchAgent opcional, seudonimización bidireccional) está en [`anthropic-audit-proxy.md`](./anthropic-audit-proxy.md).
+- La configuración está en `pyproject.toml` (`[tool.pytest.ini_options]`).
+- `tests/conftest.py` añade `src/` al `sys.path`, genera una SALT de prueba y **redirige `config.json` a un fichero temporal**: ningún test escribe en tu `~/.klaus-proxy/config.json`.
+- Sin `.venv`, también: `uv run --no-project --with pytest --with mitmproxy python -m pytest`.
 
 ---
 
-## 🔑 Variables de entorno
-
-El proxy se configura por entorno (no por `.env`). Las más habituales:
-
-| Variable | Efecto | Por defecto |
-| --- | --- | --- |
-| `ANTHROPIC_CAPTURE_HOSTS` | Hosts a auditar (coma-separada) | `api.anthropic.com,llm.tools.cloud.customer1.es` |
-| `ANTHROPIC_CAPTURE_DIR` | Directorio base de capturas | `captures/` |
-| `ANTHROPIC_PSEUDO_ENABLE` | Interruptor de la seudonimización | `1` |
-| `ANTHROPIC_PSEUDO_WORD_LITERALS` | Literales con frontera de palabra (org/proj IDs) | — |
-| `ANTHROPIC_PSEUDO_PROJECT_ROOT` | Raíz del proyecto **auditado** (palanca de rutas + git) | `cwd` del proceso |
-| `ANTHROPIC_PSEUDO_VAULT` | Ruta del vault de seudonimización | `captures/.pseudonym_vault.json` |
-
-> Tabla completa de flags en [`anthropic-audit-proxy.md`](./anthropic-audit-proxy.md).
-
----
-
-## 🧪 Ejecutar tests
+## 🔍 Lint y formato
 
 ```bash
-pytest                                        # suite completa (158 tests)
-pytest --cov=src --cov-report=term-missing    # con coverage
-pytest tests/test_anthropic_capture_verify.py # un fichero concreto
+ruff check .          # lint
+black --check .       # formato (comprueba)
+black .               # formato (aplica)
 ```
 
-La configuración de pytest vive en `pyproject.toml` (`[tool.pytest.ini_options]`); `tests/conftest.py` añade `src/` al `sys.path` para importar los addons sin instalarlos.
+`black` está fijado a `25.11.0` y `ruff` a `<1.0` en `pyproject.toml`, para que el formato sea el mismo en local y en CI.
 
 ---
 
-## 🔍 Linting y formato
+## ▶️ Probar cambios en el proxy
 
-```bash
-ruff check .        # linter
-black --check .     # formato (verifica)
-black .             # formato (aplica)
-ruff check . --fix  # autofix de lint
-```
+`claude-proxy` ejecuta una **copia inmutable** de los addons (`~/.klaus-proxy/addons/<hash>/`), hecha al arrancar. Para probar un cambio en `src/`:
 
-> `ruff` y `black` están **fijados** en `pyproject.toml` (`ruff==0.16.0`, `black==25.11.0`) para que el formato sea reproducible entre local y CI.
+1. Para `claude-proxy` (Ctrl+C).
+2. Vuelve a arrancarlo **desde dentro de un repo**: copia los addons nuevos y los carga.
+3. En otra terminal:
+
+   ```bash
+   source ~/.klaus-proxy/klaus-env.sh
+   export HTTPS_PROXY=http://127.0.0.1:8899
+   claude -p "responde solo con la palabra: pong"
+   python3 src/anthropic_pair_verify.py      # ¿ha salido algo en claro?
+   ```
+
+> ⚠️ No arranques `mitmdump` a mano con `-s src/…`: te saltarías el guardián (`klaus_pseudo_guard.py`), que bloquea cualquier petición que el pseudonimizador no haya procesado, y la copia inmutable de los addons.
 
 ---
 
-## 🗺️ Flujo de desarrollo
+## 🗺️ Flujo de trabajo
+
+Toda contribución sigue issue → rama → PR (ver [CONTRIBUTING.md](../CONTRIBUTING.md)):
 
 ```mermaid
 flowchart LR
-    Clone["📥 git clone"] --> Venv["🐍 venv + pip install -e .[dev]"]
-    Venv --> Dev["✏️ Desarrollar"]
+    Issue["📝 Issue"] --> Branch["🌿 Rama tipo/N-descripcion"]
+    Branch --> Dev["✏️ Desarrollar"]
     Dev --> Lint["🔍 ruff + black"]
     Lint --> Test["🧪 pytest"]
-    Test --> PR["📤 git push → PR"]
-    PR --> CI["⚙️ CI/CD GitHub Actions"]
-    CI --> Merge["✅ Merge"]
+    Test --> PR["📤 PR con Closes #N"]
+    PR --> CI["⚙️ CI"]
+    CI --> Review["👀 Aprobación"]
 ```
+
+Una release es un tag `vX.Y.Z` sobre `main` y una GitHub Release con las notas de `docs/RELEASE_vX.Y.Z_NOTES.md`; el paquete no se publica en PyPI.
 
 ---
 
 ## 🔗 Documentos relacionados
 
-- [🏗️ Arquitectura](ARCHITECTURE_DEEP_DIVE.md) — qué hace el proxy y cómo está estructurado
-- [🔍 Runbook de auditoría](anthropic-audit-proxy.md) — captura, seudonimización, verificación
-- [⚙️ CI/CD Pipeline](../.github/workflows/ci.yml) — validaciones en cada PR
-- [🔒 Seguridad](../SECURITY.md) — postura de seguridad del repo
-- [📄 CONTRIBUTING.md](../CONTRIBUTING.md) — guía de contribución
+- [🔌 Runbook técnico](./anthropic-audit-proxy.md): captura, pseudonimización, verificación y variables de entorno
+- [🏗️ Arquitectura](./ARCHITECTURE_DEEP_DIVE.md)
+- [⚙️ CI](../.github/workflows/ci.yml)
+- [🔒 Seguridad](../SECURITY.md)
