@@ -120,7 +120,7 @@ flowchart LR
 
 **Credenciales:** el proxy no las toca ni las guarda. Las cabeceras de autenticación se redactan en las capturas.
 
-> ⚠️ **Fail-closed:** si el pseudonimizador no está cargado, el guardián responde 502 y la petición no sale. Si `claude-proxy` no está en marcha, Claude Code no puede conectar con `HTTPS_PROXY` apuntando a él. No hay un comando incluido que impida lanzar `claude` sin proxy: lo que lo enruta es el `export` de la terminal 2 ([#105](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/105)).
+> ⚠️ **Fail-closed:** si el pseudonimizador no está cargado, el guardián responde 502 y la petición no sale. Si `claude-proxy` no está en marcha, Claude Code no puede conectar con `HTTPS_PROXY` apuntando a él. `claude-with-proxy` se niega a lanzar `claude` si el proxy no escucha. `klaus-setup` hace que cada terminal nueva arranque el proxy y exporte `HTTPS_PROXY` (#105).
 
 > ℹ️ La sesión de Claude Code que pide la auditoría **no puede autocapturarse** (su petición ya está en vuelo). Audita siempre un proceso `claude` **nuevo** lanzado por el proxy.
 

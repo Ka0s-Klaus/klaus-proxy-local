@@ -133,6 +133,11 @@ def install_wrappers() -> None:
         installed = 0
         for src, target_name in scripts:
             target = bin_dir / target_name
+            # install.sh ya lo enlaza al script del clon (#105)
+            if target.exists() and target.resolve() == Path(src).resolve():
+                print(f"✅ Already installed: {target_name}")
+                installed += 1
+                continue
             try:
                 shutil.copy2(src, target)
                 # Ensure executable on Unix-like systems

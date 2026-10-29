@@ -312,3 +312,19 @@ To manually verify wrapper installation:
 4. Verify installation:
    ls -la ~/.local/bin/claude-with-proxy*
 """
+
+
+def test_install_wrappers_accepts_symlink_from_install_sh(tmp_path, monkeypatch):
+    """install.sh enlaza claude-with-proxy al clon: no es un fallo (#105)."""
+    from Klaus_proxy_local import install_wrappers as iw
+
+    src = tmp_path / "claude-with-proxy.sh"
+    src.write_text("#!/bin/sh\n")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "claude-with-proxy").symlink_to(src)
+    monkeypatch.setattr(iw, "get_bin_dir", lambda: bin_dir)
+    monkeypatch.setattr(iw, "get_wrapper_scripts", lambda: [(src, "claude-with-proxy")])
+    monkeypatch.setattr(iw, "ensure_bin_dir_in_path", lambda: True)
+    iw.install_wrappers()  # no lanza RuntimeError
+    assert (bin_dir / "claude-with-proxy").resolve() == src.resolve()

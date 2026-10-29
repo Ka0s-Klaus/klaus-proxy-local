@@ -9,6 +9,7 @@ Verifies:
 - Hook installation
 - Idempotence
 """
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -149,14 +150,12 @@ class TestShellHook:
         with patch.object(setup_shell, "detect_shell", return_value="fish"):
             hook = setup_shell.get_shell_hook()
             assert "claude-proxy" in hook
-            assert "if not" in hook
+            assert "set -gx HTTPS_PROXY" in hook
 
-    def test_powershell_hook_uses_ps_syntax(self):
-        """PowerShell hook uses PowerShell syntax."""
+    def test_powershell_hook_is_unsupported(self):
+        """Windows shells are not supported (#105)."""
         with patch.object(setup_shell, "detect_shell", return_value="powershell"):
-            hook = setup_shell.get_shell_hook()
-            assert "claude-proxy" in hook
-            assert "$" in hook  # PowerShell uses $
+            assert setup_shell.get_shell_hook() == ""
 
     def test_cmd_hook_returns_empty(self):
         """CMD shell hook returns empty string (unsupported)."""
@@ -448,3 +447,83 @@ To manually verify setup_shell.py works:
    run_setup()
    EOF
 """
+
+
+# --- #105: el hook arranca el proxy y exporta HTTPS_PROXY -----------------
+
+
+def _hook(shell):
+    with patch.object(setup_shell, "detect_shell", return_value=shell):
+        return setup_shell.get_shell_hook()
+
+
+@pytest.mark.parametrize("shell", ["bash", "zsh", "fish"])
+def test_hook_exports_https_proxy_and_starts_proxy(shell):
+    from Klaus_proxy_local.launcher import ProxyLauncher
+
+    hook = _hook(shell)
+    url = f"http://{ProxyLauncher.HOST}:{ProxyLauncher.PORT}"
+    assert hook.startswith("\n" + setup_shell.HOOK_BEGIN)
+    assert hook.rstrip().endswith(setup_shell.HOOK_END)
+    assert url in hook and "HTTPS_PROXY" in hook and "NO_PROXY" in hook
+    assert "nohup claude-proxy" in hook and "logs/autostart.log" in hook
+    assert "klaus-env.sh" in hook and "klaus-off" in hook and "klaus-on" in hook
+
+
+def test_bash_hook_runs(tmp_path):
+    """Ejecutado en bash: arranca claude-proxy si no corre y exporta las variables."""
+    home = tmp_path / "home"
+    (home / ".klaus-proxy").mkdir(parents=True)
+    (home / ".klaus-proxy" / "klaus-env.sh").write_text("export KLAUS_ENV_LOADED=1\n")
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    for name, body in {
+        "claude-proxy": 'touch "$HOME/started"',
+        "pgrep": "exit 1",  # no hay proxy en marcha
+    }.items():
+        (bindir / name).write_text(f"#!/bin/sh\n{body}\n")
+        (bindir / name).chmod(0o755)
+    script = tmp_path / "rc.sh"
+    script.write_text(
+        _hook("bash")
+        + 'sleep 1; echo "$KLAUS_ENV_LOADED $HTTPS_PROXY"; '
+        + 'klaus-off >/dev/null; echo "off=${HTTPS_PROXY:-}"\n'
+    )
+    r = subprocess.run(
+        ["bash", str(script)],
+        env={"HOME": str(home), "PATH": f"{bindir}:/usr/bin:/bin"},
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0, r.stderr
+    lines = r.stdout.split()
+    assert lines[0] == "1" and lines[1].endswith(":8899") and lines[2] == "off="
+    assert (home / "started").exists()
+    assert (home / ".klaus-proxy" / "logs").is_dir()
+
+
+def test_add_hook_replaces_legacy_and_is_idempotent(tmp_path):
+    rc = tmp_path / ".zshrc"
+    legacy = (
+        "\n# 🔐 Klaus Proxy Local — Auto-startup (FASE 1.5)\n"
+        "# Load SSL/TLS variables for git, curl, etc.\n"
+        "[ -f ~/.klaus-proxy/klaus-env.sh ] && source ~/.klaus-proxy/klaus-env.sh\n"
+        "# Start proxy if not running\n"
+        "if ! pgrep -f 'claude-proxy|mitmdump' > /dev/null 2>&1; then\n"
+        "  (claude-proxy > ~/.klaus-proxy/proxy.log 2>&1 &)\n"
+        "fi\n"
+    )
+    rc.write_text("alias ll='ls -l'\n" + legacy + "export EDITOR=vim\n")
+    hook = _hook("zsh")
+    setup_shell.add_hook_to_shell_config(rc, hook)
+    text = rc.read_text()
+    assert "FASE 1.5" not in text and "proxy.log" not in text
+    assert "alias ll='ls -l'" in text and "export EDITOR=vim" in text
+    assert text.count(setup_shell.HOOK_BEGIN) == 1
+    setup_shell.add_hook_to_shell_config(rc, hook)
+    assert rc.read_text() == text
+    # Un bloque distinto (p. ej. de una versión anterior) se sustituye
+    rc.write_text(text.replace("klaus-off", "klaus-viejo"))
+    setup_shell.add_hook_to_shell_config(rc, hook)
+    assert rc.read_text().count(setup_shell.HOOK_BEGIN) == 1
+    assert "klaus-viejo" not in rc.read_text()

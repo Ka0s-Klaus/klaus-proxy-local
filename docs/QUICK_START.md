@@ -71,7 +71,10 @@ claude
 
 `klaus-env.sh` hace que Claude Code (`NODE_EXTRA_CA_CERTS`) y git/curl/Python confíen en el certificado del proxy sin romper el resto de HTTPS. `HTTPS_PROXY` es lo que envía el tráfico al proxy: solo afecta a esa terminal.
 
-> 💡 `klaus-setup` añade al shell un hook que carga `klaus-env.sh` y arranca el proxy si no está en marcha, pero **no exporta `HTTPS_PROXY`**: sigue haciendo falta el `export`. Y el wrapper `claude-with-proxy` no se instala con `install.sh`. Ver [#105](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/105).
+**Atajos:**
+
+- **`claude-with-proxy`** (instalado por `install.sh`): hace el `source` y el `export` por ti, y se niega a lanzar `claude` si el proxy no está escuchando.
+- **`klaus-setup`**: añade a tu shell un bloque que, en cada terminal nueva, carga `klaus-env.sh`, arranca `claude-proxy` en segundo plano si no está en marcha y exporta `HTTPS_PROXY`. Así basta con `claude`. Ojo: **todo** el HTTPS de la terminal pasa por el proxy (pip, git…); si alguna herramienta no confía en su CA, usa `klaus-off` en esa terminal (`klaus-on` lo restaura). Detalle en el [README](../README.md#setup-options).
 
 ---
 

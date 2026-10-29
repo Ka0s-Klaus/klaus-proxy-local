@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import platform
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -109,63 +110,77 @@ def get_shell_config_file() -> Optional[Path]:
     return None
 
 
-def get_shell_hook() -> str:
-    """Get shell-specific hook code for Klaus Proxy startup.
+HOOK_BEGIN = "# >>> Klaus Proxy Local (klaus-setup) >>>"
+HOOK_END = "# <<< Klaus Proxy Local (klaus-setup) <<<"
+# Hook de versiones anteriores: arrancaba el proxy pero no exportaba
+# HTTPS_PROXY (#105). Se sustituye al volver a ejecutar klaus-setup.
+LEGACY_HOOK_RE = re.compile(
+    r"\n?# 🔐 Klaus Proxy Local — Auto-startup \(FASE 1\.5\)\n.*?\n(?:fi|end|\})\n",
+    re.S,
+)
 
-    The hook:
-    - Sources SSL/TLS environment variables (GIT_SSL_CAINFO, CURL_CA_BUNDLE, etc.)
-    - Starts Klaus Proxy in background (if not already running)
-    - Runs once per shell session
-    - Non-blocking (doesn't slow down shell startup)
+
+def _proxy_url() -> str:
+    from Klaus_proxy_local.launcher import ProxyLauncher
+
+    return f"http://{ProxyLauncher.HOST}:{ProxyLauncher.PORT}"
+
+
+def get_shell_hook() -> str:
+    """Generate shell-specific Klaus Proxy hook (#105).
+
+    The hook, on every new shell:
+    - Sources ~/.klaus-proxy/klaus-env.sh (trust in the proxy CA)
+    - Starts claude-proxy in the background (nohup) if it is not running,
+      logging to ~/.klaus-proxy/logs/autostart.log
+    - Exports HTTPS_PROXY, so ``claude`` (and any HTTPS client of the
+      shell) goes through the proxy; NO_PROXY keeps loopback direct
+    - Defines ``klaus-off`` / ``klaus-on`` to drop or restore HTTPS_PROXY
+      in the current shell
 
     Returns:
-      Shell-specific code to add to config file
-
-    Note:
-      Code is idempotent - safe to source multiple times.
+      Shell-specific code between HOOK_BEGIN and HOOK_END, or "" if the
+      shell is not supported (Windows shells are not supported).
     """
     shell = detect_shell()
+    url = _proxy_url()
+    host = url.split("//", 1)[1].rsplit(":", 1)[0]
+    no_proxy = f"localhost,{host},::1"
+    log = "~/.klaus-proxy/logs/autostart.log"
+    running = "pgrep -f 'bin/mitmdump|bin/claude-proxy' >/dev/null 2>&1"
 
-    # Common bash/zsh hook
     if shell in ("bash", "zsh"):
-        return (
-            "\n# 🔐 Klaus Proxy Local — Auto-startup (FASE 1.5)\n"
-            "# Load SSL/TLS variables for git, curl, etc.\n"
-            "[ -f ~/.klaus-proxy/klaus-env.sh ] && source ~/.klaus-proxy/klaus-env.sh\n"
-            "# Start proxy if not running\n"
-            "if ! pgrep -f 'claude-proxy|mitmdump' > /dev/null 2>&1; then\n"
-            "  (claude-proxy > ~/.klaus-proxy/proxy.log 2>&1 &)\n"
+        body = (
+            "# Confianza en la CA del proxy, arranque en segundo plano si no está\n"
+            "# en marcha y HTTPS de esta terminal por el proxy (#105).\n"
+            '[ -f "$HOME/.klaus-proxy/klaus-env.sh" ] && . "$HOME/.klaus-proxy/klaus-env.sh"\n'
+            f"if command -v claude-proxy >/dev/null 2>&1 && ! {running}; then\n"
+            '  mkdir -p "$HOME/.klaus-proxy/logs"\n'
+            f"  (nohup claude-proxy >>{log} 2>&1 </dev/null &)\n"
             "fi\n"
+            f"export HTTPS_PROXY={url}\n"
+            f'export NO_PROXY="{no_proxy}"\n'
+            'klaus-off() { unset HTTPS_PROXY; echo "Klaus Proxy: HTTPS directo en esta terminal"; }\n'
+            f'klaus-on() {{ export HTTPS_PROXY={url}; echo "Klaus Proxy: HTTPS por el proxy"; }}\n'
         )
-
-    # Fish shell hook
     elif shell == "fish":
-        return (
-            "\n# 🔐 Klaus Proxy Local — Auto-startup (FASE 1.5)\n"
-            "# Load SSL/TLS variables for git, curl, etc.\n"
-            "[ -f ~/.klaus-proxy/klaus-env.sh ] && source ~/.klaus-proxy/klaus-env.sh\n"
-            "# Start proxy if not running\n"
-            "if not pgrep -f 'claude-proxy|mitmdump' > /dev/null 2>&1\n"
-            "  (claude-proxy > ~/.klaus-proxy/proxy.log 2>&1 &)\n"
+        body = (
+            "# Confianza en la CA del proxy, arranque en segundo plano si no está\n"
+            "# en marcha y HTTPS de esta terminal por el proxy (#105).\n"
+            "test -f ~/.klaus-proxy/klaus-env.sh; and source ~/.klaus-proxy/klaus-env.sh\n"
+            f"if command -q claude-proxy; and not {running}\n"
+            "  mkdir -p ~/.klaus-proxy/logs\n"
+            f"  nohup claude-proxy >>{log} 2>&1 </dev/null &\n"
+            "  disown\n"
             "end\n"
+            f"set -gx HTTPS_PROXY {url}\n"
+            f"set -gx NO_PROXY {no_proxy}\n"
+            'function klaus-off; set -e HTTPS_PROXY; echo "Klaus Proxy: HTTPS directo en esta terminal"; end\n'
+            f'function klaus-on; set -gx HTTPS_PROXY {url}; echo "Klaus Proxy: HTTPS por el proxy"; end\n'
         )
-
-    # PowerShell hook
-    elif shell == "powershell":
-        return (
-            "\n# 🔐 Klaus Proxy Local — Auto-startup (FASE 1.5)\n"
-            '$EnvFile = "$HOME\\.klaus-proxy\\klaus-env.sh"\n'
-            "if (Test-Path $EnvFile) {\n"
-            '  & "$EnvFile"\n'
-            "}\n"
-            "$ProcessCheck = Get-Process -Name mitmdump -ErrorAction SilentlyContinue\n"
-            "if (-not $ProcessCheck) {\n"
-            "  Start-Process -WindowStyle Hidden -FilePath claude-proxy\n"
-            "}\n"
-        )
-
-    # CMD batch doesn't support startup easily
-    return ""
+    else:
+        return ""
+    return f"\n{HOOK_BEGIN}\n{body}{HOOK_END}\n"
 
 
 def ask_user_permission() -> bool:
@@ -192,10 +207,14 @@ def ask_user_permission() -> bool:
         print("Config file:     (not found or not configurable)")
 
     print()
-    print("Enable Klaus Proxy auto-startup?")
-    print("  • Proxy starts automatically when shell opens")
-    print("  • Hook added to your shell config file")
-    print("  • Can be disabled by removing the hook")
+    print("Enable Klaus Proxy in every new terminal?")
+    print("  • Starts claude-proxy in the background if it is not running")
+    print("    (from the folder where the terminal opens; log in")
+    print("    ~/.klaus-proxy/logs/autostart.log)")
+    print("  • Exports HTTPS_PROXY: claude AND any other HTTPS client of the")
+    print("    terminal (pip, git, curl…) go through the proxy. Tools that do")
+    print("    not trust its CA will fail: use `klaus-off` in that terminal")
+    print("  • Remove the block between the Klaus Proxy markers to disable it")
     print()
 
     if not config_file:
@@ -234,12 +253,20 @@ def add_hook_to_shell_config(config_file: Path, hook_code: str) -> None:
     else:
         content = ""
 
-    # Check if hook already present (idempotence)
-    if "Klaus Proxy Local — Auto-startup" in content:
+    # Idempotente: sustituye el bloque de una ejecución anterior y el hook
+    # antiguo, que no exportaba HTTPS_PROXY (#105).
+    if hook_code.strip() and hook_code.strip() in content:
         print(f"✅ Hook already present in {config_file}")
         return
+    content = LEGACY_HOOK_RE.sub("\n", content)
+    begin, end = content.find(HOOK_BEGIN), content.find(HOOK_END)
+    if begin != -1 and end != -1:
+        content = (
+            content[:begin].rstrip("\n")
+            + "\n"
+            + content[end + len(HOOK_END) :].lstrip("\n")
+        )
 
-    # Append hook code
     if content and not content.endswith("\n"):
         content += "\n"
     content += hook_code
@@ -292,6 +319,9 @@ def run_setup() -> None:
         sys.exit(1)
 
     hook_code = get_shell_hook()
+    if not hook_code:
+        print(f"❌ Shell '{shell}' not supported (macOS/Linux: bash, zsh, fish)")
+        sys.exit(1)
     try:
         add_hook_to_shell_config(config_file, hook_code)
     except IOError as e:
@@ -318,19 +348,12 @@ def run_setup() -> None:
     print("  1. Reload your shell:")
     print("     exec $SHELL")
     print()
-    print("  2. Proxy will start automatically on next shell open")
+    print("  2. In every new terminal the proxy starts if needed and")
+    print("     HTTPS_PROXY is set: just run `claude`")
     print()
-    print("  3. SSL/TLS certificates will be automatically configured")
-    print("     (git, curl, and other tools will trust the proxy)")
+    print("  3. klaus-off / klaus-on: drop or restore HTTPS_PROXY in a terminal")
     print()
-    print("  4. Use Claude Code as normal:")
-    print("     export HTTPS_PROXY=http://127.0.0.1:8899")
-    print("     claude 'your question'")
-    print()
-    print("📝 Manual SSL/TLS configuration (if needed):")
-    print("   source ~/.klaus-proxy/klaus-env.sh")
-    print()
-    print("To disable auto-startup, remove the Klaus Proxy hook from:")
+    print("To disable it, remove the Klaus Proxy block from:")
     print(f"  {config_file}")
     print()
 
