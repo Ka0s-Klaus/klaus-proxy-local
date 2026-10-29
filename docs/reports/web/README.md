@@ -86,6 +86,19 @@ Debajo de las tarjetas, cada informe muestra en qué se diferencia del inmediata
 | 🧪 Tests | Resultado de `pytest` (⬜ si no hay pytest o no reporta resultados) | 0 fallos y 0 errores | Fallos + errores < 10 % | El resto |
 | 📋 EFDEF | Checklist de compliance (secciones 22 y 23) | ≥ 90 % de checks | ≥ 70 % | < 70 % |
 
+### 🔐 Patrones de prompt injection
+
+El plan de seguridad busca frases típicas de prompt injection (`ignore previous instructions`, `jailbreak`, `you are now`…) en los mensajes de rol `user`: lo que escribe el usuario y **los resultados de herramientas** (ficheros leídos, salidas de comandos, webs), que es por donde entra un injection real. El system prompt no se analiza.
+
+Cada aviso muestra:
+
+- hora y fichero de la captura, y endpoint;
+- patrones encontrados y **origen**: «mensaje del usuario», «resultado de Read/Bash/WebFetch…» o «contenido enviado a count_tokens»;
+- un fragmento con la primera coincidencia resaltada;
+- en cuántas peticiones aparece: las sesiones reenvían el historial, así que un mismo texto cuenta **una sola vez**.
+
+Un aviso no implica un ataque. Si el fragmento es código o documentación que habla de injection (por ejemplo, este mismo generador, que contiene la lista de patrones), es un falso positivo.
+
 ## 🔄 Flujo de trabajo recomendado
 
 ```mermaid
