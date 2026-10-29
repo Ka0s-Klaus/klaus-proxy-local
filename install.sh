@@ -9,9 +9,12 @@
 set -euo pipefail
 
 # ── Constantes ────────────────────────────────────────────────────────────────
+# Igual que requires-python de pyproject.toml (CI prueba 3.10–3.13) (#101).
 REQUIRED_PYTHON_MAJOR=3
-REQUIRED_PYTHON_MINOR=13
+REQUIRED_PYTHON_MINOR=10
 MIN_VERSION="${REQUIRED_PYTHON_MAJOR}.${REQUIRED_PYTHON_MINOR}"
+# Versión que se instala con Homebrew en macOS si no hay ninguna válida.
+BREW_PYTHON_VERSION="3.13"
 
 VENV_DIR="${HOME}/.local/share/klaus/venv"
 BIN_DIR="${HOME}/.local/bin"
@@ -52,7 +55,7 @@ version_ge() {
 
 find_python() {
     # Devuelve el path del primer Python que cumpla la versión mínima
-    local candidates=("python${MIN_VERSION}" "python3.13" "python3" "python")
+    local candidates=("python3.13" "python3.12" "python3.11" "python3.10" "python3" "python")
     for candidate in "${candidates[@]}"; do
         if command -v "$candidate" &>/dev/null; then
             local ver
@@ -78,12 +81,12 @@ install_homebrew() {
 }
 
 install_python_macos() {
-    step "🐍 Instalando Python ${MIN_VERSION} via Homebrew..."
-    brew install "python@${MIN_VERSION}"
+    step "🐍 Instalando Python ${BREW_PYTHON_VERSION} via Homebrew..."
+    brew install "python@${BREW_PYTHON_VERSION}"
     # Hacer disponible en PATH de la sesión actual
     local brew_prefix
     brew_prefix="$(brew --prefix)"
-    export PATH="${brew_prefix}/opt/python@${MIN_VERSION}/bin:${PATH}"
+    export PATH="${brew_prefix}/opt/python@${BREW_PYTHON_VERSION}/bin:${PATH}"
 }
 
 # ── Comprobaciones de prerequisitos ──────────────────────────────────────────
@@ -145,7 +148,11 @@ check_python() {
 
     warn "Python ≥${MIN_VERSION} no encontrado"
     if [[ "$CHECK_ONLY" == true ]]; then
-        info "Instalar con: brew install python@${MIN_VERSION}"
+        if [[ "$(uname -s)" == "Darwin" ]]; then
+            info "Instalar con: brew install python@${BREW_PYTHON_VERSION}"
+        else
+            info "Instalar con el gestor de paquetes (p. ej. sudo apt install python3 python3-venv)"
+        fi
         fail "Python ≥${MIN_VERSION} requerido"
         return 1
     fi
@@ -158,7 +165,7 @@ check_python() {
             return 1
         fi
         echo ""
-        read -r -p "  ¿Instalar Python ${MIN_VERSION} via Homebrew? [s/N] " ans
+        read -r -p "  ¿Instalar Python ${BREW_PYTHON_VERSION} via Homebrew? [s/N] " ans
         if [[ "$ans" =~ ^[sS]$ ]]; then
             install_python_macos
             python_bin=$(find_python) || { fail "Python no encontrado tras instalación"; return 1; }
@@ -170,6 +177,9 @@ check_python() {
         fi
     fi
 
+    if [[ "$os" == "Linux" ]]; then
+        info "Debian/Ubuntu: sudo apt install python3 python3-venv · Fedora/RHEL: sudo dnf install python3"
+    fi
     fail "Python ≥${MIN_VERSION} requerido. Instálalo manualmente."
     return 1
 }
@@ -215,7 +225,14 @@ create_venv() {
     fi
 
     mkdir -p "$(dirname "${VENV_DIR}")"
-    "$python_bin" -m venv "${VENV_DIR}"
+    if ! "$python_bin" -m venv "${VENV_DIR}" >/dev/null 2>&1; then
+        rm -rf "${VENV_DIR}"
+        local pyver
+        pyver=$("$python_bin" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+        fail "No se pudo crear el venv con ${python_bin} (falta el módulo venv/ensurepip)"
+        info "Debian/Ubuntu: sudo apt install python${pyver}-venv   (o python3-venv)"
+        exit 1
+    fi
     ok "Venv creado en ${VENV_DIR}"
 }
 
