@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.6.1] — 2026-10-29
+
 ### Added
 - **`capture_only_hosts`: auditar sin pseudonimizar** (#125) — Hosts de `config.json` que se descifran y se capturan pero cuya petición sale tal cual, para tráfico que dejaría de funcionar con seudónimos, como los conectores MCP de claude.ai (`mcp-proxy.anthropic.com`). En disco se guardan con los secretos Tier-1 redactados y `"capture_only": true`. `anthropic-pair-verify`, `klaus-audit-payloads` y `klaus-fix-pseudonymization` no los cuentan como fugas ni como «no pseudonimizados», y el dashboard los da por esperados. Si un host está también en `hosts`, se pseudonimiza; una ruta de LLM se pseudonimiza siempre.
 - **Sección «Hosts no capturados» en el dashboard** (#123) — En el plan de Seguridad, una tabla con los hosts que pasaron por el proxy sin pseudonimizar ni capturar, según `proxy.log` y sus rotaciones. Muestra, por host, las conexiones en túnel (sin descifrar) y las descifradas que salieron tal cual, con la última vez de cada modo. Así se ve qué tráfico conviene añadir a `hosts`, por ejemplo subdominios de `anthropic.com` o `claude.ai`, que se descifran pero no se pseudonimizan.

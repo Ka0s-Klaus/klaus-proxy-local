@@ -2,7 +2,7 @@
 
 > Uso diario: qué se protege, dónde queda la evidencia y cómo comprobarlo. Para instalar y arrancar, ve al [inicio rápido](./QUICK_START.md). Para el detalle técnico y todas las variables, al [runbook](./anthropic-audit-proxy.md).
 
-**Versión:** v0.6.0
+**Versión:** v0.6.1
 
 ---
 
