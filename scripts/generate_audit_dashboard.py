@@ -78,31 +78,55 @@ def _load_expected_hosts() -> set[str]:
 
 EXPECTED_HOSTS = _load_expected_hosts()
 
+# Con \s+ entre palabras: además de admitir varios espacios o saltos de
+# línea, el código fuente no contiene las frases literales y leerlo no
+# dispara el detector (#86).
 INJECTION_PATTERNS = [
-    r"ignore (?:all )?previous instructions",
-    r"act as (?:a )?(?:different|new|another)",
-    r"jailbreak",
-    r"DAN mode",
-    r"forget (?:your )?(?:instructions|rules)",
-    r"you are now",
-    r"disregard (?:your )?(?:previous|system)",
-    r"override (?:your )?(?:instructions|rules)",
+    r"ignore\s+(?:all\s+)?previous\s+instructions",
+    r"act\s+as\s+(?:a\s+)?(?:different|new|another)",
+    r"jail\s*break",
+    r"DAN\s+mode",
+    r"forget\s+(?:your\s+)?(?:instructions|rules)",
+    r"you\s+are\s+now",
+    r"disregard\s+(?:your\s+)?(?:previous|system)",
+    r"override\s+(?:your\s+)?(?:instructions|rules)",
 ]
 _INJECTION_RE = re.compile("|".join(INJECTION_PATTERNS), re.IGNORECASE)
 _INJECTION_CONTEXT = 80  # caracteres de contexto a cada lado de la coincidencia
+
+
+_SOURCE_KEYS = ("file_path", "url", "command", "path", "pattern", "query")
+
+
+def _tool_source(tool_input: object) -> str:
+    """De dónde salió el resultado de una herramienta: fichero, URL, comando…"""
+    if not isinstance(tool_input, dict):
+        return ""
+    for key in _SOURCE_KEYS:
+        value = tool_input.get(key)
+        if isinstance(value, str) and value.strip():
+            value = " ".join(value.split())
+            if len(value) <= 120:
+                return value
+            # En una ruta lo que identifica la fuente es el final (el fichero);
+            # en un comando o una URL, el principio.
+            if key in ("file_path", "path"):
+                return "…" + value[-119:]
+            return value[:119] + "…"
+    return ""
 
 
 def _user_texts(payload: dict, path: str):
     """Textos de los mensajes de rol "user" con su origen (#86).
 
     Solo el rol "user", para evitar falsos positivos del system prompt (que
-    puede mencionar patrones como "jailbreak"). Los resultados de
+    describe estos ataques). Los resultados de
     herramientas sí se analizan: es por donde entra un injection real
     (ficheros, webs), y se etiquetan con el nombre de la herramienta.
     """
     messages = [m for m in payload.get("messages", []) if isinstance(m, dict)]
-    tool_names = {
-        b.get("id"): b.get("name", "?")
+    tools = {
+        b.get("id"): (b.get("name", "?"), _tool_source(b.get("input")))
         for m in messages
         if isinstance(m.get("content"), list)
         for b in m["content"]
@@ -118,21 +142,21 @@ def _user_texts(payload: dict, path: str):
             continue
         content = msg.get("content")
         if isinstance(content, str):
-            yield text_origin, content
+            yield text_origin, "", content
             continue
         for b in content if isinstance(content, list) else []:
             if not isinstance(b, dict):
                 continue
             if b.get("type") == "text":
-                yield text_origin, b.get("text", "")
+                yield text_origin, "", b.get("text", "")
             elif b.get("type") == "tool_result":
                 inner = b.get("content")
                 if isinstance(inner, list):
                     inner = "\n".join(
                         x.get("text", "") for x in inner if isinstance(x, dict)
                     )
-                tool = tool_names.get(b.get("tool_use_id"), "herramienta")
-                yield f"resultado de {tool}", str(inner or "")
+                tool, source = tools.get(b.get("tool_use_id"), ("herramienta", ""))
+                yield f"resultado de {tool}", source, str(inner or "")
 
 
 def _injection_matches(cap: dict) -> dict[str, dict]:
@@ -146,7 +170,7 @@ def _injection_matches(cap: dict) -> dict[str, dict]:
         return {}
     path = cap.get("path", "")
     found: dict[str, dict] = {}
-    for origin, text in _user_texts(payload, path):
+    for origin, source, text in _user_texts(payload, path):
         matches = list(_INJECTION_RE.finditer(text))
         if not matches:
             continue
@@ -157,10 +181,12 @@ def _injection_matches(cap: dict) -> dict[str, dict]:
         start = max(0, first.start() - _INJECTION_CONTEXT)
         end = first.end() + _INJECTION_CONTEXT
         found[key] = {
+            "id": key[:12],
             "captured_at": cap.get("captured_at", "?")[:19],
             "file": cap.get("_file", ""),
             "path": path.split("?")[0],
             "origin": origin,
+            "source": source,
             "patterns": sorted({m.group(0).lower() for m in matches}),
             "match": first.group(0),
             "before": ("…" if start else "")
@@ -172,7 +198,38 @@ def _injection_matches(cap: dict) -> dict[str, dict]:
     return found
 
 
-def audit_security(original: list[dict], _sent: list[dict]) -> dict:
+def load_reviewed_injections(config_dir: Path) -> dict[str, str]:
+    """Avisos de injection marcados como revisados: {id: nota} (#86)."""
+    cfg = _load_json(config_dir / "config.json")
+    reviewed = cfg.get("audit_injection_reviewed") if isinstance(cfg, dict) else None
+    if not isinstance(reviewed, dict):
+        return {}
+    return {str(k): str(v or "") for k, v in reviewed.items()}
+
+
+def mark_injections_reviewed(config_dir: Path, ids: list[str], note: str) -> None:
+    """Añade ids a audit_injection_reviewed en config.json (escritura atómica)."""
+    cfg_path = config_dir / "config.json"
+    cfg = _load_json(cfg_path) if cfg_path.exists() else {}
+    if not isinstance(cfg, dict):
+        raise SystemExit(f"❌ {cfg_path} no es un objeto JSON válido")
+    reviewed = cfg.get("audit_injection_reviewed")
+    if not isinstance(reviewed, dict):
+        reviewed = {}
+    for hit_id in ids:
+        reviewed[hit_id.strip().lower()] = note
+    cfg["audit_injection_reviewed"] = reviewed
+    config_dir.mkdir(parents=True, exist_ok=True)
+    audit_reports.write_private(
+        cfg_path, json.dumps(cfg, ensure_ascii=False, indent=2) + "\n"
+    )
+
+
+def audit_security(
+    original: list[dict],
+    _sent: list[dict],
+    reviewed: dict[str, str] | None = None,
+) -> dict:
     total = len(original)
     if total == 0:
         return {"status": "no_data", "total": 0, "host_distribution": []}
@@ -197,6 +254,14 @@ def audit_security(original: list[dict], _sent: list[dict]) -> dict:
                 injection_hits[key]["requests"] += 1
             else:
                 injection_hits[key] = hit
+
+    # Los marcados como revisados no cuentan para el estado (#86).
+    reviewed = reviewed or {}
+    reviewed_hits = []
+    for key in [k for k in injection_hits if k[:12] in reviewed]:
+        hit = injection_hits.pop(key)
+        hit["note"] = reviewed[key[:12]]
+        reviewed_hits.append(hit)
 
     unexpected_unique = list(dict.fromkeys(unexpected_hosts))
     unexpected_count = len(unexpected_hosts)
@@ -223,6 +288,8 @@ def audit_security(original: list[dict], _sent: list[dict]) -> dict:
         "unexpected_count": unexpected_count,
         "injection_hits": list(injection_hits.values())[:20],
         "injection_count": len(injection_hits),
+        "injection_reviewed": reviewed_hits[:20],
+        "injection_reviewed_count": len(reviewed_hits),
         "host_distribution": sorted(host_dist.items(), key=lambda x: -x[1]),
     }
 
@@ -1268,6 +1335,33 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', bui
 """
 
 
+_INJECTION_STEPS_HTML = """\
+<div style='margin-top:8px;padding:8px 10px;border-left:3px solid #fab219;\
+background:var(--surface-page);border-radius:4px;color:var(--text-secondary)'>
+<b style='color:var(--text-primary)'>Qué hacer con cada aviso</b>
+<ol style='margin:4px 0 0;padding-left:18px'>
+<li><b>Mira el origen y el fragmento.</b> Si es código, documentación o una
+conversación <i>sobre</i> prompt injection, es un falso positivo.</li>
+<li><b>Falso positivo:</b> márcalo como revisado y dejará de contar. Copia el
+comando que aparece en el aviso:
+<code>klaus-audit-dashboard --mark-reviewed &lt;id&gt; --note "motivo"</code>.
+Admite varios ids a la vez.</li>
+<li><b>Sospechoso</b> (un fichero, web o salida de comando que da órdenes a
+Claude):
+<ul style='padding-left:16px'>
+<li>No sigas trabajando en esa sesión de Claude Code.</li>
+<li>Localiza la fuente: el <i>Origen</i> del aviso o, si no aparece, la
+captura indicada en <code>~/.klaus-proxy/captures/original/</code>.</li>
+<li>Revisa lo que hizo Claude después de leerla en esa sesión
+(<code>git status</code>, <code>git diff</code>, comandos ejecutados) y deshaz lo
+que no hayas pedido.</li>
+<li>Elimina o aísla la fuente (fichero, dependencia, URL). Si pudo exponer
+credenciales, rótalas.</li>
+<li>Cuando esté resuelto, márcalo como revisado con una nota.</li>
+</ul></li>
+</ol></div>"""
+
+
 def _injection_hit_html(hit: dict | str) -> str:
     """Una coincidencia de injection con su contexto (#86)."""
     esc = html.escape
@@ -1276,18 +1370,57 @@ def _injection_hit_html(hit: dict | str) -> str:
     patterns = ", ".join(hit.get("patterns") or [hit.get("match", "")])
     requests = hit.get("requests", 1)
     seen = f" · en {requests} peticiones" if requests > 1 else ""
+    source = (
+        f"<div style='font-size:.72rem'>Origen: <code>{esc(hit['source'])}</code></div>"
+        if hit.get("source")
+        else ""
+    )
+    hit_id = hit.get("id", "")
+    command = (
+        f" · <code style='user-select:all'>klaus-audit-dashboard --mark-reviewed "
+        f"{esc(hit_id)}</code>"
+        if hit_id
+        else ""
+    )
     return (
         f"<li style='margin-bottom:6px'>"
         f"<code>{esc(hit.get('captured_at', ''))}</code> · "
         f"<b style='color:var(--text-primary)'>{esc(patterns)}</b> · "
         f"{esc(hit.get('origin', ''))} · <code>{esc(hit.get('path', ''))}</code>{seen}"
+        f"{source}"
         f"<div style='font-family:monospace;white-space:pre-wrap;word-break:break-word;"
         f"background:var(--surface-page);border-radius:4px;padding:4px 6px;margin-top:2px'>"
         f"{esc(hit.get('before', ''))}"
         f"<mark>{esc(hit.get('match', ''))}</mark>"
         f"{esc(hit.get('after', ''))}</div>"
-        f"<div style='font-size:.72rem'>Captura: <code>{esc(hit.get('file', ''))}</code></div>"
+        f"<div style='font-size:.72rem'>Captura: <code>{esc(hit.get('file', ''))}</code>"
+        f"{command}</div>"
         f"</li>"
+    )
+
+
+def _injection_reviewed_html(security: dict) -> str:
+    """Avisos marcados como revisados, plegados (#86)."""
+    esc = html.escape
+    count = security.get("injection_reviewed_count", 0)
+    if not count:
+        return ""
+    items = "".join(
+        f"<li><code>{esc(h.get('id', ''))}</code> · {esc(h.get('captured_at', ''))} · "
+        f"{esc(h.get('origin', ''))}"
+        + (f" · <code>{esc(h['source'])}</code>" if h.get("source") else "")
+        + (f" — <i>{esc(h['note'])}</i>" if h.get("note") else "")
+        + "</li>"
+        for h in security.get("injection_reviewed", [])
+    )
+    return (
+        f"<details class='mt12' style='font-size:.78rem;color:var(--text-muted)'>"
+        f"<summary>✔️ {count} avisos de injection marcados como revisados "
+        f"(no cuentan para el estado)</summary>"
+        f"<ul style='margin-top:4px;padding-left:16px'>{items}</ul>"
+        f"<div>Se guardan en <code>audit_injection_reviewed</code> de "
+        f"<code>~/.klaus-proxy/config.json</code>; borra una entrada para que "
+        f"vuelva a contar.</div></details>"
     )
 
 
@@ -1329,7 +1462,7 @@ def render_html(
     injection_count = security.get("injection_count", 0)
     injection_hits = security.get("injection_hits", [])
     if injection_count == 0:
-        injection_html = '<div class="mt12" style="font-size:.8rem;color:#0ca30c">✅ Sin patrones de prompt injection detectados.</div>'
+        injection_html = '<div class="mt12" style="font-size:.8rem;color:#0ca30c">✅ Sin patrones de prompt injection pendientes de revisar.</div>'
     else:
         lines = "".join(_injection_hit_html(h) for h in injection_hits[:10])
         more = (
@@ -1339,11 +1472,11 @@ def render_html(
         )
         injection_html = (
             f'<div class="mt12" style="font-size:.8rem;color:#fab219">'
-            f"⚠️ {injection_count} textos con patrones de injection. Revisa el "
-            f"fragmento: si es código o documentación que habla de injection, "
-            f"es un falso positivo."
-            f'<ul style="margin-top:4px;padding-left:16px;color:var(--text-muted)">{lines}{more}</ul></div>'
+            f"⚠️ {injection_count} textos con patrones de injection pendientes de revisar."
+            f'<ul style="margin-top:4px;padding-left:16px;color:var(--text-muted)">{lines}{more}</ul>'
+            f"{_INJECTION_STEPS_HTML}</div>"
         )
+    injection_html += _injection_reviewed_html(security)
 
     audit_data = {
         "security": security,
@@ -1466,7 +1599,23 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--open", action="store_true", help="Abre el dashboard en el navegador"
     )
+    parser.add_argument(
+        "--mark-reviewed",
+        nargs="+",
+        metavar="ID",
+        help="Marca avisos de prompt injection como revisados (dejan de contar) "
+        "y genera el informe",
+    )
+    parser.add_argument(
+        "--note", default="", help="Nota que se guarda con --mark-reviewed"
+    )
     args = parser.parse_args(argv)
+
+    if args.mark_reviewed:
+        mark_injections_reviewed(Path(args.config_dir), args.mark_reviewed, args.note)
+        print(
+            f"✅ {len(args.mark_reviewed)} aviso(s) de injection marcados como revisados"
+        )
 
     captures_dir = Path(args.captures_dir)
     config_dir = Path(args.config_dir)
@@ -1489,7 +1638,7 @@ def main(argv: list[str] | None = None) -> None:
     date_range = f"{dates[0]} → {dates[-1]}" if dates else "sin datos"
 
     print("🔐 Auditoría de seguridad...")
-    security = audit_security(original, sent)
+    security = audit_security(original, sent, load_reviewed_injections(config_dir))
 
     print("📊 Auditoría de pseudonimización...")
     pseudo = audit_pseudonymization(original, config_dir)

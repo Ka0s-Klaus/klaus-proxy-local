@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- **Detalle de los avisos de prompt injection en el audit dashboard** (#86) — Antes solo se mostraba la hora de la captura. Ahora cada aviso indica patrones, origen (mensaje del usuario, resultado de una herramienta con su nombre o `count_tokens`), un fragmento con la coincidencia resaltada, endpoint y fichero de la captura. Un mismo texto reenviado en el historial cuenta una vez, con el número de peticiones en que aparece. El JSON incrustado en la página escapa `<` para que un fragmento con `</script>` no rompa el HTML.
+- **Detalle de los avisos de prompt injection en el audit dashboard** (#86) — Antes solo se mostraba la hora de la captura. Ahora cada aviso indica patrones, origen (mensaje del usuario, resultado de una herramienta con su nombre o `count_tokens`), un fragmento con la coincidencia resaltada, endpoint y fichero de la captura. Un mismo texto reenviado en el historial cuenta una vez, con el número de peticiones en que aparece. El JSON incrustado en la página escapa `<` para que un fragmento con `</script>` no rompa el HTML. Cada aviso tiene un id, la fuente del texto (fichero, URL o comando de la herramienta) y debajo las indicaciones a seguir. `klaus-audit-dashboard --mark-reviewed ID… --note "…"` guarda los falsos positivos en `audit_injection_reviewed` de `config.json` y dejan de contar. Los patrones usan `\s+` y los tests construyen las frases por partes, así que leer el código, los tests o la doc del detector ya no lo dispara.
 
 ---
 
