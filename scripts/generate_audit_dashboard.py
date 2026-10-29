@@ -13,6 +13,8 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import html
 import json
 import os
 import re
@@ -42,6 +44,7 @@ def _captures(captures_dir: Path) -> tuple[list[dict], list[dict]]:
     for f in sorted((captures_dir / "original").glob("*.json")):
         d = _load_json(f)
         if d:
+            d["_file"] = f.name
             original.append(d)
     for f in sorted((captures_dir / "sent").glob("*.json")):
         d = _load_json(f)
@@ -86,6 +89,87 @@ INJECTION_PATTERNS = [
     r"override (?:your )?(?:instructions|rules)",
 ]
 _INJECTION_RE = re.compile("|".join(INJECTION_PATTERNS), re.IGNORECASE)
+_INJECTION_CONTEXT = 80  # caracteres de contexto a cada lado de la coincidencia
+
+
+def _user_texts(payload: dict, path: str):
+    """Textos de los mensajes de rol "user" con su origen (#86).
+
+    Solo el rol "user", para evitar falsos positivos del system prompt (que
+    puede mencionar patrones como "jailbreak"). Los resultados de
+    herramientas sí se analizan: es por donde entra un injection real
+    (ficheros, webs), y se etiquetan con el nombre de la herramienta.
+    """
+    messages = [m for m in payload.get("messages", []) if isinstance(m, dict)]
+    tool_names = {
+        b.get("id"): b.get("name", "?")
+        for m in messages
+        if isinstance(m.get("content"), list)
+        for b in m["content"]
+        if isinstance(b, dict) and b.get("type") == "tool_use"
+    }
+    text_origin = (
+        "contenido enviado a count_tokens"
+        if "count_tokens" in path
+        else "mensaje del usuario"
+    )
+    for msg in messages:
+        if msg.get("role") != "user":
+            continue
+        content = msg.get("content")
+        if isinstance(content, str):
+            yield text_origin, content
+            continue
+        for b in content if isinstance(content, list) else []:
+            if not isinstance(b, dict):
+                continue
+            if b.get("type") == "text":
+                yield text_origin, b.get("text", "")
+            elif b.get("type") == "tool_result":
+                inner = b.get("content")
+                if isinstance(inner, list):
+                    inner = "\n".join(
+                        x.get("text", "") for x in inner if isinstance(x, dict)
+                    )
+                tool = tool_names.get(b.get("tool_use_id"), "herramienta")
+                yield f"resultado de {tool}", str(inner or "")
+
+
+def _injection_matches(cap: dict) -> dict[str, dict]:
+    """Coincidencias de una captura: una por bloque de texto distinto (#86).
+
+    La clave es el hash del bloque, así que un fichero o una salida de
+    herramienta reenviados en el historial se reconocen como el mismo.
+    """
+    payload = cap.get("payload")
+    if not isinstance(payload, dict):
+        return {}
+    path = cap.get("path", "")
+    found: dict[str, dict] = {}
+    for origin, text in _user_texts(payload, path):
+        matches = list(_INJECTION_RE.finditer(text))
+        if not matches:
+            continue
+        key = hashlib.sha256(text.encode("utf-8", "replace")).hexdigest()
+        if key in found:
+            continue
+        first = matches[0]
+        start = max(0, first.start() - _INJECTION_CONTEXT)
+        end = first.end() + _INJECTION_CONTEXT
+        found[key] = {
+            "captured_at": cap.get("captured_at", "?")[:19],
+            "file": cap.get("_file", ""),
+            "path": path.split("?")[0],
+            "origin": origin,
+            "patterns": sorted({m.group(0).lower() for m in matches}),
+            "match": first.group(0),
+            "before": ("…" if start else "")
+            + " ".join(text[start : first.start()].split()),
+            "after": " ".join(text[first.end() : end].split())
+            + ("…" if end < len(text) else ""),
+            "requests": 1,
+        }
+    return found
 
 
 def audit_security(original: list[dict], _sent: list[dict]) -> dict:
@@ -94,7 +178,7 @@ def audit_security(original: list[dict], _sent: list[dict]) -> dict:
         return {"status": "no_data", "total": 0, "host_distribution": []}
 
     unexpected_hosts: list[str] = []
-    injection_hits: list[str] = []
+    injection_hits: dict[str, dict] = {}
     secrets_redacted = 0
     blocked = 0
 
@@ -106,15 +190,13 @@ def audit_security(original: list[dict], _sent: list[dict]) -> dict:
             secrets_redacted += 1
         if cap.get("blocked"):
             blocked += 1
-        payload = cap.get("payload")
-        if isinstance(payload, dict):
-            # Solo analizar mensajes de rol "user" — evitar falsos positivos
-            # del system prompt (que puede mencionar patrones como "jailbreak")
-            user_content = json.dumps(
-                [m for m in payload.get("messages", []) if m.get("role") == "user"]
-            )
-            if _INJECTION_RE.search(user_content):
-                injection_hits.append(cap.get("captured_at", "?")[:19])
+        # Las sesiones reenvían el historial: un mismo bloque cuenta una vez,
+        # con el número de peticiones en las que aparece (#86).
+        for key, hit in _injection_matches(cap).items():
+            if key in injection_hits:
+                injection_hits[key]["requests"] += 1
+            else:
+                injection_hits[key] = hit
 
     unexpected_unique = list(dict.fromkeys(unexpected_hosts))
     unexpected_count = len(unexpected_hosts)
@@ -139,7 +221,7 @@ def audit_security(original: list[dict], _sent: list[dict]) -> dict:
         "blocked": blocked,
         "unexpected_hosts": unexpected_unique,
         "unexpected_count": unexpected_count,
-        "injection_hits": injection_hits[:10],
+        "injection_hits": list(injection_hits.values())[:20],
         "injection_count": len(injection_hits),
         "host_distribution": sorted(host_dist.items(), key=lambda x: -x[1]),
     }
@@ -1186,6 +1268,29 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', bui
 """
 
 
+def _injection_hit_html(hit: dict | str) -> str:
+    """Una coincidencia de injection con su contexto (#86)."""
+    esc = html.escape
+    if isinstance(hit, str):  # informes anteriores a #86: solo la hora
+        return f"<li>{esc(hit)}</li>"
+    patterns = ", ".join(hit.get("patterns") or [hit.get("match", "")])
+    requests = hit.get("requests", 1)
+    seen = f" · en {requests} peticiones" if requests > 1 else ""
+    return (
+        f"<li style='margin-bottom:6px'>"
+        f"<code>{esc(hit.get('captured_at', ''))}</code> · "
+        f"<b style='color:var(--text-primary)'>{esc(patterns)}</b> · "
+        f"{esc(hit.get('origin', ''))} · <code>{esc(hit.get('path', ''))}</code>{seen}"
+        f"<div style='font-family:monospace;white-space:pre-wrap;word-break:break-word;"
+        f"background:var(--surface-page);border-radius:4px;padding:4px 6px;margin-top:2px'>"
+        f"{esc(hit.get('before', ''))}"
+        f"<mark>{esc(hit.get('match', ''))}</mark>"
+        f"{esc(hit.get('after', ''))}</div>"
+        f"<div style='font-size:.72rem'>Captura: <code>{esc(hit.get('file', ''))}</code></div>"
+        f"</li>"
+    )
+
+
 def render_html(
     security: dict,
     pseudo: dict,
@@ -1226,15 +1331,17 @@ def render_html(
     if injection_count == 0:
         injection_html = '<div class="mt12" style="font-size:.8rem;color:#0ca30c">✅ Sin patrones de prompt injection detectados.</div>'
     else:
-        lines = "".join(f"<li>{h}</li>" for h in injection_hits[:5])
+        lines = "".join(_injection_hit_html(h) for h in injection_hits[:10])
         more = (
-            f"<li style='color:var(--text-muted)'>…y {injection_count - 5} más</li>"
-            if injection_count > 5
+            f"<li style='color:var(--text-muted)'>…y {injection_count - 10} más</li>"
+            if injection_count > 10
             else ""
         )
         injection_html = (
             f'<div class="mt12" style="font-size:.8rem;color:#fab219">'
-            f"⚠️ {injection_count} patrones de injection detectados:"
+            f"⚠️ {injection_count} textos con patrones de injection. Revisa el "
+            f"fragmento: si es código o documentación que habla de injection, "
+            f"es un falso positivo."
             f'<ul style="margin-top:4px;padding-left:16px;color:var(--text-muted)">{lines}{more}</ul></div>'
         )
 
@@ -1259,7 +1366,11 @@ def render_html(
         "TOTAL_CAPTURES": f"{total_captures:,}",
         "DATE_RANGE": date_range,
         "SUMMARY_CARDS_HTML": cards_html,
-        "AUDIT_DATA_JSON": json.dumps(audit_data, ensure_ascii=False, default=str),
+        # "<" escapado: los fragmentos de injection (#86) pueden contener
+        # "</script>" y cerrarían el bloque donde se incrusta el JSON.
+        "AUDIT_DATA_JSON": json.dumps(
+            audit_data, ensure_ascii=False, default=str
+        ).replace("<", "\\u003c"),
         # Security
         "SEC_COLOR": _status_color(security.get("status", "no_data")),
         "SEC_EMOJI": _status_emoji(security.get("status", "no_data")),
