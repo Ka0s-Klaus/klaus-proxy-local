@@ -279,10 +279,11 @@ def generate_report() -> str:
         if len(leaks) > 15:
             report.append(f"  ... y {len(leaks) - 15} más")
         report.append("```\n")
-        report.append("**Acción:** Revisar y añadir a vault si son valores reales\n")
-        report.append("```bash")
-        report.append("python scripts/add_to_vault.py . --manual")
-        report.append("```\n")
+        report.append(
+            "**Acción:** si son valores reales, añádelos a `pseudo_word_literals` o "
+            "`pseudo_literals` de `~/.klaus-proxy/config.json` (o ejecuta "
+            "`python3 auto_add_detected_leaks.py`) y reinicia `claude-proxy`.\n"
+        )
     else:
         report.append("✅ **No se detectaron fugas críticas en la muestra**\n")
         report.append("Pseudonimización funcionando al 100%.\n")
