@@ -96,7 +96,8 @@ def _configured_hosts() -> tuple[str, ...]:
         if hosts:
             return tuple(hosts)
     except (OSError, ValueError, AttributeError):
-        pass
+        # Sin config.json legible se audita al menos la API de Anthropic
+        return _DEFAULT_HOSTS
     return _DEFAULT_HOSTS
 
 
