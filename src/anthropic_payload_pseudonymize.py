@@ -38,7 +38,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 # TOOL_ROOT no se usa más; rutas de usuario se encuentran bajo ~/.klaus-proxy/
 
@@ -368,6 +368,8 @@ class Rules:
     - ``secret_regexes``: (regex, label) de secretos → redacción IRREVERSIBLE.
     - ``patterns``: ``pseudo_patterns`` de config, (regex, prefijo). Si el
       regex tiene grupos solo se seudonimiza el grupo 1 (#42). Reversibles.
+    - ``pattern_ignore``: valores que los patrones no seudonimizan
+      (``pseudo_pattern_ignore`` de config, #92).
     """
 
     def __init__(
@@ -379,6 +381,7 @@ class Rules:
         secret_regexes: list[tuple[re.Pattern, str]] | None = None,
         secret_kv: bool = False,
         patterns: list[tuple[re.Pattern, str]] | None = None,
+        pattern_ignore: Iterable[str] | None = None,
     ) -> None:
         # Longest-first: una raíz de repo (más larga) se sustituye antes que el
         # home que la contiene; una identidad git antes que el usuario suelto.
@@ -398,6 +401,7 @@ class Rules:
         # Si se aplica también la regla key=value (captura de secretos por nombre).
         self.secret_kv = secret_kv
         self.patterns = patterns or []
+        self.pattern_ignore = frozenset(pattern_ignore or ())
 
     def add_word_literals(self, tokens: list[str]) -> list[str]:
         """Añade word-literals en caliente (longest-first); devuelve los nuevos."""
@@ -632,6 +636,32 @@ _USER_DIR_RE = re.compile(r"(?<![\w./-])(?:/Users|/home)/([^/\s\"'`\\:;,()\[\]<>
 # Seudónimo ya acuñado (``dir_1a2b3c4d``): no se vuelve a seudonimizar.
 _PSEUDONYM_RE = re.compile(r"^[A-Za-z]+_[0-9a-f]{8}z*$")
 
+# Valores que un patrón captura pero no pueden ser un dato (#92): marcadores
+# con los que se tapa o se generaliza un nombre (``{user}``, ``«X»``, ``$USER``,
+# ``%USERNAME%``) y nombres genéricos bajo /Users o /home.
+_PLACEHOLDER_VALUE_RE = re.compile(r"[{<«\[(].*[}>»\])]|\$\{?\w+\}?|%\w+%")
+_GENERIC_USER_DIRS = frozenset(
+    {"shared", "guest", "root", "user", "username", "usuario", "nobody"}
+)
+
+
+def is_ignorable_pattern_value(
+    value: str, prefix: str, ignore: frozenset[str] = frozenset()
+) -> bool:
+    """True si ``value``, capturado por un patrón, no debe seudonimizarse (#92).
+
+    Sin ningún carácter alfanumérico (``…``, ``|``), de un solo carácter, un
+    marcador de plantilla, un nombre genérico de usuario o uno de
+    ``pseudo_pattern_ignore``. Así no entra al vault algo que no es un dato.
+    """
+    if value in ignore:
+        return True
+    if len(value) < 2 or not any(c.isalnum() for c in value):
+        return True
+    if _PLACEHOLDER_VALUE_RE.fullmatch(value):
+        return True
+    return prefix == "user" and value.lower() in _GENERIC_USER_DIRS
+
 
 def compile_patterns(entries: Any) -> tuple[list[tuple[re.Pattern, str]], list[str]]:
     """Compila ``pseudo_patterns`` de config.json (#42).
@@ -716,6 +746,7 @@ def build_rules() -> Rules:
     # Persistencia desde config.json — fuente de verdad que sobrevive reinicios.
     # Las env vars tienen prioridad; config.json actúa como fallback/complemento.
     patterns: list[tuple[re.Pattern, str]] = []
+    pattern_ignore: list[str] = []
     try:
         import json as _json
 
@@ -729,6 +760,9 @@ def build_rules() -> Rules:
                 if v and v not in word_literals:
                     word_literals.append(v)
             patterns, _errors = compile_patterns(_cfg.get("pseudo_patterns"))
+            pattern_ignore = [
+                v for v in _cfg.get("pseudo_pattern_ignore") or [] if isinstance(v, str)
+            ]
     except Exception:
         pass
 
@@ -755,6 +789,7 @@ def build_rules() -> Rules:
         secret_regexes=secret_regexes,
         secret_kv=secret_kv,
         patterns=patterns,
+        pattern_ignore=pattern_ignore,
     )
 
 
@@ -784,11 +819,17 @@ def redact_secrets(text: str, rules: Rules) -> str:
     return text
 
 
-def _pattern_sub(m: "re.Match", prefix: str, vault: Vault) -> str:
+def _pattern_sub(
+    m: "re.Match", prefix: str, vault: Vault, ignore: frozenset[str] = frozenset()
+) -> str:
     """Seudonimiza el grupo 1 (o la coincidencia entera si no hay grupos)."""
     group = 1 if m.re.groups else 0
     value = m.group(group)
-    if not value or _PSEUDONYM_RE.match(value):
+    if (
+        not value
+        or _PSEUDONYM_RE.match(value)
+        or is_ignorable_pattern_value(value, prefix, ignore)
+    ):
         return m.group(0)
     start, end = m.start(group) - m.start(0), m.end(group) - m.start(0)
     whole = m.group(0)
@@ -812,7 +853,10 @@ def pseudonymize_text(text: str, vault: Vault, rules: Rules) -> str:
     # Antes que los prefijos de ruta: los patrones se escriben con rutas reales
     # (``/Users/u/proyectos/([^/]+)``) y dejarían de casar tras sustituir el home.
     for pattern, prefix in rules.patterns:
-        text = pattern.sub(lambda m, _p=prefix: _pattern_sub(m, _p, vault), text)
+        text = pattern.sub(
+            lambda m, _p=prefix: _pattern_sub(m, _p, vault, rules.pattern_ignore),
+            text,
+        )
 
     for real_prefix, label in rules.path_prefixes:
         if real_prefix in text:
@@ -835,6 +879,25 @@ def pseudonymize_text(text: str, vault: Vault, rules: Rules) -> str:
             text = pat.sub(lambda m, _r=real: vault.map(_r, "org"), text)
 
     return text
+
+
+def prune_vault(vault: Vault, rules: Rules) -> list[str]:
+    """Quita del vault los valores de patrones que ya no se seudonimizan (#92).
+
+    Solo toca entradas cuyo seudónimo lleva el prefijo de un patrón activo
+    (``user_``, ``dir_``…). Devuelve los valores quitados.
+    """
+    prefixes = {prefix for _pattern, prefix in rules.patterns}
+    removed = []
+    for real, pseudo in list(vault.real_to_pseudo.items()):
+        prefix = pseudo.lstrip("/").split("_", 1)[0]
+        if prefix in prefixes and is_ignorable_pattern_value(
+            real, prefix, rules.pattern_ignore
+        ):
+            del vault.real_to_pseudo[real]
+            vault.pseudo_to_real.pop(pseudo, None)
+            removed.append(real)
+    return removed
 
 
 def restore_text(text: str, vault: Vault) -> str:

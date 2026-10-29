@@ -557,3 +557,14 @@ def test_pattern_vault_entries_are_left_to_pattern_layer():
     rules = _pattern_rules()
     text = "carpeta docs-web aparte"
     assert _verify(text, text, vault={"docs-web": "dir_12345678"}, rules=rules) == []
+
+
+def test_ignored_pattern_values_are_not_leaks():
+    """Marcadores y pseudo_pattern_ignore: el seudonimizador no los toca (#92)."""
+    import anthropic_payload_pseudonymize as ps
+
+    rules = Rules(patterns=[(ps._USER_DIR_RE, "user")], pattern_ignore=["run" + "ner"])
+    text = "cd /home/" + "run" + "ner/work; ls /Users/{name}/x"
+    assert _verify(text, text, rules=rules) == []
+    leaked = "cd /home/ana.lopez/work"
+    assert [s.value for s in _verify(leaked, leaked, rules=rules)] == ["ana.lopez"]

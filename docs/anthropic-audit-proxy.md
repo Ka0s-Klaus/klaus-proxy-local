@@ -352,7 +352,7 @@ flowchart LR
 
 - **Qué seudonimiza (por defecto, autodetectado):** raíz del repo y `$HOME` (**palanca de rutas**), usuario del SO e identidad git (`user.name`/`user.email`), org y nombre de repo del `remote origin`, y por regex emails e IPv4 (con octetos 0–255; las versiones tipo `cc_version=2.1.312.625` no cuentan, #57).
 - **Org/repo de cualquier proyecto:** además del repo desde el que arranca `claude-proxy` (#61), el seudonimizador **aprende** el org/repo de los remotes que Claude Code envía en cada petición y los guarda en `pseudo_word_literals` (#63). Solo en los modos de permisos `auto` y `plan` (ver README). Los nombres con puntos se reconocen (#65).
-- **`pseudo_patterns` (#42):** regex de `config.json` que se aplican antes que el resto de reglas, sobre el texto real. Si hay grupos, solo se seudonimiza el grupo 1. `claude-proxy` registra la carpeta que contiene el repo (p. ej. `~/proyectos`), con lo que los nombres de todos los proyectos quedan ocultos en las rutas aunque no tengan remote o vayan truncados. Hay un patrón integrado para el usuario de cualquier `/Users/<u>` o `/home/<u>`.
+- **`pseudo_patterns` (#42):** regex de `config.json` que se aplican antes que el resto de reglas, sobre el texto real. Si hay grupos, solo se seudonimiza el grupo 1. `claude-proxy` registra la carpeta que contiene el repo (p. ej. `~/proyectos`), con lo que los nombres de todos los proyectos quedan ocultos en las rutas aunque no tengan remote o vayan truncados. Hay un patrón integrado para el usuario de cualquier `/Users/<u>` o `/home/<u>`. Los patrones **ignoran los valores que no pueden ser un dato** (#92): sin letras ni números (`…`, `|`), de un solo carácter, marcadores de plantilla (`{user}`, `<u>`, `«X»`, `$USER`, `%USERNAME%`) y, como usuario, nombres genéricos (`Shared`, `Guest`, `root`, `user`, `username`, `usuario`, `nobody`). Así no entran al vault ni el verificador los toma por fugas. Para excluir valores concretos (por ejemplo, usuarios de ejemplo de unos tests), añádelos a `pseudo_pattern_ignore` en `config.json`.
 - **Secretos (Tier 1) — redacción IRREVERSIBLE:** si un `Read`/`Bash` arrastra una credencial, el **cuerpo** no está redactado como las cabeceras. Estos patrones la sustituyen por un placeholder fijo `«REDACTED:label»` que **no entra al vault** (no se revierte — el modelo casi nunca necesita el valor real, y así el vault no acumula secretos):
 
   | Patrón | Detecta |
@@ -400,7 +400,16 @@ El log va primero para registrar la carga de los demás; el guardián, el últim
 | `ANTHROPIC_PSEUDO_VAULT` | Ruta del vault | `captures/.pseudonym_vault.json` |
 | `KLAUS_LOG_DIR` | Directorio del log en disco (`proxy.log`, rotado 5 MB × 5) (#55) | `~/.klaus-proxy/logs/` |
 
-Además de las variables, `~/.klaus-proxy/config.json` admite `pseudo_literals`, `pseudo_word_literals` y `pseudo_patterns`, que persisten entre reinicios.
+Además de las variables, `~/.klaus-proxy/config.json` admite `pseudo_literals`, `pseudo_word_literals`, `pseudo_patterns` y `pseudo_pattern_ignore`, que persisten entre reinicios.
+
+**Limpiar el vault (#92).** Los valores que entraron al vault antes de que los patrones los ignorasen se quitan con:
+
+```bash
+python3 scripts/prune_vault.py --dry-run   # qué se quitaría
+python3 scripts/prune_vault.py             # quitar, con copia de seguridad
+```
+
+Ejecútalo con **`claude-proxy` parado**: el proxy guarda su copia en memoria del vault cada vez que añade un seudónimo y volvería a escribir las entradas quitadas. El script se niega a continuar si el puerto 8899 está escuchando, salvo con `--force`. Solo toca entradas de patrones activos (`user_`, `dir_`…).
 
 > ⚠️ **Limitación conocida (streaming):** la respuesta se procesa **completa** (mitmproxy bufferiza por defecto), lo que es correcto para las tool calls pero retrasa el render token a token. Las respuestas SSE se restauran **por bloque** (#67): se concatenan los `content_block_delta` de cada bloque (texto, argumentos de `tool_use` y thinking) antes de revertir, porque un seudónimo puede llegar partido entre dos deltas.
 
