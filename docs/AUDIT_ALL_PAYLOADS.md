@@ -88,6 +88,8 @@ Creates `audit_report_YYYYMMDD_HHMMSS.csv` in `~/.klaus-proxy/captures/`
 | **Match Rate** | `original / sent * 100%` (should be ~100%) |
 | **Time Range** | First to last capture timestamp |
 
+Captures with `"capture_only": true` (hosts in `capture_only_hosts`, #125) are skipped: they are audited without pseudonymization on purpose, so they would always show as not pseudonymized.
+
 ### 🔐 Pseudonymization Status
 
 | Field | Meaning |

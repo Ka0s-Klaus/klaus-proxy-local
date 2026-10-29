@@ -33,8 +33,9 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ### ¿Cómo lo hago?
 - Un proxy `mitmproxy` local (`claude-proxy` → `mitmdump --listen-host 127.0.0.1 -p 8899`, solo loopback)
-  con cuatro addons Python de [`src/`](./src), cargados desde un snapshot inmutable:
-  `klaus_file_log.py` (log en disco), `anthropic_payload_pseudonymize.py` (reescribe/revierte),
+  con cinco addons Python de [`src/`](./src), cargados desde un snapshot inmutable:
+  `klaus_file_log.py` (log en disco), `klaus_tls_passthrough.py` (solo descifra lo que se
+  audita; el resto va en túnel), `anthropic_payload_pseudonymize.py` (reescribe/revierte),
   `anthropic_payload_capture.py` (graba la evidencia) y `klaus_pseudo_guard.py` (bloquea lo
   que no se haya pseudonimizado).
 - Claude Code se enruta por el proxy vía `HTTPS_PROXY` + `NODE_EXTRA_CA_CERTS`, de

@@ -82,11 +82,21 @@ Debajo de las tarjetas, cada informe muestra en qué se diferencia del inmediata
 
 | Plan | Qué mide | ✅ OK | ⚠️ Revisar | 🔴 Crítico |
 | --- | --- | --- | --- | --- |
-| 🔐 Seguridad | Hosts capturados, secretos redactados, patrones de prompt injection | Sin hosts inesperados ni injection | Patrones de injection | Algún host inesperado |
+| 🔐 Seguridad | Hosts capturados y no capturados, secretos redactados, patrones de prompt injection | Sin hosts inesperados ni injection | Patrones de injection | Algún host inesperado |
 | 📊 Pseudonimización | % de peticiones `/v1/messages` en las que corrió el pseudonimizador (últimos 30 días), tendencia diaria, vault | ≥ 99 % | ≥ 90 % | < 90 % |
 | ⚡ Actividad | Capturas por día (30 días), endpoints, códigos de estado, últimas peticiones | Algún día activo | Sin actividad | — |
 | 🧪 Tests | Resultado de `pytest` (⬜ si no hay pytest o no reporta resultados) | 0 fallos y 0 errores | Fallos + errores < 10 % | El resto |
 | 📋 EFDEF | Checklist de compliance (secciones 22 y 23) | ≥ 90 % de checks | ≥ 70 % | < 70 % |
+
+### 🌐 Hosts capturados y no capturados
+
+- **Hosts capturados:** las capturas de `captures/` por host. Un host es **esperado** si está en `hosts` o en `capture_only_hosts` de `config.json` (#123, #125); si no, sale como ⚠️ Inesperado y el plan pasa a 🔴. La tabla y el estado del plan usan el mismo criterio.
+- **Hosts no capturados** (#123): lo que pasó por el proxy **sin pseudonimizar ni capturar**, leído de `proxy.log` y sus rotaciones (`KLAUS_LOG_DIR` o `~/.klaus-proxy/logs`). Por host:
+  - **🔒 Túnel:** conexiones que no se descifraron (`TÚNEL host:puerto` en el log); solo se conoce el host y la hora.
+  - **🔓 Descifrado:** peticiones que el proxy vio en claro y dejó salir tal cual. Desde v0.6.1 solo se descifra lo que se captura, así que estas filas son histórico (antes de v0.6.0 se descifraba todo, y en v0.6.0 todos los subdominios de `anthropic.com` y `claude.ai`).
+  - **Último descifrado / Último túnel:** la última vez de cada modo.
+
+  Es informativa: no cambia el estado del plan. Para auditar un host de la lista, añádelo a `hosts` (se pseudonimiza) o a `capture_only_hosts` (se captura sin pseudonimizar). Solo cubre lo que conserva el log: el actual y hasta 5 rotaciones de 5 MB.
 
 ### 🔐 Patrones de prompt injection
 
