@@ -125,8 +125,8 @@ def audit_uncaptured_hosts(files: list[Path]) -> dict:
 
     - ``tunnel``: pasaron en túnel, sin descifrar (solo se sabe host y hora).
     - ``decrypted``: el proxy los descifró pero no los pseudonimizó ni capturó
-      (antes de v0.6.0 se descifraba todo; ``anthropic.com`` y ``claude.ai``
-      se descifran siempre).
+      (antes de v0.6.0 se descifraba todo, y hasta #125 todos los subdominios
+      de ``anthropic.com`` y ``claude.ai``).
     """
     hosts: dict[str, dict] = {}
     since = ""

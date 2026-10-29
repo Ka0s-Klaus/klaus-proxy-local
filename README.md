@@ -6,9 +6,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.6.0-green)](./docs/RELEASE_v0.6.0_NOTES.md)
-[![Tests](https://img.shields.io/badge/tests-699%20passed-brightgreen)](./.github/workflows/ci.yml)
-[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.6.0_NOTES.md)
+[![Version](https://img.shields.io/badge/version-0.6.1-green)](./docs/RELEASE_v0.6.1_NOTES.md)
+[![Tests](https://img.shields.io/badge/tests-718%20passed-brightgreen)](./.github/workflows/ci.yml)
+[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.6.1_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
 
@@ -56,7 +56,7 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.6.0)
+## 🚀 Inicio rápido (v0.6.1)
 
 > ℹ️ El paquete **no está publicado en PyPI**: se instala desde el repositorio con
 > `install.sh` (macOS y Linux, Python ≥ 3.10; en macOS instala Python 3.13 vía Homebrew si falta; en Debian/Ubuntu hace falta `python3-venv`).
@@ -392,6 +392,15 @@ If you enabled auto-startup but want to disable it:
 
 ## 📦 Releases
 
+### v0.6.1 — Auditar sin pseudonimizar y descifrar solo lo que se audita ✅
+- 🔍 `capture_only_hosts`: audita un host sin pseudonimizarlo, por ejemplo los conectores MCP de claude.ai (#125)
+- 🔓 Solo se descifra lo que se audita: la renovación del token OAuth y las descargas de Claude Code van en túnel (#125)
+- 📊 Dashboard: sección «Hosts no capturados» y tabla de hosts coherente con `config.json` (#123)
+- 🐛 La captura lee `hosts` de `config.json` (#119); aviso si `config.json` no se puede leer (#121)
+- ✅ **718 tests passing** en Python 3.10–3.13
+
+[📖 Release Notes](./docs/RELEASE_v0.6.1_NOTES.md)
+
 ### v0.6.0 — Cada terminal por el proxy, sin errores de certificado ✅
 - 🖥️ `klaus-setup` hace que cada terminal nueva arranque el proxy y exporte `HTTPS_PROXY`: basta con `claude`; `claude-with-proxy` lo instala `install.sh` (#105)
 - 🔓 Solo se descifra la API del LLM; el resto del HTTPS (pip, git, brew…) pasa en túnel con su certificado real y queda registrado (#116)
@@ -508,7 +517,7 @@ Release notes no conservadas en `docs/`.
 | [🌐 Audit Dashboard](./docs/reports/web/README.md) | Dashboard HTML interactivo de auditoría |
 | [🛠️ Troubleshooting](./docs/TROUBLESHOOTING.md) | Solución de problemas comunes |
 | [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
-| [🚀 Release v0.6.0](./docs/RELEASE_v0.6.0_NOTES.md) | Notas de la última release |
+| [🚀 Release v0.6.1](./docs/RELEASE_v0.6.1_NOTES.md) | Notas de la última release |
 
 ---
 
@@ -659,12 +668,12 @@ Ver sección anterior: [📚 Documentación](#-documentación)
 ## 🧪 Tests
 
 ```bash
-pytest -q          # 699 passed, 3 skipped
+pytest -q          # 718 passed, 3 skipped
                    # Includes: capture, pseudonymize, guard, verify, audit, dashboard, vault
 ```
 
 ### Test Coverage
-- ✅ **699 tests passing** en Python 3.10–3.13 (CI)
+- ✅ **718 tests passing** en Python 3.10–3.13 (CI)
 - ✅ Security tests for vault + pseudonymization
 - ✅ Integration tests for audit workflows
 - ✅ Unit tests for all components

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sensitive Data Scanner for Klaus Proxy Local v0.6.0.
+"""Sensitive Data Scanner for Klaus Proxy Local v0.6.1.
 
 Detects secrets, credentials, and sensitive data across project files using
 multi-tier detection (patterns, contextual, heuristic). Integrates with Vault
