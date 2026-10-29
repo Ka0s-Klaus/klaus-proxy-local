@@ -6,9 +6,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.4.0-green)](./docs/RELEASE_v0.4.0_NOTES.md)
+[![Version](https://img.shields.io/badge/version-0.5.0-green)](./docs/RELEASE_v0.5.0_NOTES.md)
 [![Tests](https://img.shields.io/badge/tests-487%20passed-brightgreen)](./docs/FIX_SUMMARY.md)
-[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.4.0_NOTES.md)
+[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.5.0_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
 
@@ -56,7 +56,7 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.4.0)
+## 🚀 Inicio rápido (v0.5.0)
 
 > ℹ️ El paquete **no está publicado en PyPI**: se instala desde el repositorio con
 > `install.sh` (macOS y Linux, Python ≥ 3.13; en macOS lo instala vía Homebrew si falta).
@@ -383,6 +383,24 @@ If you enabled auto-startup but want to disable it:
 
 ## 📦 Releases
 
+### v0.5.0 — Protección de cualquier proyecto, guardián fail-closed e histórico del dashboard ✅
+- 🛡️ **Org/repo y carpetas de proyectos protegidos** sin configurar nada: aprendidos de cada petición, `pseudo_patterns` y usuarios en rutas (#42, #61, #63, #65)
+- 🚧 **Guardián fail-closed + snapshot inmutable de addons**: un `checkout` ya no cambia ni rompe el pseudonimizador en marcha (#71)
+- 🔁 **Seudónimos partidos en streaming** restaurados por bloque (#67)
+- 📝 **Logs en disco** (`~/.klaus-proxy/logs/proxy.log`) (#55)
+- 📂 **Histórico del audit dashboard** con selector y cambios respecto al anterior (#77)
+- ⚡ `anthropic-pair-verify` 7× más rápido y sin falsos positivos (#59, #73)
+- ✅ **619 tests passing** en Python 3.10–3.13
+
+[📖 Release Notes](./docs/RELEASE_v0.5.0_NOTES.md)
+
+### v0.4.0 — Instalación completa, dashboard de auditoría y proxy solo en localhost ✅
+- 📦 Instalador `install.sh` con venv global (#33)
+- 📊 Dashboard HTML de auditoría (#35)
+- 🔒 El proxy solo escucha en `127.0.0.1` (#47)
+
+[📖 Release Notes](./docs/RELEASE_v0.4.0_NOTES.md)
+
 ### v0.3.2 — Critical Bugfixes ✅
 - ✅ **Captures directory migration** — All files now stored in `~/.klaus-proxy/captures/` (not repo)
 - ✅ **ANSI colors restored** — Full color support in mitmproxy logs (green requests, red errors)
@@ -457,7 +475,7 @@ Release notes no conservadas en `docs/`.
 | [🛠️ Troubleshooting](./docs/TROUBLESHOOTING.md) | Solución de problemas comunes |
 | [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
 | [📊 Executive Summary](./docs/EXECUTIVE_SUMMARY.md) | Estado actual del sistema |
-| [🚀 Release v0.3.2](./docs/RELEASE_v0.3.2_NOTES.md) | Notas de la última release |
+| [🚀 Release v0.5.0](./docs/RELEASE_v0.5.0_NOTES.md) | Notas de la última release |
 
 ---
 

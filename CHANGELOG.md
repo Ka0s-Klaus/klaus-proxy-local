@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.5.0] — 2026-10-29
+
 ### Added
 - **Histórico de informes en el audit dashboard** (#77) — Cada ejecución de `klaus-audit-dashboard` guarda su informe en `informes/` (`audit-<fecha>.json` + `.html`, sin sobrescribir) y regenera `index.js` y `audit-dashboard.html` (el último). En la cabecera, un selector abre cualquier informe anterior, y un panel muestra los cambios respecto al informe previo: estados, métricas ▲/▼, checks EFDEF y hosts inesperados. Funciona con `file://`. El dashboard con datos reales deja de versionarse en `docs/reports/web/`.
 - **`pseudo_patterns`: patrones regex en `config.json`** (#42) — Lista de `{pattern, replacement_prefix}` aplicada antes que el resto de reglas, sobre el texto real y de forma reversible; si el regex tiene grupos, solo se pseudonimiza el grupo 1. `claude-proxy` registra al arrancar la carpeta que contiene el repo (p. ej. `~/proyectos`), de modo que los nombres de todos los proyectos se protegen en rutas aunque no tengan remote o vayan truncados. Patrón integrado para el usuario de cualquier ruta `/Users/<u>` o `/home/<u>` (`ANTHROPIC_PSEUDO_USER_DIRS`). `anthropic-pair-verify` añade la capa `[pattern]`, con contexto y en caché.
