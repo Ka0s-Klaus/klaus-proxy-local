@@ -32,3 +32,18 @@ class TestHostMatching:
 
     def test_no_hosts(self):
         assert WARNING not in _recommendations([])
+
+
+def test_show_config_never_prints_salt(tmp_path):
+    """--show-config puede acabar en el contexto de un agente (#106)."""
+    import json
+
+    salt = "0123456789abcdef" * 2
+    diag = PseudonymizationDiagnostic(captures_dir=tmp_path / "captures")
+    diag.config_file = tmp_path / "config.json"
+    diag.config_file.write_text(json.dumps({"salt": salt, "hosts": ["h"]}))
+    out = diag.show_config_file()
+    assert salt not in out and salt[:8] not in out
+    assert "«oculta, 32 caracteres»" in out and '"hosts"' in out
+    # No modifica el fichero
+    assert json.loads(diag.config_file.read_text())["salt"] == salt
