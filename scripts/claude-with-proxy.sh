@@ -1,41 +1,32 @@
 #!/usr/bin/env bash
-# 🔐 Claude Code with Klaus Proxy Local (bash/zsh)
+# 🔐 Claude Code a través de Klaus Proxy Local (bash/zsh)
 #
-# Usage:
-#   claude-with-proxy "your question"
-#   claude-with-proxy read /path/to/file
+# Uso:
+#   claude-with-proxy [argumentos de claude…]
 #
-# This wrapper routes Claude Code through the local proxy at 127.0.0.1:8899
-# Make sure to start the proxy first in another terminal:
-#   claude-proxy
-#
-# The proxy pseudonymizes sensitive data before it leaves your machine.
+# Carga la confianza en la CA del proxy, comprueba que claude-proxy escucha y
+# lanza claude con HTTPS_PROXY. Fail-closed: si el proxy no está en marcha, no
+# ejecuta claude (#105). install.sh lo enlaza en ~/.local/bin.
 
-set -e
+set -euo pipefail
 
-# Check if proxy is running
-check_proxy() {
-    if ! nc -z 127.0.0.1 8899 2>/dev/null; then
-        cat >&2 << 'EOF'
-❌ Klaus Proxy not running!
+PROXY_HOST="127.0.0.1"
+PROXY_PORT="8899"
+ENV_FILE="${HOME}/.klaus-proxy/klaus-env.sh"
 
-Please start the proxy in another terminal:
-  claude-proxy
+if [[ ! -f "$ENV_FILE" ]]; then
+    echo "❌ Falta $ENV_FILE: arranca claude-proxy una vez (o ejecuta ./install.sh)." >&2
+    exit 1
+fi
+# shellcheck source=/dev/null
+source "$ENV_FILE"
 
-Then come back here and try again.
-EOF
-        exit 1
-    fi
-}
+if ! (exec 3<>"/dev/tcp/${PROXY_HOST}/${PROXY_PORT}") 2>/dev/null; then
+    echo "❌ Klaus Proxy no está escuchando en ${PROXY_HOST}:${PROXY_PORT}." >&2
+    echo "   Arráncalo en otra terminal, desde dentro de tu repo:  claude-proxy" >&2
+    exit 1
+fi
 
-# Route through proxy
-export HTTP_PROXY="http://127.0.0.1:8899"
-export HTTPS_PROXY="http://127.0.0.1:8899"
-export http_proxy="http://127.0.0.1:8899"
-export https_proxy="http://127.0.0.1:8899"
-
-# Optionally check proxy is running (comment out to skip)
-# check_proxy
-
-# Execute claude with all arguments passed through
+export HTTPS_PROXY="http://${PROXY_HOST}:${PROXY_PORT}"
+export NO_PROXY="localhost,${PROXY_HOST},::1"
 exec claude "$@"

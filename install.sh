@@ -290,6 +290,17 @@ link_entry_points() {
     done
 }
 
+link_wrapper() {
+    # claude-with-proxy: claude por el proxy, fail-closed (#105)
+    local src="$1/scripts/claude-with-proxy.sh"
+    if [[ -x "$src" ]]; then
+        ln -sf "$src" "${BIN_DIR}/claude-with-proxy"
+        ok "Enlazado: claude-with-proxy → ${BIN_DIR}/claude-with-proxy"
+    else
+        warn "No se encontró ${src}"
+    fi
+}
+
 check_path() {
     step "🛣️  PATH"
     if [[ ":${PATH}:" == *":${BIN_DIR}:"* ]]; then
@@ -407,6 +418,7 @@ main() {
     install_package "$project_dir"
     check_mitmproxy
     link_entry_points
+    link_wrapper "$project_dir"
 
     # ── Fase 3: Configuración ─────────────────────────────────────────────────
     echo -e "\n${BOLD}── FASE 3: Configuración ────────────────────────────────${NC}"

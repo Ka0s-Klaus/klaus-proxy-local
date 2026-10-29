@@ -97,7 +97,10 @@ klaus-fix-pseudonymization --show-payloads
 klaus-audit-payloads --export=csv
 ```
 
-**Opcional: `klaus-setup`** añade al shell un hook que carga `klaus-env.sh` y arranca el proxy en segundo plano si no está en marcha. **No exporta `HTTPS_PROXY`**, así que sigue haciendo falta el `export` del terminal 2 ([#105](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/105)).
+**Opcional, sin terminal 1 ni `export`:**
+
+- **`klaus-setup`** añade a tu `~/.zshrc` (o `~/.bashrc`, fish) un bloque que, en cada terminal nueva, carga `klaus-env.sh`, arranca `claude-proxy` en segundo plano si no está en marcha y exporta `HTTPS_PROXY`. Basta con `claude`. Ver [opciones de configuración](#setup-options).
+- **`claude-with-proxy`** (lo instala `install.sh`): lanza `claude` por el proxy solo si está escuchando; si no, no lo ejecuta.
 
 > ⚠️ La instalación es *editable*: el venv apunta al clon del repositorio. **No borres
 > ni muevas esa carpeta.** Para actualizar: `git pull && ./install.sh`.
@@ -131,23 +134,33 @@ alone would break HTTPS that doesn't go through the proxy. `NODE_EXTRA_CA_CERTS`
 
 ### Setup Options
 
-#### Option 1: Auto-Startup (Recommended)
+#### Option 1: Every terminal through the proxy (`klaus-setup`)
 
 ```bash
-# Interactive setup (one-time)
-klaus-setup
-
-# Follow prompts:
-# • Shell detected: zsh (or your shell)
-# • Enable auto-startup? [y/N]: y
-# • Reload shell
+klaus-setup          # one-time; answer "y"
 exec $SHELL
 ```
 
-Now every time you open a terminal:
-- ✅ Proxy starts automatically
-- ✅ SSL/TLS variables are loaded
-- ✅ Git/curl/all HTTPS tools trust the proxy
+It adds a block between `# >>> Klaus Proxy Local (klaus-setup) >>>` markers to your shell config (bash, zsh or fish; run it again to update it). In every new terminal it:
+
+- ✅ loads `klaus-env.sh` (trust in the proxy CA);
+- ✅ starts `claude-proxy` in the background (`nohup`) if it is not running, logging to `~/.klaus-proxy/logs/autostart.log`;
+- ✅ exports `HTTPS_PROXY` and `NO_PROXY` (loopback stays direct), so plain `claude` goes through the proxy.
+
+Things to know:
+
+- **All HTTPS of the terminal goes through the proxy** (pip, git, curl, brew…). Tools that don't use the CA bundle of `klaus-env.sh` (some Go, Rust or Java binaries, container runtimes) will fail with certificate errors: run `klaus-off` in that terminal (`klaus-on` restores it).
+- The proxy registers the org/repo of the folder where it **starts**: the first terminal you open. For a different repo, stop it and start `claude-proxy` from that repo.
+- Right after opening the first terminal the proxy needs a few seconds to listen.
+- To disable it, remove the marked block from your shell config.
+
+#### Option 1b: Only for Claude Code (`claude-with-proxy`)
+
+```bash
+claude-with-proxy        # same arguments as claude
+```
+
+Installed by `install.sh` in `~/.local/bin`. Loads `klaus-env.sh` and runs `claude` with `HTTPS_PROXY` **only if the proxy is listening**; otherwise it refuses (fail-closed). It doesn't start the proxy.
 
 #### Option 2: Manual (Quick Test)
 

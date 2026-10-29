@@ -51,22 +51,21 @@ class TestBashWrapperContent:
         """Get bash wrapper path."""
         return Path(__file__).parent.parent / "scripts" / "claude-with-proxy.sh"
 
-    def test_bash_sets_http_proxy(self, bash_script):
-        """Bash script sets HTTP_PROXY."""
+    def test_bash_sources_klaus_env(self, bash_script):
+        """Bash script loads the CA trust from klaus-env.sh (#105)."""
         content = bash_script.read_text()
-        assert "HTTP_PROXY" in content
-        assert "127.0.0.1:8899" in content
+        assert ".klaus-proxy/klaus-env.sh" in content
+        assert 'source "$ENV_FILE"' in content
 
     def test_bash_sets_https_proxy(self, bash_script):
         """Bash script sets HTTPS_PROXY."""
         content = bash_script.read_text()
         assert "HTTPS_PROXY" in content
 
-    def test_bash_sets_lowercase_proxies(self, bash_script):
-        """Bash script sets lowercase proxy vars for some tools."""
+    def test_bash_is_fail_closed(self, bash_script):
+        """Bash script refuses to run claude if the proxy is not listening."""
         content = bash_script.read_text()
-        assert "http_proxy" in content
-        assert "https_proxy" in content
+        assert "/dev/tcp/" in content and "exit 1" in content
 
     def test_bash_execs_claude(self, bash_script):
         """Bash script executes claude."""
@@ -98,16 +97,15 @@ class TestFishWrapperContent:
         """Get fish wrapper path."""
         return Path(__file__).parent.parent / "scripts" / "claude-with-proxy.fish"
 
-    def test_fish_sets_http_proxy(self, fish_script):
-        """Fish script sets HTTP_PROXY."""
+    def test_fish_sources_klaus_env(self, fish_script):
+        """Fish script loads the CA trust from klaus-env.sh (#105)."""
         content = fish_script.read_text()
-        assert "HTTP_PROXY" in content
-        assert "127.0.0.1:8899" in content
+        assert ".klaus-proxy/klaus-env.sh" in content
 
     def test_fish_uses_set_x(self, fish_script):
-        """Fish script uses 'set -x' for environment variables."""
+        """Fish script uses 'set -x' for HTTPS_PROXY."""
         content = fish_script.read_text()
-        assert "set -x HTTP_PROXY" in content
+        assert "set -x HTTPS_PROXY" in content
 
     def test_fish_execs_claude(self, fish_script):
         """Fish script executes claude."""
@@ -237,11 +235,10 @@ class TestProxyHostPort:
             content = script.read_text()
             assert "8899" in content, f"{name} doesn't use port 8899"
 
-    def test_all_scripts_set_both_proxy_protocols(self, scripts):
-        """All scripts set both HTTP and HTTPS proxy."""
+    def test_all_scripts_set_https_proxy(self, scripts):
+        """All scripts set HTTPS_PROXY (the API is HTTPS)."""
         for name, script in scripts.items():
             content = script.read_text()
-            assert "HTTP_PROXY" in content, f"{name} doesn't set HTTP_PROXY"
             assert "HTTPS_PROXY" in content, f"{name} doesn't set HTTPS_PROXY"
 
 
@@ -264,7 +261,7 @@ class TestWrapperDocumentation:
         for name, script in scripts.items():
             content = script.read_text()
             assert (
-                "Usage:" in content or "usage" in content.lower()
+                "Usage:" in content or "usage" in content.lower() or "Uso:" in content
             ), f"{name} has no usage documentation"
 
     def test_all_scripts_explain_proxy(self, scripts):
@@ -347,3 +344,64 @@ To manually verify wrappers work:
    grep -E 'HTTP_PROXY|HTTPS_PROXY' scripts/claude-with-proxy.ps1
    grep -E 'HTTP_PROXY|HTTPS_PROXY' scripts/claude-with-proxy.bat
 """
+
+
+class TestBashWrapperBehaviour:
+    """claude-with-proxy runs claude only when the proxy listens (#105)."""
+
+    @pytest.fixture
+    def env(self, tmp_path):
+        import socket
+
+        home = tmp_path / "home"
+        (home / ".klaus-proxy").mkdir(parents=True)
+        (home / ".klaus-proxy" / "klaus-env.sh").write_text(
+            'export NODE_EXTRA_CA_CERTS="/ca.pem"\n'
+        )
+        bindir = tmp_path / "bin"
+        bindir.mkdir()
+        claude = bindir / "claude"
+        claude.write_text(
+            '#!/bin/sh\necho "ran $* proxy=$HTTPS_PROXY ca=$NODE_EXTRA_CA_CERTS"\n'
+        )
+        claude.chmod(0o755)
+        # Puerto libre: el wrapper usa el 8899, que puede estar en uso aquí
+        with socket.socket() as sock:
+            sock.bind(("", 0))
+            port = sock.getsockname()[1]
+        src = Path(__file__).parent.parent / "scripts" / "claude-with-proxy.sh"
+        wrapper = tmp_path / "claude-with-proxy"
+        wrapper.write_text(
+            src.read_text().replace('PROXY_PORT="8899"', f'PROXY_PORT="{port}"')
+        )
+        wrapper.chmod(0o755)
+        environ = {"HOME": str(home), "PATH": f"{bindir}:/usr/bin:/bin"}
+        return wrapper, environ, port
+
+    def test_refuses_without_proxy(self, env):
+        wrapper, environ, _port = env
+        r = subprocess.run(
+            [str(wrapper), "-p", "hola"], env=environ, capture_output=True, text=True
+        )
+        assert r.returncode == 1
+        assert "ran" not in r.stdout
+        assert "no está escuchando" in r.stderr
+
+    def test_runs_claude_through_proxy(self, env):
+        import socket
+
+        from Klaus_proxy_local.launcher import ProxyLauncher
+
+        wrapper, environ, port = env
+        with socket.socket() as server:
+            server.bind((ProxyLauncher.HOST, port))
+            server.listen()
+            r = subprocess.run(
+                [str(wrapper), "-p", "hola"],
+                env=environ,
+                capture_output=True,
+                text=True,
+            )
+        assert r.returncode == 0, r.stderr
+        assert f"ran -p hola proxy=http://{ProxyLauncher.HOST}:{port}" in r.stdout
+        assert "ca=/ca.pem" in r.stdout

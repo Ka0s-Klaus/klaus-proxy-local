@@ -63,7 +63,11 @@ echo $HTTPS_PROXY       # en la terminal de Claude Code: debe ser http://127.0.0
 ```
 
 - `HTTPS_PROXY` solo afecta a la terminal donde lo exportas y a los procesos que arranques **después**. Reinicia `claude` tras exportarlo.
-- `klaus-setup` no exporta `HTTPS_PROXY` (ver [#105](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/105)).
+- Con `klaus-setup`, abre una terminal **nueva** tras ejecutarlo (o `exec $SHELL`). Si alguna vez usaste `klaus-off`, vuelve con `klaus-on`.
+
+**Con `klaus-setup`, falla el HTTPS de otras herramientas** (pip, git, contenedores…): todo el HTTPS de la terminal pasa por el proxy. Las que no usan el bundle de `klaus-env.sh` no confían en su CA. Usa `klaus-off` en esa terminal.
+
+**Con `klaus-setup`, el proxy no arrancó:** mira `~/.klaus-proxy/logs/autostart.log`.
 
 ---
 
