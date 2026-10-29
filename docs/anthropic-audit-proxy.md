@@ -33,7 +33,7 @@ klaus-proxy-local/                 # el clon (instalación editable: no lo mueva
 
 ## 🧭 Hallazgo principal: hay DOS destinos, no uno
 
-> ℹ️ **Contexto:** este hallazgo es del entorno donde nació la herramienta (julio de 2026), con `ANTHROPIC_BASE_URL` apuntando a un gateway corporativo. **Por defecto el proxy audita y pseudonimiza `api.anthropic.com`** (clave `hosts` de `config.json`). Si usas un gateway, añádelo a `hosts`; un host desconocido con ruta de LLM también se pseudonimiza, con un aviso en el log.
+> ℹ️ **Contexto:** este hallazgo es del entorno donde nació la herramienta (julio de 2026), con `ANTHROPIC_BASE_URL` apuntando a un gateway corporativo. **Por defecto el proxy audita y pseudonimiza `api.anthropic.com`** (clave `hosts` de `config.json`). Si usas un gateway, añádelo a `hosts` (o ponlo en `ANTHROPIC_BASE_URL`). Desde v0.6.0 solo se descifran esos hosts, `anthropic.com` y `claude.ai`; el resto va en túnel (#116). Un host desconocido con ruta de LLM solo se pseudonimiza, con un aviso en el log, si se descifra: con `"intercept_all": true`.
 
 La inferencia **no** viaja directamente a `api.anthropic.com`. Claude Code (v2.1.216) reparte el tráfico así:
 
@@ -103,14 +103,14 @@ claude  →  mitmdump 127.0.0.1:8899 (seudonimiza + captura + guardián)  →  a
 
 | Paso | Efecto |
 | --- | --- |
-| Terminal 1: `claude-proxy` (desde dentro de un repo) | Arranca `mitmdump` en `127.0.0.1:8899` con 4 addons desde un **snapshot inmutable** en `~/.klaus-proxy/addons/<hash>/` (#71): log en disco → seudonimizador → captura → guardián fail-closed. El directorio de arranque solo sirve para registrar su org/repo y la carpeta de proyectos en `config.json` (#61, #42). **Los cambios en `src/` y en `config.json` se aplican al reiniciarlo.** Ctrl+C lo detiene. |
+| Terminal 1: `claude-proxy` (desde dentro de un repo) | Arranca `mitmdump` en `127.0.0.1:8899` con 5 addons desde un **snapshot inmutable** en `~/.klaus-proxy/addons/<hash>/` (#71): log en disco → passthrough TLS (solo se descifra la API) → seudonimizador → captura → guardián fail-closed. El directorio de arranque solo sirve para registrar su org/repo y la carpeta de proyectos en `config.json` (#61, #42). **Los cambios en `src/` y en `config.json` se aplican al reiniciarlo.** Ctrl+C lo detiene. |
 | Terminal 2: `source ~/.klaus-proxy/klaus-env.sh` | Confianza en la CA del proxy (`NODE_EXTRA_CA_CERTS` para Claude Code; bundle de CAs para git/curl/Python). |
 | Terminal 2: `export HTTPS_PROXY=http://127.0.0.1:8899` y `claude` | Enruta Claude Code por el proxy. Solo afecta a esa terminal. |
 
 ```mermaid
 flowchart LR
     subgraph t1[terminal 1]
-      P[claude-proxy<br/>mitmdump · 4 addons<br/>logs en vivo]
+      P[claude-proxy<br/>mitmdump · 5 addons<br/>logs en vivo]
     end
     subgraph t2[terminal 2]
       C[claude] -->|HTTPS_PROXY + klaus-env.sh| P
@@ -366,12 +366,13 @@ El orden importa: el seudonimizador debe reescribir **antes** de que la captura 
 ```bash
 # Lo que lanza claude-proxy (desde el snapshot ~/.klaus-proxy/addons/<hash>/):
 mitmdump -s klaus_file_log.py \
+         -s klaus_tls_passthrough.py \
          -s anthropic_payload_pseudonymize.py \
          -s anthropic_payload_capture.py \
          -s klaus_pseudo_guard.py --listen-host 127.0.0.1 -p 8899
 ```
 
-El log va primero para registrar la carga de los demás; el guardián, el último, para comprobar que el seudonimizador procesó cada petición.
+El log va primero para registrar la carga de los demás; el passthrough TLS después, para decidir qué conexiones se descifran (solo los hosts de la API; el resto va en túnel, #116); el guardián, el último, para comprobar que el seudonimizador procesó cada petición.
 
 ### Configuración por entorno
 
@@ -389,9 +390,10 @@ El log va primero para registrar la carga de los demás; el guardián, el últim
 | `ANTHROPIC_PSEUDO_DIR_WORDS` | Nombres de carpeta de proyectos del vault también fuera de una ruta (#93) | `1` |
 | `ANTHROPIC_PSEUDO_SALT` | Sal del hash de seudónimos. **Obligatoria**: `claude-proxy` la exporta desde `config.json` | (de `config.json`) |
 | `ANTHROPIC_PSEUDO_VAULT` | Ruta del vault | `captures/.pseudonym_vault.json` |
+| `KLAUS_INTERCEPT_ALL` | Descifrar todo el HTTPS, no solo los hosts de la API (equivale a `"intercept_all": true` en `config.json`) (#116) | `0` |
 | `KLAUS_LOG_DIR` | Directorio del log en disco (`proxy.log`, rotado 5 MB × 5) (#55) | `~/.klaus-proxy/logs/` |
 
-Además de las variables, `~/.klaus-proxy/config.json` admite `pseudo_literals`, `pseudo_word_literals`, `pseudo_patterns` y `pseudo_pattern_ignore`, que persisten entre reinicios.
+Además de las variables, `~/.klaus-proxy/config.json` admite `hosts` (hosts de la API que se descifran y pseudonimizan), `intercept_all`, `pseudo_literals`, `pseudo_word_literals`, `pseudo_patterns` y `pseudo_pattern_ignore`, que persisten entre reinicios.
 
 **Limpiar el vault (#92).** Los valores que entraron al vault antes de que los patrones los ignorasen se quitan con:
 
@@ -496,6 +498,7 @@ Cinco scripts **versionados** en `src/`, cada uno con su test espejo en
 
 | Script | Rol | Doc |
 | --- | --- | --- |
+| [`klaus_tls_passthrough.py`](../src/klaus_tls_passthrough.py) | Addon de **passthrough TLS**: solo descifra los hosts de la API; el resto va en túnel y se registra (#116). | [Arquitectura](./ARCHITECTURE_DEEP_DIVE.md) |
 | [`anthropic_payload_capture.py`](../src/anthropic_payload_capture.py) | Addon de **captura**: graba el par `original/`+`sent/` de cada request. | este documento |
 | [`anthropic_payload_pseudonymize.py`](../src/anthropic_payload_pseudonymize.py) | Addon de **seudonimización** bidireccional (forward/restore). | §"Seudonimización bidireccional" |
 | [`anthropic_capture_verify.py`](../src/anthropic_capture_verify.py) | **Verificador** de una captura (destino, secretos, fugas). | §"Verificación en un comando" |

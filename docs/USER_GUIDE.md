@@ -2,7 +2,7 @@
 
 > Uso diario: qué se protege, dónde queda la evidencia y cómo comprobarlo. Para instalar y arrancar, ve al [inicio rápido](./QUICK_START.md). Para el detalle técnico y todas las variables, al [runbook](./anthropic-audit-proxy.md).
 
-**Versión:** v0.5.2
+**Versión:** v0.6.0
 
 ---
 
@@ -96,23 +96,30 @@ Los valores aprobados se añaden al vault y a `config.json`; reinicia `claude-pr
 | Clave | Para qué |
 | --- | --- |
 | `salt` | SALT de los seudónimos. No la cambies: los seudónimos dejarían de coincidir con el vault |
-| `hosts` | Hosts que se pseudonimizan (por defecto `api.anthropic.com`) |
+| `hosts` | Hosts de la API que se descifran y pseudonimizan (por defecto `api.anthropic.com`). Un gateway LLM propio tiene que estar aquí o en `ANTHROPIC_BASE_URL` |
+| `intercept_all` | `true` para descifrar todo el HTTPS, no solo la API (por defecto `false`) |
 | `pseudo_literals`, `pseudo_word_literals` | Valores a proteger (ver arriba) |
 | `pseudo_patterns` | Expresiones regulares; `claude-proxy` añade una para tu carpeta de proyectos |
 | `pseudo_pattern_ignore` | Valores que los patrones no deben tocar |
 | `audit_injection_reviewed` | Avisos de prompt injection marcados como revisados en el dashboard |
 
-Las variables de entorno (`ANTHROPIC_PSEUDO_*`, `ANTHROPIC_CAPTURE_*`, `KLAUS_LOG_DIR`) están en el [runbook](./anthropic-audit-proxy.md#configuración-por-entorno). Se aplican al proceso de `claude-proxy`, así que hay que exportarlas antes de arrancarlo.
+Las variables de entorno (`ANTHROPIC_PSEUDO_*`, `ANTHROPIC_CAPTURE_*`, `KLAUS_INTERCEPT_ALL`, `KLAUS_LOG_DIR`) están en el [runbook](./anthropic-audit-proxy.md#configuración-por-entorno). Se aplican al proceso de `claude-proxy`, así que hay que exportarlas antes de arrancarlo.
 
 ---
 
 ## ❓ Preguntas frecuentes
 
-**¿Puedo desactivar la pseudonimización un momento?** Arrancando `claude-proxy` con `ANTHROPIC_PSEUDO_ENABLE=0`: las peticiones **salen sin pseudonimizar** (se siguen capturando). No lo hagas sin necesidad; para usar Claude Code sin proxy basta otra terminal sin `HTTPS_PROXY`.
+**¿Puedo desactivar la pseudonimización un momento?** Arrancando `claude-proxy` con `ANTHROPIC_PSEUDO_ENABLE=0`: las peticiones **salen sin pseudonimizar** (se siguen capturando). No lo hagas sin necesidad; para usar Claude Code sin proxy basta otra terminal sin `HTTPS_PROXY` (con `klaus-setup`, `klaus-off` en esa terminal).
 
 **¿Puedo cambiar el puerto?** No: el proxy escucha siempre en `127.0.0.1:8899`.
 
 **¿Qué clientes funcionan?** Claude Code (CLI), que es con el que se prueba. Cualquier cliente que respete `HTTPS_PROXY` y confíe en la CA del proxy pasaría por él, pero no está probado.
+
+**¿Y el resto de herramientas de la terminal?** Con `klaus-setup`, todo el HTTPS de la terminal (pip, git, brew, gh…) pasa por el proxy. Solo se descifran los hosts de la API; el resto va en túnel con su certificado real, así que no hay errores de certificado. Cada conexión queda en `proxy.log` como `TÚNEL host:puerto` (host y hora, no contenido). Para verlas:
+
+```bash
+grep TÚNEL ~/.klaus-proxy/logs/proxy.log | tail
+```
 
 **¿Funciona en Windows?** No está soportado: el instalador y el arranque son para macOS y Linux.
 

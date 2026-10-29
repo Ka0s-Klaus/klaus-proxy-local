@@ -2,7 +2,7 @@
 
 > Cómo está construido el proxy y qué garantiza. Para operarlo, ve al [runbook técnico](./anthropic-audit-proxy.md); para usarlo, al [inicio rápido](./QUICK_START.md).
 
-**Versión:** v0.5.2
+**Versión:** v0.6.0
 
 ---
 
@@ -13,11 +13,14 @@ flowchart LR
     CC[🖥️ Claude Code<br/>HTTPS_PROXY=:8899] -->|petición real| P
     subgraph P[mitmdump en 127.0.0.1:8899 · addons desde snapshot]
         direction TB
-        L[📝 klaus_file_log] --> S[🔐 pseudonymize]
+        L[📝 klaus_file_log] --> TP[🔓 tls_passthrough]
+        TP --> S[🔐 pseudonymize]
         S --> C[📸 capture]
         C --> G[🚧 pseudo_guard]
     end
     P -->|petición pseudonimizada| A[🌐 api.anthropic.com]
+    O2[🧰 pip · git · brew…<br/>HTTPS_PROXY=:8899] -->|TLS| P
+    P -->|túnel sin descifrar| W[🌐 resto de hosts]
     A -->|respuesta con seudónimos| P
     P -->|respuesta restaurada| CC
     C --> O[(captures/original)]
@@ -25,7 +28,7 @@ flowchart LR
     S <--> V[(vault)]
 ```
 
-El proxy es `mitmdump` (mitmproxy) con **cuatro addons**, lanzado por `claude-proxy`. Solo escucha en loopback. Todo el estado vive en `~/.klaus-proxy/` y la CA en `~/.mitmproxy/`.
+El proxy es `mitmdump` (mitmproxy) con **cinco addons**, lanzado por `claude-proxy`. Solo escucha en loopback. Todo el estado vive en `~/.klaus-proxy/` y la CA en `~/.mitmproxy/`.
 
 ---
 
@@ -34,7 +37,7 @@ El proxy es `mitmdump` (mitmproxy) con **cuatro addons**, lanzado por `claude-pr
 1. **Configuración** (`setup.py`): crea `~/.klaus-proxy/config.json` con una SALT aleatoria si no existe, y exporta la SALT al entorno de `mitmdump`.
 2. **Org/repo y carpeta de proyectos**: si se arranca dentro de un repo, guarda su org/repo en `pseudo_word_literals` (#61) y añade un `pseudo_patterns` para la carpeta que lo contiene (#42).
 3. **Certificados** (`certs.py`): genera la CA de mitmproxy si falta, y escribe `ca-bundle.pem` (CAs del sistema + CA del proxy) y `klaus-env.sh`.
-4. **Snapshot de addons** (`addons_snapshot.py`, #71): copia los cuatro addons a `~/.klaus-proxy/addons/<hash>/` (ficheros `0400`). mitmproxy recarga los scripts cuando cambian en disco; ejecutarlos desde el clon permitía que un `git checkout` cambiase o rompiese el pseudonimizador en marcha.
+4. **Snapshot de addons** (`addons_snapshot.py`, #71): copia los cinco addons a `~/.klaus-proxy/addons/<hash>/` (ficheros `0400`). mitmproxy recarga los scripts cuando cambian en disco; ejecutarlos desde el clon permitía que un `git checkout` cambiase o rompiese el pseudonimizador en marcha.
 5. **Panel de arranque**: commit de los addons, org/repo protegidos y `pseudo_patterns` activos.
 6. **`mitmdump`** con los addons en este orden y `--listen-host` en loopback (#47). Ctrl+C o SIGTERM lo paran limpiamente (#51).
 
@@ -46,9 +49,21 @@ El proxy es `mitmdump` (mitmproxy) con **cuatro addons**, lanzado por `claude-pr
 
 Primero, para registrar también lo que los demás registran al cargar. Escribe `~/.klaus-proxy/logs/proxy.log` (o `KLAUS_LOG_DIR`), sin colores, rotado 5 MB × 5, con una línea por petición.
 
+### 🔓 `klaus_tls_passthrough.py` (#116)
+
+Decide en el ClientHello de cada conexión TLS si se descifra:
+
+- **Se descifran** `anthropic.com`, `claude.ai` y sus subdominios, los `hosts` de `config.json` (o `ANTHROPIC_PSEUDO_HOSTS` / `ANTHROPIC_CAPTURE_HOSTS`) y el host de `ANTHROPIC_BASE_URL` (del entorno o de `~/.claude/settings.json`). Pasan por los addons siguientes como siempre.
+- **El resto va en túnel** (`ignore_connection`): mitmproxy reenvía los bytes sin descifrar y el cliente ve el certificado real del servidor, así que pip, git, brew o gh no dan errores de certificado aunque no confíen en la CA del proxy. En `proxy.log` queda `TÚNEL host:puerto (sin descifrar)`: host y hora, no contenido.
+
+Al cargar registra `🔓 Se descifra solo: …`. `"intercept_all": true` en `config.json` o `KLAUS_INTERCEPT_ALL=1` lo descifran todo, como antes de v0.6.0.
+
+- **Si no carga,** mitmproxy lo descifra todo: falla hacia el lado seguro (errores de certificado en otras herramientas, nunca tráfico de la API sin pseudonimizar).
+- **Contrapartida:** la defensa de «host desconocido con ruta de LLM» del pseudonimizador solo ve lo descifrado. Un gateway LLM que no esté en `hosts` ni en `ANTHROPIC_BASE_URL` iría en túnel sin pseudonimizar.
+
 ### 🔐 `anthropic_payload_pseudonymize.py`
 
-**Petición** (hosts de `hosts` en `config.json`, por defecto `api.anthropic.com`; un host desconocido con ruta de LLM también se pseudonimiza, con un aviso). Recorre el JSON y aplica a cada texto, en este orden:
+**Petición** (hosts de `hosts` en `config.json`, por defecto `api.anthropic.com`; un host desconocido con ruta de LLM también se pseudonimiza, con un aviso, si se descifra: ver `klaus_tls_passthrough`). Recorre el JSON y aplica a cada texto, en este orden:
 
 | # | Regla | Resultado | Reversible |
 | --- | --- | --- | --- |
