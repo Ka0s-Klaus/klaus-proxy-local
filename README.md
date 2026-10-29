@@ -6,9 +6,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.5.0-green)](./docs/RELEASE_v0.5.0_NOTES.md)
-[![Tests](https://img.shields.io/badge/tests-487%20passed-brightgreen)](./docs/FIX_SUMMARY.md)
-[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.5.0_NOTES.md)
+[![Version](https://img.shields.io/badge/version-0.5.1-green)](./docs/RELEASE_v0.5.1_NOTES.md)
+[![Tests](https://img.shields.io/badge/tests-634%20passed-brightgreen)](./docs/FIX_SUMMARY.md)
+[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.5.1_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
 
@@ -56,7 +56,7 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.5.0)
+## 🚀 Inicio rápido (v0.5.1)
 
 > ℹ️ El paquete **no está publicado en PyPI**: se instala desde el repositorio con
 > `install.sh` (macOS y Linux, Python ≥ 3.13; en macOS lo instala vía Homebrew si falta).
@@ -383,6 +383,14 @@ If you enabled auto-startup but want to disable it:
 
 ## 📦 Releases
 
+### v0.5.1 — Avisos de prompt injection detallados y accionables ✅
+- 🔐 Cada aviso del audit dashboard muestra origen, fuente, fragmento, captura e id; un texto reenviado cuenta una vez (#86)
+- 🧭 Indicaciones a seguir y `klaus-audit-dashboard --mark-reviewed` para los falsos positivos (#88)
+- 🐛 El repo ya no dispara su propio detector; rutas largas y `</script>` corregidos (#86, #88)
+- ✅ **634 tests passing** en Python 3.10–3.13
+
+[📖 Release Notes](./docs/RELEASE_v0.5.1_NOTES.md)
+
 ### v0.5.0 — Protección de cualquier proyecto, guardián fail-closed e histórico del dashboard ✅
 - 🛡️ **Org/repo y carpetas de proyectos protegidos** sin configurar nada: aprendidos de cada petición, `pseudo_patterns` y usuarios en rutas (#42, #61, #63, #65)
 - 🚧 **Guardián fail-closed + snapshot inmutable de addons**: un `checkout` ya no cambia ni rompe el pseudonimizador en marcha (#71)
@@ -475,7 +483,7 @@ Release notes no conservadas en `docs/`.
 | [🛠️ Troubleshooting](./docs/TROUBLESHOOTING.md) | Solución de problemas comunes |
 | [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
 | [📊 Executive Summary](./docs/EXECUTIVE_SUMMARY.md) | Estado actual del sistema |
-| [🚀 Release v0.5.0](./docs/RELEASE_v0.5.0_NOTES.md) | Notas de la última release |
+| [🚀 Release v0.5.1](./docs/RELEASE_v0.5.1_NOTES.md) | Notas de la última release |
 
 ---
 
@@ -625,12 +633,12 @@ Ver sección anterior: [📚 Documentación](#-documentación)
 ## 🧪 Tests
 
 ```bash
-pytest -q          # 625 passed, 3 skipped (v0.5.0)
+pytest -q          # 634 passed, 3 skipped (v0.5.1)
                    # Includes: capture, pseudonymize, guard, verify, audit, dashboard, vault
 ```
 
 ### Test Coverage
-- ✅ **625 tests passing** en Python 3.10–3.13 (CI)
+- ✅ **634 tests passing** en Python 3.10–3.13 (CI)
 - ✅ Security tests for vault + pseudonymization
 - ✅ Integration tests for audit workflows
 - ✅ Unit tests for all components

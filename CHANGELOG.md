@@ -9,8 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.5.1] — 2026-10-29
+
 ### Changed
-- **Detalle de los avisos de prompt injection en el audit dashboard** (#86) — Antes solo se mostraba la hora de la captura. Ahora cada aviso indica patrones, origen (mensaje del usuario, resultado de una herramienta con su nombre o `count_tokens`), un fragmento con la coincidencia resaltada, endpoint y fichero de la captura. Un mismo texto reenviado en el historial cuenta una vez, con el número de peticiones en que aparece. El JSON incrustado en la página escapa `<` para que un fragmento con `</script>` no rompa el HTML. Cada aviso tiene un id, la fuente del texto (fichero, URL o comando de la herramienta) y debajo las indicaciones a seguir. `klaus-audit-dashboard --mark-reviewed ID… --note "…"` guarda los falsos positivos en `audit_injection_reviewed` de `config.json` y dejan de contar. Los patrones usan `\s+` y los tests construyen las frases por partes, así que leer el código, los tests o la doc del detector ya no lo dispara.
+- **Avisos de prompt injection detallados y accionables en el audit dashboard** (#86, #88) — Antes solo se mostraba la hora de la captura. Ahora cada aviso indica patrones, origen (mensaje del usuario, resultado de una herramienta con su nombre o `count_tokens`), la fuente del texto (fichero, URL o comando), un fragmento con la coincidencia resaltada, endpoint, fichero de la captura e id. Un mismo texto reenviado en el historial cuenta una vez, con el número de peticiones en que aparece. Debajo, las indicaciones a seguir según sea falso positivo o sospechoso.
+
+### Added
+- **`klaus-audit-dashboard --mark-reviewed ID… --note "…"`** (#88) — Guarda los avisos revisados en `audit_injection_reviewed` de `config.json` (escritura atómica, 0600). Dejan de contar para el estado del plan y se muestran plegados con su nota.
+
+### Fixed
+- **El repo disparaba su propio detector de injection** (#86) — El código, los tests y la documentación del detector contenían las frases literales, y cada lectura con Claude Code generaba un aviso nuevo. Los patrones usan ahora `\s+` entre palabras y los tests construyen las frases por partes; un test lo comprueba.
+- **La fuente de un aviso se cortaba en rutas largas** (#88) — Se conserva el final de la ruta (el fichero); en comandos y URLs, el principio. Encontrado en una prueba controlada con un README con una instrucción oculta.
+- **El JSON incrustado en el dashboard escapa `<`** (#86) — Un fragmento con `</script>` cerraba el bloque `<script>` y rompía la página.
 
 ---
 
