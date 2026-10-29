@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Detalle de los avisos de prompt injection en el audit dashboard** (#86) — Antes solo se mostraba la hora de la captura. Ahora cada aviso indica patrones, origen (mensaje del usuario, resultado de una herramienta con su nombre o `count_tokens`), un fragmento con la coincidencia resaltada, endpoint y fichero de la captura. Un mismo texto reenviado en el historial cuenta una vez, con el número de peticiones en que aparece. El JSON incrustado en la página escapa `<` para que un fragmento con `</script>` no rompa el HTML.
+
 ---
 
 ## [0.5.0] — 2026-10-29
