@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Un `config.json` ilegible desactivaba en silencio las reglas del usuario** (#121) — Si `~/.klaus-proxy/config.json` no se podía leer o no era JSON válido, el pseudonimizador descartaba `pseudo_literals`, `pseudo_word_literals` y `pseudo_patterns` sin dejar rastro. Ahora lo avisa en el log (`config.json ilegible`). El dashboard de auditoría también avisa al leer los hosts esperados. Cierra las alertas de CodeQL `py/empty-except` #62 y #63.
 - **La captura ignoraba `hosts` de `config.json`** (#119) — Solo leía `ANTHROPIC_CAPTURE_HOSTS` o una lista fija, así que un host añadido a `hosts` (un gateway LLM, o la telemetría de Claude Code para auditarla) se descifraba y pseudonimizaba pero no dejaba pares `original/` + `sent/`. Ahora usa las mismas fuentes que el pseudonimizador: `ANTHROPIC_CAPTURE_HOSTS` / `ANTHROPIC_PSEUDO_HOSTS`, `hosts` de `config.json` y `api.anthropic.com`. La lista fija ya no incluye el gateway de ejemplo.
 
 ---

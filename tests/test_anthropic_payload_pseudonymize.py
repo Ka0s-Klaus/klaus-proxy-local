@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import stat
 
@@ -1088,6 +1089,18 @@ def test_build_rules_reads_pseudo_patterns_from_config(tmp_path, monkeypatch):
     rules = ps.build_rules()
     assert len(rules.patterns) == 1
     assert rules.patterns[0][1] == "dir"
+
+
+def test_build_rules_warns_on_unreadable_config(tmp_path, monkeypatch, caplog):
+    # #121: un config.json roto no puede descartar las reglas en silencio
+    home = tmp_path / "home"
+    (home / ".klaus-proxy").mkdir(parents=True)
+    (home / ".klaus-proxy" / "config.json").write_text("{no json")
+    monkeypatch.setattr(ps.Path, "home", lambda: home)
+    with caplog.at_level(logging.WARNING, logger="klaus.pseudo"):
+        rules = ps.build_rules()
+    assert "config.json ilegible" in caplog.text
+    assert rules.word_literals is not None
 
 
 def test_add_pattern_to_config_is_idempotent(tmp_config):

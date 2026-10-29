@@ -35,6 +35,7 @@ import functools
 import getpass
 import hashlib
 import json
+import logging
 import os
 import re
 import sys
@@ -852,8 +853,13 @@ def build_rules() -> Rules:
             pattern_ignore = [
                 v for v in _cfg.get("pseudo_pattern_ignore") or [] if isinstance(v, str)
             ]
-    except Exception:
-        pass
+    except (OSError, ValueError, AttributeError, TypeError) as exc:
+        # Se sigue con las reglas integradas y las de entorno, pero los valores
+        # protegidos en config.json no se aplican: hay que decirlo (#121)
+        logging.getLogger("klaus.pseudo").warning(
+            f"[anthropic-pseudo] WARN config.json ilegible ({exc}): no se aplican "
+            "pseudo_literals, pseudo_word_literals ni pseudo_patterns"
+        )
 
     # Después de los de config: éstos se escriben con la ruta real completa
     # (``/Users/u/proyectos/…``) y dejarían de casar si el usuario ya se hubiera
