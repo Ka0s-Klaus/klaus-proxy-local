@@ -318,7 +318,11 @@ class PseudonymizationDiagnostic:
 File: {self.config_file}
 
 """
-            output += json.dumps(config, indent=2)
+            # La SALT nunca se imprime: esta salida puede acabar en el contexto
+            # de un agente y salir hacia la API sin pseudonimizar (#106).
+            if config.get("salt"):
+                config["salt"] = f"«oculta, {len(str(config['salt']))} caracteres»"
+            output += json.dumps(config, indent=2, ensure_ascii=False)
 
             return output
         except Exception as e:
