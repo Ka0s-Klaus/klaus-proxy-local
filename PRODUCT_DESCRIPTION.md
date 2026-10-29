@@ -34,8 +34,9 @@ Todo funciona con **fail-closed**: si el pseudonimizador no ha procesado una pet
 - ✅ **Transparent**: Claude sigue viéndose igual; los tool calls funcionan sin cambios
 - ✅ **Detección de secretos en tu disco**: `klaus-scan` busca credenciales en un proyecto por patrones, contexto y entropía, y las añade a las reglas del proxy
 - ✅ **Auditable**: evidencia de captura original vs. enviada
+- ✅ **Sin errores de certificado en el resto de herramientas**: solo se descifra el tráfico de la API; pip, git o brew pasan en túnel con su certificado real y quedan registrados
 - ✅ **Sin configuración inicial**: `install.sh` genera certificados, SALT y configuración; al arrancar dentro de un repo protege su org/repo y la carpeta de proyectos
-- ✅ **Probado**: 670 tests en CI (Python 3.10–3.13), verificador de fugas por pares y audit dashboard
+- ✅ **Probado**: 699 tests en CI (Python 3.10–3.13), verificador de fugas por pares y audit dashboard
 
 ### Casos de uso
 
@@ -63,5 +64,7 @@ claude "tu pregunta aquí"
 # 4. Audita lo que ha salido
 klaus-audit-dashboard --open
 ```
+
+Atajos: `claude-with-proxy` hace el `source` y el `export` por ti; `klaus-setup` hace que cada terminal nueva arranque el proxy y exporte `HTTPS_PROXY`. Solo se descifra el tráfico de la API: el resto del HTTPS va en túnel, registrado y sin errores de certificado.
 
 ¿Listo para auditar todo lo que envía tu equipo?

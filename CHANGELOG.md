@@ -9,12 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.6.0] — 2026-10-29
+
 ### Added
 - **`klaus-setup` envía cada terminal nueva por el proxy** (#105) — El bloque que añade al shell (bash, zsh, fish) carga `klaus-env.sh`, arranca `claude-proxy` en segundo plano con `nohup` si no está en marcha (log en `~/.klaus-proxy/logs/autostart.log`) y ahora **exporta `HTTPS_PROXY`** (y `NO_PROXY` para loopback). Antes no lo exportaba y `claude` no pasaba por el proxy. Funciones `klaus-off`/`klaus-on` para quitarlo o restaurarlo en una terminal. Volver a ejecutar `klaus-setup` sustituye el bloque y el hook antiguo. PowerShell deja de estar soportado (Windows no lo está).
 - **Solo se descifra la API del LLM** (#116) — Nuevo addon `klaus_tls_passthrough`: descifra `anthropic.com`, `claude.ai`, los `hosts` de `config.json` y el host de `ANTHROPIC_BASE_URL`; el resto del HTTPS pasa en túnel con su certificado real (sin errores de certificado en pip, git, brew…) y queda registrado como `TÚNEL host:puerto` en `proxy.log`. `"intercept_all": true` en `config.json` o `KLAUS_INTERCEPT_ALL=1` descifran todo, como antes.
 - **`claude-with-proxy` funciona tras `install.sh`** (#105) — `install.sh` lo enlaza en `~/.local/bin`. Carga `klaus-env.sh` (antes faltaba `NODE_EXTRA_CA_CERTS` y Claude Code rechazaba el certificado) y se niega a ejecutar `claude` si el proxy no escucha.
 
 ### Changed
+- **Arquitectura, runbook, guía de uso y descripción del producto documentan el hook y el passthrough TLS** (#115): el addon `klaus_tls_passthrough`, las claves `hosts` e `intercept_all` y la variable `KLAUS_INTERCEPT_ALL`.
 - **Documentación revisada contra la funcionalidad real** (#98) — Reescritos el inicio rápido, la guía de uso, el entorno de desarrollo, el troubleshooting, la arquitectura y el diagnóstico de pseudonimización; corregidos el runbook, el README, `PRODUCT_DESCRIPTION.md`, `product.json`, `CONTRIBUTING.md`, `SECURITY.md` y las guías de auditoría y del vault. Fuera: instalación desde PyPI, opciones de `add_to_vault.py` y claves de `config.json` que no existen, la ruta `~/.klaus-proxy/../captures`, el formato antiguo del vault, `~/.klaus-proxy/.salt`, el monitor TUI y las funciones de shell no incluidas. Once documentos que describían versiones pasadas pasan a `docs/archive/`. Se sustituyen dos SALT de ejemplo con forma real.
 
 ### Fixed
