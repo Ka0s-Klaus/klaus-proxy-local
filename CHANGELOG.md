@@ -9,9 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- **Audit dashboard: el plan de tests fallaba con «No module named pytest»** (#82). El venv instalado no trae pytest; ahora se busca un intérprete con pytest (actual, `.venv` del repo o `uv`) y, si no hay, el plan sale ⬜ Sin datos con instrucciones en vez de ⚠️. El timeout sube a 300 s.
-
 ---
 
 ## [0.5.0] — 2026-10-29
@@ -30,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`anthropic-pair-verify` 7 veces más rápido** (#73) — Con ~920 pares pasa de 71 s a ~9 s con una salida idéntica. Las capas email/IPv4 de #59 aplicaban los regex a cada cadena por separado, cuatro veces por par, y las sesiones largas reenvían el historial: solo el ~2 % de las cadenas son distintas. Ahora hay un prefiltro (`@` para email, `.` para IPv4), una caché por cadena, un solo recorrido por registro y el payload del `sent` se serializa una vez.
 
 ### Fixed
+- **Audit dashboard: el plan de tests fallaba con «No module named pytest»** (#82) — El venv instalado no trae pytest; ahora se busca un intérprete con pytest (actual, `.venv` del repo o `uv`) y, si no hay, el plan sale ⬜ Sin datos con instrucciones en vez de ⚠️. El timeout sube a 300 s.
 - **Claude Code fallaba con `UNABLE_TO_VERIFY_LEAF_SIGNATURE`** (#51) — `klaus-env.sh` dejaba `NODE_EXTRA_CA_CERTS` comentado y el launcher solo lo ponía en el entorno de `mitmdump`, no en el del cliente. Ahora `klaus-env.sh` lo exporta. Se elimina `NODE_TLS_REJECT_UNAUTHORIZED=0`, que no tenía efecto.
 - **Ctrl+C dejaba `claude-proxy` colgado** (#51) — El handler de señales esperaba al hijo mientras el hilo principal ya estaba en `Popen.wait()` con su lock no reentrante (interbloqueo en Python 3.15). Además, un SIGTERM durante el arranque dejaba `mitmdump` huérfano. El apagado se hace ahora fuera del handler y SIGTERM se captura desde el inicio.
 - **`klaus-env.sh` rompía HTTPS fuera del proxy** (#53) — `SSL_CERT_FILE`, `CURL_CA_BUNDLE`, `REQUESTS_CA_BUNDLE` y `GIT_SSL_CAINFO` apuntaban solo a la CA de mitmproxy y sustituían el almacén de CAs (Python/`httpx`/OpenSSL fallaban con cualquier web que no pasase por el proxy; también curl/git en Linux). Ahora apuntan a `~/.klaus-proxy/ca-bundle.pem` (CAs del sistema + CA del proxy), que se regenera en cada arranque.

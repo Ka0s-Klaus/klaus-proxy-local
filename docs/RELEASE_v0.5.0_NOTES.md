@@ -64,6 +64,7 @@ klaus-audit-dashboard --open
 - **La versión de Claude Code se tomaba por una IP** (#57): `cc_version=2.1.312.625` salía como `ip_…`.
 - **Claude Code fallaba con `UNABLE_TO_VERIFY_LEAF_SIGNATURE`** y **Ctrl+C dejaba colgado `claude-proxy`** (#51).
 - **`klaus-env.sh` rompía HTTPS fuera del proxy** (#53): ahora usa `ca-bundle.pem` (CAs del sistema + CA del proxy).
+- **El plan de tests del dashboard fallaba con «No module named pytest»** (#82): el venv instalado no trae pytest. Ahora usa el `.venv` del repo o `uv` y, si no hay ninguno, sale ⬜ con instrucciones.
 - **`anthropic-pair-verify`**: sin falsos positivos de IPv4/email (#59) y **7× más rápido** (#73).
 
 ## 📝 Limitaciones conocidas
@@ -73,7 +74,7 @@ klaus-audit-dashboard --open
 
 ## 🧪 Calidad
 
-- 619 tests passed, 3 skipped (+132 desde v0.4.0). CI en Python 3.10, 3.11, 3.12 y 3.13; CodeQL sin alertas.
+- 625 tests passed, 3 skipped (+138 desde v0.4.0). CI en Python 3.10, 3.11, 3.12 y 3.13; CodeQL sin alertas.
 - Cada corrección se verificó contra capturas reales y, cuando afectaba al proxy, con un `mitmdump` de prueba o con `claude -p` a través del proxy.
 - Documentación revisada (#79): runbook, dashboard, README y 21 enlaces rotos.
 
