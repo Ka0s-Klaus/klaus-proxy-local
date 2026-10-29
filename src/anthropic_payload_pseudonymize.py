@@ -617,6 +617,29 @@ def add_word_literals_to_config(
     return _add_to_config_list("pseudo_word_literals", tokens, path)
 
 
+# Un valor de un solo token (``acme-corp``, ``proyecto.x``) se protege con
+# frontera de palabra; con espacios o barras, como literal substring.
+_WORD_TOKEN_RE = re.compile(r"[\w.@-]+")
+
+
+def add_protected_values_to_config(
+    values: list[str], path: Path | None = None
+) -> list[str]:
+    """Añade ``values`` a las reglas de config.json para que se seudonimicen (#99).
+
+    El vault solo guarda el seudónimo de un valor que ya casa con una regla:
+    un valor que solo está en el vault sale en claro. Los tokens van a
+    ``pseudo_word_literals``; el resto, a ``pseudo_literals``. Devuelve los
+    añadidos. El proxy los aplica al reiniciarse.
+    """
+    values = [v.strip() for v in values if v and v.strip()]
+    words = [v for v in values if _WORD_TOKEN_RE.fullmatch(v)]
+    literals = [v for v in values if v not in words]
+    added_words, _ = _add_to_config_list("pseudo_word_literals", words, path)
+    added_literals, _ = _add_to_config_list("pseudo_literals", literals, path)
+    return added_words + added_literals
+
+
 def add_pattern_to_config(
     entry: dict[str, str], path: Path | None = None
 ) -> tuple[bool, list[dict[str, str]]]:

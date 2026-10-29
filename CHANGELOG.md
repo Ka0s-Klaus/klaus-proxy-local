@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Los valores añadidos solo al vault no se pseudonimizaban** (#99) — `scripts/add_to_vault.py`, `klaus-scan --approve-all` y `auto_add_detected_leaks.py` escribían el valor solo en el vault, pero el proxy solo sustituye lo que casa con una regla: el valor seguía saliendo en claro. Ahora también lo añaden a `config.json` (`pseudo_word_literals` si es un único token, `pseudo_literals` si no) e indican que hay que reiniciar `claude-proxy`. Los tests ya no pueden escribir en el `config.json` real.
+
 ---
 
 ## [0.5.2] — 2026-10-29

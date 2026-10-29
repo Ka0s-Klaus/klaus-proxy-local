@@ -814,7 +814,9 @@ class VaultIntegration:
     def add_finding_to_vault(
         self, finding: SensitiveDataFinding, prefix: str = "secret"
     ) -> str:
-        """Add a finding to the vault as a reversible entry.
+        """Add a finding to the vault and to the proxy rules in config.json.
+
+        The proxy applies the new rule after a restart of ``claude-proxy``.
 
         Args:
             finding: The finding to add
@@ -826,6 +828,10 @@ class VaultIntegration:
         vault = self.get_vault()
         pseudo = vault.map(finding.value, prefix)
         vault.save()
+        # El vault solo no basta: sin regla, el proxy lo dejaría en claro (#99).
+        from anthropic_payload_pseudonymize import add_protected_values_to_config
+
+        add_protected_values_to_config([finding.value])
         return pseudo
 
     def check_already_in_vault(self, value: str) -> Optional[str]:
