@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`install.sh` exigía Python 3.13** (#101) — El paquete declara `requires-python >=3.10` y CI prueba 3.10–3.13, pero el instalador se detenía en Ubuntu 24.04 LTS (3.12), Debian 12 (3.11) o RHEL 9. Ahora acepta ≥ 3.10 y busca primero la versión más nueva; en macOS sigue instalando 3.13 con Homebrew si no hay ninguna. Si falta el módulo `venv` (Debian/Ubuntu sin `python3-venv`), indica el paquete que hay que instalar en vez de fallar a medias. Probado de principio a fin en Ubuntu 24.04.
+
 ---
 
 ## [0.5.2] — 2026-10-29
