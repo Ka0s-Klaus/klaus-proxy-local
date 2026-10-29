@@ -74,7 +74,7 @@ claude
 **Atajos:**
 
 - **`claude-with-proxy`** (instalado por `install.sh`): hace el `source` y el `export` por ti, y se niega a lanzar `claude` si el proxy no está escuchando.
-- **`klaus-setup`**: añade a tu shell un bloque que, en cada terminal nueva, carga `klaus-env.sh`, arranca `claude-proxy` en segundo plano si no está en marcha y exporta `HTTPS_PROXY`. Así basta con `claude`. Ojo: **todo** el HTTPS de la terminal pasa por el proxy (pip, git…); si alguna herramienta no confía en su CA, usa `klaus-off` en esa terminal (`klaus-on` lo restaura). Detalle en el [README](../README.md#setup-options).
+- **`klaus-setup`**: añade a tu shell un bloque que, en cada terminal nueva, carga `klaus-env.sh`, arranca `claude-proxy` en segundo plano si no está en marcha y exporta `HTTPS_PROXY`. Así basta con `claude`. **Todo** el HTTPS de la terminal pasa por el proxy (pip, git…) y queda registrado, pero solo se descifra la API del LLM: el resto va en túnel con su certificado real, sin errores de certificado. `klaus-off` / `klaus-on` quitan o restauran el proxy en una terminal. Detalle en el [README](../README.md#setup-options).
 
 ---
 

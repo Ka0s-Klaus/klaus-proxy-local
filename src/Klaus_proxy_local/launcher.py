@@ -214,8 +214,9 @@ class ProxyLauncher:
 
         # Build mitmdump command
         # Addons must come BEFORE port, in ADDON_FILES order: file log first so
-        # it is attached when the others log on load (#55), pseudonymize
-        # (request rewrite), capture (evidence), guard last (fail-closed, #71)
+        # it is attached when the others log on load (#55), TLS passthrough for
+        # non-API hosts (#105), pseudonymize (request rewrite), capture
+        # (evidence), guard last (fail-closed, #71)
         # NOTE: No -q flag to show all logs with version prefix
         mitmdump_cmd = [mitm_executable("mitmdump")]
         for path in addon_paths:

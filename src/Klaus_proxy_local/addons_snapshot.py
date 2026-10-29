@@ -22,6 +22,7 @@ from pathlib import Path
 # on load), guard last (it checks what the pseudonymizer did).
 ADDON_FILES = (
     "klaus_file_log.py",
+    "klaus_tls_passthrough.py",
     "anthropic_payload_pseudonymize.py",
     "anthropic_payload_capture.py",
     "klaus_pseudo_guard.py",
