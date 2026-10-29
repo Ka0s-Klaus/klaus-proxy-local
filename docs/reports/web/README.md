@@ -34,6 +34,8 @@ python3 scripts/generate_audit_dashboard.py \
 | `--reports-dir` | Histórico de informes | `informes/` del repo |
 | `--output` | Copia adicional del último dashboard, con enlaces relativos al histórico | — |
 | `--open` | Abre `audit-dashboard.html` en el navegador | off |
+| `--mark-reviewed ID…` | Marca avisos de prompt injection como revisados y genera el informe | — |
+| `--note` | Nota que se guarda con `--mark-reviewed` | vacía |
 
 > ⏱️ El plan de tests ejecuta `pytest` completo, así que cada auditoría tarda unos segundos.
 >
@@ -88,16 +90,39 @@ Debajo de las tarjetas, cada informe muestra en qué se diferencia del inmediata
 
 ### 🔐 Patrones de prompt injection
 
-El plan de seguridad busca frases típicas de prompt injection (`ignore previous instructions`, `jailbreak`, `you are now`…) en los mensajes de rol `user`: lo que escribe el usuario y **los resultados de herramientas** (ficheros leídos, salidas de comandos, webs), que es por donde entra un injection real. El system prompt no se analiza.
+El plan de seguridad busca las frases típicas de prompt injection (la lista está en `INJECTION_PATTERNS`, en el generador) en los mensajes de rol `user`. Se analiza lo que escribe el usuario y también **los resultados de herramientas** (ficheros leídos, salidas de comandos, webs), porque es por donde entra un injection real. El system prompt no se analiza.
 
 Cada aviso muestra:
 
 - hora y fichero de la captura, y endpoint;
 - patrones encontrados y **origen**: «mensaje del usuario», «resultado de Read/Bash/WebFetch…» o «contenido enviado a count_tokens»;
+- la **fuente** de un resultado de herramienta: el fichero, la URL o el comando que lo produjo;
 - un fragmento con la primera coincidencia resaltada;
-- en cuántas peticiones aparece: las sesiones reenvían el historial, así que un mismo texto cuenta **una sola vez**.
+- en cuántas peticiones aparece: las sesiones reenvían el historial, así que un mismo texto cuenta **una sola vez**;
+- su **id** y el comando para marcarlo como revisado.
 
-Un aviso no implica un ataque. Si el fragmento es código o documentación que habla de injection (por ejemplo, este mismo generador, que contiene la lista de patrones), es un falso positivo.
+Debajo de los avisos, el dashboard indica qué hacer en cada caso.
+
+#### Qué hacer con un aviso
+
+1. **Mira el origen y el fragmento.** Un aviso no implica un ataque. Si es código, documentación o una conversación *sobre* prompt injection, es un falso positivo.
+2. **Falso positivo:** márcalo como revisado y deja de contar para el estado del plan:
+
+   ```bash
+   klaus-audit-dashboard --mark-reviewed 3f9c0a1b2d4e 7a8b9c0d1e2f --note "doc del detector"
+   ```
+
+   Los ids se guardan con la nota en `audit_injection_reviewed` de `~/.klaus-proxy/config.json`. El dashboard los muestra plegados en «✔️ N avisos marcados como revisados». Para que un aviso vuelva a contar, borra su entrada.
+3. **Sospechoso** (un fichero, una web o una salida de comando que da órdenes a Claude):
+   - no sigas trabajando en esa sesión de Claude Code;
+   - localiza la fuente: el *Origen* del aviso o la captura indicada en `~/.klaus-proxy/captures/original/`;
+   - revisa lo que hizo Claude después de leerla (`git status`, `git diff`, comandos ejecutados) y deshaz lo que no hayas pedido;
+   - elimina o aísla la fuente (fichero, dependencia, URL) y, si pudo exponer credenciales, rótalas;
+   - cuando esté resuelto, márcalo como revisado con una nota.
+
+#### Por qué el repo no dispara el detector
+
+El código, los tests y esta documentación no contienen las frases literales. Los patrones usan `\s+` entre palabras, y los tests las construyen por partes. Si las contuvieran, cada vez que Claude Code leyera esos ficheros a través del proxy aparecería un aviso nuevo, y además distinto en cuanto el fichero cambiara. Un test (`test_detector_sources_do_not_trigger_detector`) lo comprueba.
 
 ## 🔄 Flujo de trabajo recomendado
 
