@@ -10,6 +10,7 @@ Usage:
 """
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Dict, Optional
@@ -34,6 +35,7 @@ class PseudonymizationDiagnostic:
         self.config_file = self.config_dir / "config.json"
 
         self.non_pseudonymized = []
+        self.no_body = []
         self.pseudonymized = []
 
     def load_payloads(self) -> int:
@@ -55,14 +57,19 @@ class PseudonymizationDiagnostic:
                         "path": file_path,
                     }
 
-                    if data.get("pseudonymized"):
+                    # pseudo_ran: el pseudonimizador procesó la petición, haya
+                    # cambiado algo o no. Sin cuerpo (GET…) no hay nada que
+                    # pseudonimizar (#110).
+                    if data.get("pseudonymized") or data.get("pseudo_ran"):
                         self.pseudonymized.append(payload)
+                    elif data.get("method") in ("GET", "HEAD", "OPTIONS", "DELETE"):
+                        self.no_body.append(payload)
                     else:
                         self.non_pseudonymized.append(payload)
             except (json.JSONDecodeError, IOError):
                 pass
 
-        return len(self.non_pseudonymized) + len(self.pseudonymized)
+        return len(self.non_pseudonymized) + len(self.pseudonymized) + len(self.no_body)
 
     def analyze_non_pseudonymized(self) -> Dict:
         """Analyze why payloads are NOT pseudonymized.
@@ -110,12 +117,19 @@ class PseudonymizationDiagnostic:
             except (json.JSONDecodeError, IOError) as e:
                 return {"error": f"Cannot read config: {e}"}
 
+        # Claves que usa de verdad el proxy (#110).
+        rules_count = sum(
+            len(config.get(key) or [])
+            for key in ("pseudo_literals", "pseudo_word_literals", "pseudo_patterns")
+        )
         return {
             "config_file": str(self.config_file),
             "exists": self.config_file.exists(),
-            "pseudonymization_enabled": config.get("pseudonymization_enabled", True),
+            # Interruptor por entorno: con 0, las peticiones salen sin pseudonimizar.
+            "enabled": os.environ.get("ANTHROPIC_PSEUDO_ENABLE", "1") != "0",
             "salt_set": bool(config.get("salt")),
-            "patterns_count": len(config.get("patterns", {})),
+            "hosts": list(config.get("hosts") or ["api.anthropic.com"]),
+            "rules_count": rules_count,
         }
 
     def generate_diagnostic_report(self) -> str:
@@ -136,16 +150,18 @@ class PseudonymizationDiagnostic:
 📊 PAYLOAD STATUS
 {'─' * 60}
   Total Payloads:             {total}
-  Pseudonymized:              {len(self.pseudonymized)} ({len(self.pseudonymized)/total*100:.1f}%)
-  NOT Pseudonymized:          {len(self.non_pseudonymized)} ({len(self.non_pseudonymized)/total*100:.1f}%)
+  Processed by pseudonymizer: {len(self.pseudonymized)} ({len(self.pseudonymized)/total*100:.1f}%)
+  Without body (GET…):        {len(self.no_body)} ({len(self.no_body)/total*100:.1f}%)
+  NOT processed (with body):  {len(self.non_pseudonymized)} ({len(self.non_pseudonymized)/total*100:.1f}%)
 
 ⚙️  CONFIGURATION
 {'─' * 60}
   Config File:                {config.get('config_file')}
   Exists:                     {config.get('exists')}
-  Pseudonymization Enabled:   {config.get('pseudonymization_enabled')}
+  ANTHROPIC_PSEUDO_ENABLE:    {'1' if config.get('enabled') else '0'} (this shell)
   SALT Set:                   {config.get('salt_set')}
-  Patterns Count:             {config.get('patterns_count')}
+  Audited hosts:              {', '.join(config.get('hosts') or [])}
+  Custom rules:               {config.get('rules_count')} (pseudo_literals + pseudo_word_literals + pseudo_patterns)
 
 """
 
@@ -188,28 +204,27 @@ class PseudonymizationDiagnostic:
         """
         recommendations = ""
 
-        # Check if pseudonymization is disabled
-        if not config.get("pseudonymization_enabled"):
+        if not config.get("exists") or not config.get("salt_set"):
             recommendations += (
-                "❌ Pseudonymization is DISABLED in config\n"
-                "   FIX: Enable in ~/.klaus-proxy/config.json\n"
-                '   Set: "pseudonymization_enabled": true\n\n'
+                "❌ config.json or its SALT is missing\n"
+                "   FIX: run ./install.sh or start claude-proxy once: it creates\n"
+                "   ~/.klaus-proxy/config.json with a random SALT\n\n"
             )
 
-        # Check SALT
-        if not config.get("salt_set"):
+        if not config.get("enabled"):
             recommendations += (
-                "❌ SALT is NOT SET - pseudonymization cannot work\n"
-                "   FIX: Run: python -m Klaus_proxy_local.setup\n"
-                "   This will generate a random SALT\n\n"
+                "⚠️  ANTHROPIC_PSEUDO_ENABLE=0 in this shell\n"
+                "   If claude-proxy was started with it, requests leave\n"
+                "   WITHOUT pseudonymization. Restart claude-proxy without it.\n\n"
             )
 
-        # Check patterns
-        if config.get("patterns_count", 0) == 0:
+        if config.get("rules_count", 0) == 0:
             recommendations += (
-                "⚠️  No pseudonymization patterns configured\n"
-                "   FIX: Check ~/.klaus-proxy/config.json\n"
-                "   Should have: 'patterns': { 'email': ..., 'username': ... }\n\n"
+                "ℹ️  No custom rules in config.json\n"
+                "   Built-in rules still apply (paths, users, emails, IPs,\n"
+                "   secrets, org/repo of the repo where claude-proxy started).\n"
+                "   To protect your own values (clients, internal codes) add them\n"
+                "   to pseudo_word_literals / pseudo_literals and restart claude-proxy.\n\n"
             )
 
         # Analyze hosts not being pseudonymized
@@ -228,21 +243,21 @@ class PseudonymizationDiagnostic:
                 "   These might be intentional (internal logs, monitoring)\n"
                 "   HOSTS: " + ", ".join(non_pseudonymized_hosts[:3]) + "\n"
                 "   SOLUTION: Check if these should be pseudonymized\n"
-                "   - If YES: Update ANTHROPIC_CAPTURE_HOSTS\n"
+                '   - If YES: add them to "hosts" in config.json and restart claude-proxy\n'
                 "   - If NO: Safe to ignore\n\n"
             )
 
-        if not recommendations:
+        if not non_pseudonymized_hosts:
             recommendations += (
-                "✅ No obvious pseudonymization issues detected\n"
-                "   Non-pseudonymized payloads might be:\n"
-                "   • Internal/monitoring requests (Datadog, etc.)\n"
-                "   • Internal corporate gateways\n"
-                "   • System requests not requiring pseudonymization\n"
-                "   \n"
-                "   TO INVESTIGATE FURTHER:\n"
-                "   Run: python fix_pseudonymization.py --show-payloads\n"
-                "   Review the detailed payload list\n"
+                "✅ Every request with a body went through the pseudonymizer\n"
+                "   To check that nothing left in clear, compare original vs sent:\n"
+                "   python3 src/anthropic_pair_verify.py   (from the repo clone)\n"
+            )
+        elif not recommendations:
+            recommendations += (
+                "⚠️  Some requests with a body were NOT processed\n"
+                "   Run: klaus-fix-pseudonymization --show-payloads\n"
+                "   and check the claude-proxy log (~/.klaus-proxy/logs/proxy.log)\n"
             )
 
         return recommendations
