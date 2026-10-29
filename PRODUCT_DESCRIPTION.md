@@ -21,7 +21,7 @@ Klaus Proxy Local corre **localmente en tu máquina** (puerto 8899) y hace tres 
 1. **Captura**. Registra exactamente qué sale de tu equipo (para auditoría)
 2. **Pseudonimiza en vuelo**. Antes de que viaje, reemplaza datos sensibles por seudónimos reversibles:
    - `ana.garcia@empresa.example` → `email_16b8b260`
-   - `/Users/<usuario>/proyectos/` → `_u_0f284a1e`
+   - `~/proyectos/` → `_u_0f284a1e`
    - `https://github.com/...?token=ghp_xyz` → `url_9c2f5a7d`
 3. **Revierte en respuesta**. Cuando Claude responde, los seudónimos se convierten de vuelta a valores reales, así tus tool calls y el contexto siguen siendo operativos.
 

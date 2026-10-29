@@ -127,7 +127,7 @@ Vault breakdown by type:
               → ... and 39 more
 
   path           45 entries
-              → /Users/<usuario>/proyectos/cliente-x-b2b
+              → ~/proyectos/cliente-x-b2b
               → /Users/usuario
               → ... and 43 more
 
@@ -176,7 +176,7 @@ python3 audit_captures.py --review
   Potentially sensitive in original but NOT in sent:
     • ana.garcia@empresa.example
       → NOT in vault. Add? (A/S/C)
-    • /Users/<usuario>/proyectos/cliente-x-b2b
+    • ~/proyectos/cliente-x-b2b
       → Already in vault ✓
     • equipo@cliente-x.example
       → NOT in vault. Add? (A/S/C)
@@ -205,7 +205,7 @@ python3 audit_captures.py --review
 ### Ejemplo Completo:
 
 ```bash
-cd /Users/<usuario>/proyectos/klaus-proxy-local
+cd ~/proyectos/klaus-proxy-local
 
 # Terminal 1: Ver estadísticas
 python3 audit_captures.py --stats
@@ -340,7 +340,7 @@ Después de ejecutar audit_captures.py:
 
 ### Ejemplo 1: Auditoría Rápida (5 minutos)
 ```bash
-cd /Users/<usuario>/proyectos/klaus-proxy-local
+cd ~/proyectos/klaus-proxy-local
 
 # 1. Estadísticas
 python3 audit_captures.py --stats

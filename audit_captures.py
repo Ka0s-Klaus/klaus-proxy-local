@@ -174,8 +174,10 @@ def find_leaks():
         print(f"⚠️  Found {len(leaks_found)} potential leaks:\n")
         for leak in leaks_found[:15]:  # Show first 15
             print(f"  {leak['type']:12} | {leak['value']}")
-        print("\n💡 Action: Add these to vault with:")
-        print("  python scripts/add_to_vault.py . --manual")
+        print("\n💡 Acción: si son valores reales,")
+        print("  añádelos a pseudo_word_literals o pseudo_literals de")
+        print("  ~/.klaus-proxy/config.json (o: python3 auto_add_detected_leaks.py)")
+        print("  y reinicia claude-proxy")
     else:
         print("✅ No CRITICAL leaks detected in sample\n")
         print("   (UUIDs and API paths are expected in sent/)\n")
@@ -251,9 +253,7 @@ def interactive_review():
 
         # Filter for likely sensitive data
         sensitive = [
-            s
-            for s in missing_in_sent
-            if re.search(r"@|[\d\.]{7,}|/|_empresa", s, re.IGNORECASE)
+            s for s in missing_in_sent if re.search(r"@|[\d\.]{7,}|/", s, re.IGNORECASE)
         ]
 
         if sensitive and len(sensitive) <= 5:  # Manageable number

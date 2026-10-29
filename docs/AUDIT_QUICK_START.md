@@ -5,7 +5,7 @@
 ## 🚀 Ejecución Rápida
 
 ```bash
-cd /Users/<usuario>/proyectos/klaus-proxy-local
+cd ~/proyectos/klaus-proxy-local
 
 # Paso 1: Ver panorama
 python3 audit_captures.py --stats
