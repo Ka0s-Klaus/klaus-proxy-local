@@ -1147,3 +1147,85 @@ def test_build_rules_includes_user_dirs_last_and_can_disable(tmp_path, monkeypat
     assert [prefix for _p, prefix in rules.patterns] == ["dir", "user"]
     monkeypatch.setenv("ANTHROPIC_PSEUDO_USER_DIRS", "0")
     assert [prefix for _p, prefix in ps.build_rules().patterns] == ["dir"]
+
+
+# --- #92: valores que los patrones no deben seudonimizar ---------------------
+
+
+@pytest.mark.parametrize(
+    "value,prefix",
+    [
+        ("…", "user"),
+        ("...", "user"),
+        ("|", "user"),
+        ("u", "user"),
+        ("«X»", "user"),
+        ("{l}", "user"),
+        ("<u>", "user"),
+        ("$USER", "user"),
+        ("${USER}", "user"),
+        ("%USERNAME%", "user"),
+        ("Shared", "user"),
+        ("root", "user"),
+        ("…", "dir"),
+    ],
+)
+def test_ignorable_pattern_values(value, prefix):
+    assert ps.is_ignorable_pattern_value(value, prefix)
+
+
+@pytest.mark.parametrize(
+    "value,prefix",
+    [
+        ("ana.lopez", "user"),
+        ("deploy-bob", "user"),
+        ("user2", "user"),
+        ("jd", "user"),
+        ("Shared", "dir"),  # genérico solo como usuario, no como proyecto
+        ("cliente-x", "dir"),
+    ],
+)
+def test_real_looking_values_are_not_ignorable(value, prefix):
+    assert not ps.is_ignorable_pattern_value(value, prefix)
+
+
+def test_user_dirs_pattern_leaves_placeholders_and_vault_clean():
+    rules = _with_user_dirs(ps.Rules())
+    v = ps.Vault()
+    text = "Rutas: /Users/…/x, /Users/|/y, /home/u/z, /Users/Shared/t y /Users/{l}/w"
+    assert ps.pseudonymize_text(text, v, rules) == text
+    assert v.to_dict() == {}
+
+
+def test_pattern_ignore_list_from_config(tmp_path, monkeypatch):
+    # No usar el usuario de la máquina (en GitHub Actions es "runner"):
+    # build_rules() protege siempre el home real como prefijo de ruta.
+    home = tmp_path / "home"
+    (home / ".klaus-proxy").mkdir(parents=True)
+    (home / ".klaus-proxy" / "config.json").write_text(
+        json.dumps({"pseudo_pattern_ignore": ["ejemplo-ci", 7]})
+    )
+    monkeypatch.setattr(ps.Path, "home", lambda: home)
+    rules = ps.build_rules()
+    assert rules.pattern_ignore == frozenset({"ejemplo-ci"})
+    v = ps.Vault()
+    out = ps.pseudonymize_text("/home/ejemplo-ci/work y /home/ana.lopez/x", v, rules)
+    assert "/home/ejemplo-ci/work" in out and "ana.lopez" not in out
+    assert "ejemplo-ci" not in v.to_dict()
+
+
+def test_prune_vault_removes_only_ignorable_pattern_entries():
+    rules = _with_user_dirs(ps.Rules(pattern_ignore=["run" + "ner"]))
+    v = ps.Vault.from_dict(
+        {
+            "\u2026": "user_00000001",
+            "|": "user_00000002",
+            "run" + "ner": "user_00000003",
+            "ana.lopez": "user_00000004",
+            "x": "org_00000005",  # no viene de un patrón activo: se queda
+        }
+    )
+    removed = ps.prune_vault(v, rules)
+    assert sorted(removed) == sorted(["\u2026", "|", "run" + "ner"])
+    assert set(v.to_dict()) == {"ana.lopez", "x"}
+    assert "user_00000001" not in v.pseudo_to_real

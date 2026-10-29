@@ -66,6 +66,7 @@ from anthropic_payload_pseudonymize import (
     _SECRET_RES,
     Rules,
     build_rules,
+    is_ignorable_pattern_value,
 )
 
 # --- Configuración ------------------------------------------------------------
@@ -323,8 +324,11 @@ def sensitive_spans(
     for word in rules.word_literals:
         add(word, "org")
     # pseudo_patterns (#42): con contexto, como email/IPv4.
-    for pattern, _prefix in rules.patterns:
+    for pattern, prefix in rules.patterns:
         for value in sorted(pattern_values(record, pattern)):
+            # Lo que el seudonimizador ignora a propósito no es una fuga (#92).
+            if is_ignorable_pattern_value(value, prefix, rules.pattern_ignore):
+                continue
             if len(value) >= _MIN_LEAK_LEN and value not in seen and value in text:
                 seen.add(value)
                 spans.append(Span(value, "pattern", pattern))
