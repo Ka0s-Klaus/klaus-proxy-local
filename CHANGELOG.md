@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Audit dashboard: el plan de tests fallaba con «No module named pytest»** (#82). El venv instalado no trae pytest; ahora se busca un intérprete con pytest (actual, `.venv` del repo o `uv`) y, si no hay, el plan sale ⬜ Sin datos con instrucciones en vez de ⚠️. El timeout sube a 300 s.
+
 ---
 
 ## [0.5.0] — 2026-10-29

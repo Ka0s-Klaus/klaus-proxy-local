@@ -237,3 +237,75 @@ def test_generator_keeps_history_and_shows_changes(generator, tmp_path):
     assert 'src="../informes/index.js"' in copy
     index = (reports / "index.js").read_text()
     assert index.count('"id"') == 2
+
+
+# ── Plan de tests: selección de intérprete (#82) ───────────────────────────
+
+
+@pytest.fixture
+def dashboard():
+    spec = importlib.util.spec_from_file_location(
+        "generate_audit_dashboard_plans",
+        ROOT / "scripts" / "generate_audit_dashboard.py",
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_pytest_command_prefers_current_interpreter(dashboard, tmp_path, monkeypatch):
+    mod = dashboard
+    monkeypatch.setattr(mod, "_has_pytest", lambda python: True)
+    assert mod._pytest_command(tmp_path) == [mod.sys.executable, "-m", "pytest"]
+
+
+def test_pytest_command_uses_repo_venv(dashboard, tmp_path, monkeypatch):
+    mod = dashboard
+    venv_python = tmp_path / ".venv" / "bin" / "python"
+    venv_python.parent.mkdir(parents=True)
+    venv_python.touch()
+    monkeypatch.setattr(mod, "_has_pytest", lambda python: python == str(venv_python))
+    assert mod._pytest_command(tmp_path) == [str(venv_python), "-m", "pytest"]
+
+
+def test_pytest_command_falls_back_to_uv(dashboard, tmp_path, monkeypatch):
+    mod = dashboard
+    monkeypatch.setattr(mod, "_has_pytest", lambda python: False)
+    monkeypatch.setattr(mod.shutil, "which", lambda name: "/bin/uv")
+    cmd = mod._pytest_command(tmp_path)
+    assert cmd[:3] == ["/bin/uv", "run", "--no-project"]
+    assert cmd[-3:] == ["python", "-m", "pytest"]
+
+
+def test_audit_tests_without_pytest_is_no_data(dashboard, tmp_path, monkeypatch):
+    mod = dashboard
+    monkeypatch.setattr(mod, "_pytest_command", lambda root: None)
+    result = mod.audit_tests(tmp_path)
+    assert result["status"] == "no_data"
+    assert result["test_count"] == 0
+    assert "pytest no está instalado" in result["output_summary"][0]
+
+
+def test_audit_tests_without_results_is_no_data(dashboard, tmp_path, monkeypatch):
+    mod = dashboard
+    monkeypatch.setattr(mod, "_pytest_command", lambda root: ["fake"])
+
+    class _Res:
+        stdout = ""
+        stderr = "python: No module named pytest\n"
+
+    monkeypatch.setattr(mod.subprocess, "run", lambda *a, **k: _Res())
+    assert mod.audit_tests(tmp_path)["status"] == "no_data"
+
+
+def test_audit_tests_parses_summary(dashboard, tmp_path, monkeypatch):
+    mod = dashboard
+    monkeypatch.setattr(mod, "_pytest_command", lambda root: ["fake"])
+
+    class _Res:
+        stdout = "....\n10 passed, 1 skipped in 0.5s\n"
+        stderr = ""
+
+    monkeypatch.setattr(mod.subprocess, "run", lambda *a, **k: _Res())
+    result = mod.audit_tests(tmp_path)
+    assert (result["status"], result["passed"]) == ("good", 10)

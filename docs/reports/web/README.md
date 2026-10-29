@@ -36,6 +36,8 @@ python3 scripts/generate_audit_dashboard.py \
 | `--open` | Abre `audit-dashboard.html` en el navegador | off |
 
 > ⏱️ El plan de tests ejecuta `pytest` completo, así que cada auditoría tarda unos segundos.
+>
+> 🧪 El venv que crea `install.sh` no incluye pytest (es dependencia de desarrollo). El plan usa, por orden, el intérprete actual si tiene pytest, el `.venv` del repo, o `uv run --no-project --with pytest --with mitmproxy`. Si no hay ninguno, el plan sale ⬜ Sin datos con instrucciones para instalarlo.
 
 ## 🗂️ Histórico de informes
 
@@ -81,7 +83,7 @@ Debajo de las tarjetas, cada informe muestra en qué se diferencia del inmediata
 | 🔐 Seguridad | Hosts capturados, secretos redactados, patrones de prompt injection | Sin hosts inesperados ni injection | Patrones de injection | Algún host inesperado |
 | 📊 Pseudonimización | % de peticiones `/v1/messages` en las que corrió el pseudonimizador (últimos 30 días), tendencia diaria, vault | ≥ 99 % | ≥ 90 % | < 90 % |
 | ⚡ Actividad | Capturas por día (30 días), endpoints, códigos de estado, últimas peticiones | Algún día activo | Sin actividad | — |
-| 🧪 Tests | Resultado de `pytest` | 0 fallos y 0 errores | Fallos + errores < 10 % | El resto |
+| 🧪 Tests | Resultado de `pytest` (⬜ si no hay pytest o no reporta resultados) | 0 fallos y 0 errores | Fallos + errores < 10 % | El resto |
 | 📋 EFDEF | Checklist de compliance (secciones 22 y 23) | ≥ 90 % de checks | ≥ 70 % | < 70 % |
 
 ## 🔄 Flujo de trabajo recomendado
