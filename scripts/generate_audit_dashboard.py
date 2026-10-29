@@ -71,8 +71,12 @@ def _load_expected_hosts() -> set[str]:
             hosts = [h.strip().lower() for h in cfg.get("hosts", []) if h.strip()]
             if hosts:
                 return set(hosts)
-    except Exception:
-        pass
+    except (OSError, ValueError, AttributeError) as exc:
+        # Sin config.json legible, el informe solo da por esperado api.anthropic.com
+        print(
+            f"⚠️  config.json ilegible ({exc}): hosts esperados = api.anthropic.com",
+            file=sys.stderr,
+        )
     return {"api.anthropic.com"}
 
 
