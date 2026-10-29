@@ -176,6 +176,11 @@ def paths_enabled() -> bool:
     return _env_flag("ANTHROPIC_PSEUDO_PATHS", True)
 
 
+def user_dirs_enabled() -> bool:
+    """Palanca del patrón integrado de usuarios en rutas ``/Users|/home/<u>`` (#42)."""
+    return _env_flag("ANTHROPIC_PSEUDO_USER_DIRS", True)
+
+
 def regexes_enabled() -> bool:
     """Palanca de detección por regex (email / IPv4)."""
     return _env_flag("ANTHROPIC_PSEUDO_REGEX", True)
@@ -361,6 +366,8 @@ class Rules:
       (evita corromper substrings: ``orgcode2`` no debe tocar ``HTTPS``). Reversibles.
     - ``regexes``: lista de (regex, prefijo) para altas dinámicas (reversibles).
     - ``secret_regexes``: (regex, label) de secretos → redacción IRREVERSIBLE.
+    - ``patterns``: ``pseudo_patterns`` de config, (regex, prefijo). Si el
+      regex tiene grupos solo se seudonimiza el grupo 1 (#42). Reversibles.
     """
 
     def __init__(
@@ -371,6 +378,7 @@ class Rules:
         word_literals: list[str] | None = None,
         secret_regexes: list[tuple[re.Pattern, str]] | None = None,
         secret_kv: bool = False,
+        patterns: list[tuple[re.Pattern, str]] | None = None,
     ) -> None:
         # Longest-first: una raíz de repo (más larga) se sustituye antes que el
         # home que la contiene; una identidad git antes que el usuario suelto.
@@ -389,6 +397,7 @@ class Rules:
         self.secret_regexes = secret_regexes or []
         # Si se aplica también la regla key=value (captura de secretos por nombre).
         self.secret_kv = secret_kv
+        self.patterns = patterns or []
 
     def add_word_literals(self, tokens: list[str]) -> list[str]:
         """Añade word-literals en caliente (longest-first); devuelve los nuevos."""
@@ -576,21 +585,87 @@ def add_word_literals_to_config(
     aprender tokens y ``claude-proxy`` al arrancar (#63). Devuelve
     ``(añadidos, lista_completa)``. Sin config legible no cambia nada.
     """
+    return _add_to_config_list("pseudo_word_literals", tokens, path)
+
+
+def add_pattern_to_config(
+    entry: dict[str, str], path: Path | None = None
+) -> tuple[bool, list[dict[str, str]]]:
+    """Añade un ``pseudo_patterns`` a config.json si no estaba (#42).
+
+    Devuelve ``(añadido, lista_completa)``.
+    """
+    added, patterns = _add_to_config_list("pseudo_patterns", [entry], path)
+    return bool(added), patterns
+
+
+def _add_to_config_list(key: str, values: list, path: Path | None) -> tuple[list, list]:
+    """Añade ``values`` (sin duplicar) a la lista ``key`` de config.json.
+
+    Escritura atómica (tmp + rename, 0600). Sin config legible no cambia nada.
+    """
     path = path or config_path()
     try:
         config = json.loads(path.read_text(encoding="utf-8"))
     except (ValueError, OSError):
         return [], []
-    protected = list(config.get("pseudo_word_literals") or [])
-    added = [t for t in dict.fromkeys(tokens) if t and t not in protected]
+    current = list(config.get(key) or [])
+    added = []
+    for value in values:
+        if value and value not in current and value not in added:
+            added.append(value)
     if added:
-        protected.extend(added)
-        config["pseudo_word_literals"] = protected
+        current.extend(added)
+        config[key] = current
         tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
         tmp.write_text(json.dumps(config, indent=2, ensure_ascii=False), "utf-8")
         os.chmod(tmp, 0o600)
         os.replace(tmp, path)
-    return added, protected
+    return added, current
+
+
+# Nombre de usuario en cualquier ruta ``/Users/<u>`` o ``/home/<u>``, sea o no el
+# home de esta máquina: un CLAUDE.md o un log pueden citar rutas de otro equipo
+# o de otro usuario (#42). No casa dentro de URLs (``x.com/home/feed``).
+_USER_DIR_RE = re.compile(r"(?<![\w./-])(?:/Users|/home)/([^/\s\"'`\\:;,()\[\]<>]+)")
+
+# Seudónimo ya acuñado (``dir_1a2b3c4d``): no se vuelve a seudonimizar.
+_PSEUDONYM_RE = re.compile(r"^[A-Za-z]+_[0-9a-f]{8}z*$")
+
+
+def compile_patterns(entries: Any) -> tuple[list[tuple[re.Pattern, str]], list[str]]:
+    """Compila ``pseudo_patterns`` de config.json (#42).
+
+    Cada entrada es ``{"pattern": <regex>, "replacement_prefix": <prefijo>}``.
+    Devuelve ``(patrones, errores)``: una entrada inválida se descarta y se
+    describe en ``errores``, nunca rompe la seudonimización.
+    """
+    patterns: list[tuple[re.Pattern, str]] = []
+    errors: list[str] = []
+    for entry in entries or []:
+        try:
+            pattern = entry["pattern"]
+            prefix = entry.get("replacement_prefix") or "pat"
+            if not isinstance(pattern, str) or not re.fullmatch(r"[a-z]+", prefix):
+                raise ValueError("pattern debe ser texto y replacement_prefix [a-z]+")
+            patterns.append((re.compile(pattern), prefix))
+        except (KeyError, TypeError, AttributeError, ValueError, re.error) as exc:
+            errors.append(f"{entry!r}: {exc}")
+    return patterns, errors
+
+
+def projects_root_pattern(projects_root: str) -> dict[str, str]:
+    """Patrón que seudonimiza el nombre de cada directorio bajo ``projects_root``.
+
+    ``/Users/u/proyectos/foo/src`` → solo ``foo``. El nombre acaba en ``/``,
+    espacio, comillas, backtick, ``\\`` o puntuación de cierre; así un nombre
+    truncado (``foo-ba``) también se protege.
+    """
+    root = projects_root.rstrip("/")
+    return {
+        "pattern": re.escape(root) + r"/([^/\s\"'`\\:;,()\[\]<>]+)",
+        "replacement_prefix": "dir",
+    }
 
 
 def build_rules() -> Rules:
@@ -640,6 +715,7 @@ def build_rules() -> Rules:
 
     # Persistencia desde config.json — fuente de verdad que sobrevive reinicios.
     # Las env vars tienen prioridad; config.json actúa como fallback/complemento.
+    patterns: list[tuple[re.Pattern, str]] = []
     try:
         import json as _json
 
@@ -652,8 +728,15 @@ def build_rules() -> Rules:
             for v in _cfg.get("pseudo_word_literals", []):
                 if v and v not in word_literals:
                     word_literals.append(v)
+            patterns, _errors = compile_patterns(_cfg.get("pseudo_patterns"))
     except Exception:
         pass
+
+    # Después de los de config: éstos se escriben con la ruta real completa
+    # (``/Users/u/proyectos/…``) y dejarían de casar si el usuario ya se hubiera
+    # sustituido.
+    if user_dirs_enabled():
+        patterns.append((_USER_DIR_RE, "user"))
 
     regexes: list[tuple[re.Pattern, str]] = []
     if regexes_enabled():
@@ -671,6 +754,7 @@ def build_rules() -> Rules:
         word_literals=word_literals,
         secret_regexes=secret_regexes,
         secret_kv=secret_kv,
+        patterns=patterns,
     )
 
 
@@ -700,12 +784,23 @@ def redact_secrets(text: str, rules: Rules) -> str:
     return text
 
 
+def _pattern_sub(m: "re.Match", prefix: str, vault: Vault) -> str:
+    """Seudonimiza el grupo 1 (o la coincidencia entera si no hay grupos)."""
+    group = 1 if m.re.groups else 0
+    value = m.group(group)
+    if not value or _PSEUDONYM_RE.match(value):
+        return m.group(0)
+    start, end = m.start(group) - m.start(0), m.end(group) - m.start(0)
+    whole = m.group(0)
+    return whole[:start] + vault.map(value, prefix) + whole[end:]
+
+
 def pseudonymize_text(text: str, vault: Vault, rules: Rules) -> str:
     """Sustituye datos sensibles por seudónimos, dando de alta los nuevos.
 
-    Orden: (0) secretos → redacción irreversible; (1) prefijos de ruta;
-    (2) literales substring; (3) regex email/IPv4; (4) word-literals con
-    frontera. Regex antes que word-literals para que un email que contenga un
+    Orden: (0) secretos → redacción irreversible; (0b) ``pseudo_patterns``
+    sobre el texto real (#42); (1) prefijos de ruta; (2) literales substring;
+    (3) regex email/IPv4; (4) word-literals con frontera. Regex antes que word-literals para que un email que contenga un
     término corporativo (``dev4@example.com``) se mapee entero como email.
     Idempotente: aplicar dos veces da el mismo resultado.
     """
@@ -713,6 +808,11 @@ def pseudonymize_text(text: str, vault: Vault, rules: Rules) -> str:
         return text
 
     text = redact_secrets(text, rules)
+
+    # Antes que los prefijos de ruta: los patrones se escriben con rutas reales
+    # (``/Users/u/proyectos/([^/]+)``) y dejarían de casar tras sustituir el home.
+    for pattern, prefix in rules.patterns:
+        text = pattern.sub(lambda m, _p=prefix: _pattern_sub(m, _p, vault), text)
 
     for real_prefix, label in rules.path_prefixes:
         if real_prefix in text:

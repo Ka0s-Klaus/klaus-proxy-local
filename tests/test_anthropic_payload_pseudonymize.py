@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import stat
 
 import pytest
@@ -985,3 +986,164 @@ def test_sse_block_text_finds_split_unreversed_pseudonym(path_vault):
     assert ps._find_unreversed_pseudonyms(ps.sse_block_text(raw), v) == [
         pseudo.lstrip("/")
     ]
+
+
+# --- pseudo_patterns (#42) -------------------------------------------------------
+
+
+@pytest.fixture
+def projects_rules():
+    patterns, errors = ps.compile_patterns(
+        [ps.projects_root_pattern("/Users/u/proyectos")]
+    )
+    assert errors == []
+    return ps.Rules(
+        path_prefixes=[("/Users/u/proyectos/repo-a", "proj"), ("/Users/u", "home")],
+        word_literals=["repo-a"],
+        patterns=patterns,
+    )
+
+
+@pytest.mark.parametrize(
+    "text,hidden",
+    [
+        ("cd /Users/u/proyectos/otro-cliente/src", "otro-cliente"),
+        ("ver /Users/u/proyectos/acme.site.dev/index.html", "acme.site.dev"),
+        ('log: /Users/u/proyectos/klaus-pro" (cortado)', "klaus-pro"),
+        ("error en /Users/u/proyectos/sin-git:12", "sin-git"),
+        ("`/Users/u/proyectos/cliente-x`", "cliente-x"),
+    ],
+)
+def test_projects_root_pattern_hides_dir_names(projects_rules, text, hidden):
+    v = ps.Vault()
+    out = ps.pseudonymize_text(text, v, projects_rules)
+    assert hidden not in out
+    assert "/proyectos/dir_" in out
+    assert ps.restore_text(out, v) == text
+    assert ps.pseudonymize_text(out, v, projects_rules) == out
+
+
+def test_patterns_run_before_path_prefixes(projects_rules):
+    """La ruta del repo activo también se protege por el patrón y se restaura."""
+    v = ps.Vault()
+    text = "cat /Users/u/proyectos/repo-a/README.md"
+    out = ps.pseudonymize_text(text, v, projects_rules)
+    assert "repo-a" not in out and "/Users/u" not in out
+    assert ps.restore_text(out, v) == text
+
+
+def test_paths_outside_projects_root_are_untouched_by_pattern(projects_rules):
+    out = ps.pseudonymize_text(
+        "/Users/u/Documents/notas.md", ps.Vault(), projects_rules
+    )
+    assert "Documents/notas.md" in out and "dir_" not in out
+
+
+def test_pattern_without_groups_replaces_whole_match():
+    patterns, _ = ps.compile_patterns(
+        [{"pattern": r"CLIENTE-\d{4}", "replacement_prefix": "cli"}]
+    )
+    rules = ps.Rules(patterns=patterns)
+    v = ps.Vault()
+    out = ps.pseudonymize_text("pedido CLIENTE-0042 y CLIENTE-0042", v, rules)
+    assert out.count("cli_") == 2 and "CLIENTE" not in out
+    assert len(set(re.findall(r"cli_[0-9a-f]{8}", out))) == 1  # determinista
+
+
+def test_pattern_on_domains():
+    patterns, _ = ps.compile_patterns(
+        [{"pattern": r"([a-z0-9-]+)\.interno\.acme\.dev", "replacement_prefix": "host"}]
+    )
+    out = ps.pseudonymize_text(
+        "https://facturas.interno.acme.dev/x", ps.Vault(), ps.Rules(patterns=patterns)
+    )
+    assert "facturas" not in out and ".interno.acme.dev/x" in out
+
+
+def test_compile_patterns_skips_invalid_entries():
+    patterns, errors = ps.compile_patterns(
+        [
+            {"pattern": "("},
+            {"replacement_prefix": "x"},
+            {"pattern": "ok", "replacement_prefix": "Mal_Prefijo"},
+            "no-es-un-dict",
+            {"pattern": "bien"},
+        ]
+    )
+    assert [p.pattern for p, _ in patterns] == ["bien"]
+    assert patterns[0][1] == "pat"
+    assert len(errors) == 4
+
+
+def test_build_rules_reads_pseudo_patterns_from_config(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / ".klaus-proxy").mkdir(parents=True)
+    (home / ".klaus-proxy" / "config.json").write_text(
+        json.dumps(
+            {"pseudo_patterns": [ps.projects_root_pattern("/srv/p"), {"pattern": "("}]}
+        )
+    )
+    monkeypatch.setattr(ps.Path, "home", lambda: home)
+    monkeypatch.setenv("ANTHROPIC_PSEUDO_USER_DIRS", "0")
+    rules = ps.build_rules()
+    assert len(rules.patterns) == 1
+    assert rules.patterns[0][1] == "dir"
+
+
+def test_add_pattern_to_config_is_idempotent(tmp_config):
+    entry = ps.projects_root_pattern("/Users/u/proyectos")
+    assert ps.add_pattern_to_config(entry, tmp_config) == (True, [entry])
+    assert ps.add_pattern_to_config(entry, tmp_config) == (False, [entry])
+    saved = json.loads(tmp_config.read_text(encoding="utf-8"))
+    assert saved["pseudo_word_literals"] == ["keep-me"]
+    assert stat.S_IMODE(tmp_config.stat().st_mode) == 0o600
+
+
+def _with_user_dirs(rules):
+    rules.patterns = list(rules.patterns) + [(ps._USER_DIR_RE, "user")]
+    return rules
+
+
+@pytest.mark.parametrize(
+    "text,hidden",
+    [
+        ("@/Users/otrapersona/proyectos/docs/x.md", "otrapersona"),
+        ("ssh: /home/deploy-bob/.ssh/config", "deploy-bob"),
+        ('"/Users/ana.lopez/Desktop"', "ana.lopez"),
+    ],
+)
+def test_user_dirs_pattern_hides_any_username(text, hidden):
+    rules = _with_user_dirs(ps.Rules())
+    v = ps.Vault()
+    out = ps.pseudonymize_text(text, v, rules)
+    assert hidden not in out and "user_" in out
+    assert ps.restore_text(out, v) == text
+    assert ps.pseudonymize_text(out, v, rules) == out
+
+
+def test_user_dirs_pattern_ignores_urls():
+    rules = _with_user_dirs(ps.Rules())
+    text = "https://example.com/home/feed y https://x.dev/Users/list"
+    assert ps.pseudonymize_text(text, ps.Vault(), rules) == text
+
+
+def test_projects_pattern_still_applies_before_user_dirs(projects_rules):
+    rules = _with_user_dirs(projects_rules)
+    v = ps.Vault()
+    text = "cd /Users/u/proyectos/cliente-x && ls /Users/otro/proyectos/z"
+    out = ps.pseudonymize_text(text, v, rules)
+    assert "cliente-x" not in out and "otro" not in out
+    assert ps.restore_text(out, v) == text
+
+
+def test_build_rules_includes_user_dirs_last_and_can_disable(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    (home / ".klaus-proxy").mkdir(parents=True)
+    (home / ".klaus-proxy" / "config.json").write_text(
+        json.dumps({"pseudo_patterns": [ps.projects_root_pattern("/srv/p")]})
+    )
+    monkeypatch.setattr(ps.Path, "home", lambda: home)
+    rules = ps.build_rules()
+    assert [prefix for _p, prefix in rules.patterns] == ["dir", "user"]
+    monkeypatch.setenv("ANTHROPIC_PSEUDO_USER_DIRS", "0")
+    assert [prefix for _p, prefix in ps.build_rules().patterns] == ["dir"]

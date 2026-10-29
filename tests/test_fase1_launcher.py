@@ -34,6 +34,15 @@ def _no_real_snapshot():
 
 
 @pytest.fixture(autouse=True)
+def _no_real_projects_root():
+    """Never add pseudo_patterns to the user's real config.json (#42)."""
+    with patch(
+        "Klaus_proxy_local.launcher.remember_projects_root", return_value=(None, 0)
+    ) as mock:
+        yield mock
+
+
+@pytest.fixture(autouse=True)
 def _no_real_repo_tokens():
     """Never touch the user's real ~/.klaus-proxy/config.json (#61)."""
     with patch(
@@ -208,6 +217,14 @@ class TestShowDashboard:
         launcher.cert_file = Path("/tmp/cert.pem")
         launcher.show_dashboard()
         assert "Protected org/repo:    NONE" in capsys.readouterr().out
+
+    def test_show_dashboard_shows_pattern_count(self, capsys):
+        """show_dashboard() shows how many pseudo_patterns are active (#42)."""
+        launcher = ProxyLauncher()
+        launcher.cert_file = Path("/tmp/cert.pem")
+        launcher.pattern_count = 2
+        launcher.show_dashboard()
+        assert "pseudo_patterns:       2 active" in capsys.readouterr().out
 
     def test_show_dashboard_outputs_log_path(self, capsys):
         """show_dashboard() shows where the proxy log lives (#55)."""

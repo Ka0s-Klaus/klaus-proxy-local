@@ -526,3 +526,34 @@ def test_verify_pair_results_unchanged_with_shared_serialization():
     )
     status = {r.name: r.level for r in pv.verify_pair(orig, sent, {}, rules)}
     assert status["Fugas en claro"] == "fail"
+
+
+# --- capa pseudo_patterns (#42) ------------------------------------------------
+
+
+def _pattern_rules():
+    import anthropic_payload_pseudonymize as ps
+
+    patterns, _ = ps.compile_patterns([ps.projects_root_pattern("/Users/u/proyectos")])
+    return Rules(patterns=patterns)
+
+
+def test_pattern_value_leaked_in_path_context_is_detected():
+    rules = _pattern_rules()
+    text = "cd /Users/u/proyectos/cliente-x/src"
+    leaks = _verify(text, text, rules=rules)
+    assert [(s.value, s.category) for s in leaks] == [("cliente-x", "pattern")]
+
+
+def test_pattern_value_outside_path_context_is_not_a_leak():
+    """El nombre sigue en otro contexto (no ruta): el seudonimizador no lo toca."""
+    rules = _pattern_rules()
+    original = "cd /Users/u/proyectos/cliente-x/src; el informe de cliente-x"
+    sent = "cd /Users/u/proyectos/dir_deadbeef/src; el informe de cliente-x"
+    assert _verify(original, sent, rules=rules) == []
+
+
+def test_pattern_vault_entries_are_left_to_pattern_layer():
+    rules = _pattern_rules()
+    text = "carpeta docs-web aparte"
+    assert _verify(text, text, vault={"docs-web": "dir_12345678"}, rules=rules) == []
