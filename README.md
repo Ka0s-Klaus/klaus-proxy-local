@@ -96,6 +96,9 @@ klaus-fix-pseudonymization --show-payloads
 
 # Exportar audit a CSV
 klaus-audit-payloads --export=csv
+
+# Retención de capturas (30 días por defecto; capture_retention_days en config.json)
+klaus-prune-captures --dry-run
 ```
 
 **Opcional, sin terminal 1 ni `export`:**

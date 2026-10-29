@@ -82,6 +82,22 @@ echo $HTTPS_PROXY       # en la terminal de Claude Code: debe ser http://127.0.0
 
 ---
 
+## 🗑️ Han desaparecido capturas antiguas
+
+Desde la retención de capturas (#132), al arrancar `claude-proxy` se borran los pares `original/` + `sent/` de más de **30 días**; la terminal lo indica con `🧹 Retención de capturas: …`. Lo borrado no se puede recuperar.
+
+- Para conservar más: `capture_retention_days` en `config.json` (`0` = sin límite).
+- Para guardar capturas concretas: muévelas a `~/.klaus-proxy/captures/archive/`, que no se toca.
+- Antes de reiniciar, `klaus-prune-captures --dry-run` muestra qué se borraría.
+
+---
+
+## ❓ `anthropic_pair_verify.py` dice «No hay pares que verificar»
+
+Si además indica que hay capturas sin `original/`, es que `capture_originals` está a `false` en `config.json`: solo se guarda lo enviado, y sin originales no hay comparación por pares. Vuelve a ponerlo a `true` (o quítalo) y reinicia `claude-proxy`; las capturas nuevas se podrán verificar.
+
+---
+
 ## 🧩 Quiero auditar los conectores MCP de claude.ai
 
 Pasan por `mcp-proxy.anthropic.com`. Si lo añades a `hosts`, los conectores recibirán seudónimos y pueden fallar (una búsqueda por un valor real no encontrará nada). Para auditarlos sin tocar la petición, añádelo a `capture_only_hosts`:

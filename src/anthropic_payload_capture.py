@@ -158,6 +158,20 @@ def capture_only_hosts() -> tuple[str, ...]:
         return ()
 
 
+def capture_originals() -> bool:
+    """``capture_originals`` de config.json (#132): ``false`` = solo ``sent/``.
+
+    Sin ``original/`` no quedan datos reales en claro en disco, a cambio de no
+    poder verificar por pares. Por defecto se guardan.
+    """
+    try:
+        cfg = json.loads(config_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        # Sin config.json legible se mantiene el comportamiento por defecto
+        return True
+    return not (isinstance(cfg, dict) and cfg.get("capture_originals") is False)
+
+
 def _matches(host: str, hosts: tuple[str, ...]) -> bool:
     host = (host or "").lower()
     return any(host == h or host.endswith("." + h) for h in hosts)
@@ -389,6 +403,7 @@ class AnthropicPayloadCapture:
         s_dir.mkdir(parents=True, exist_ok=True)
         o_dir.mkdir(parents=True, exist_ok=True)
         sent_path, original_path, name = evidence_paths(now, s_dir, o_dir)
+        keep_original = capture_originals()
 
         # Mapa real→seudónimo poblado por el cuerpo (para url/host/cabeceras).
         fwd = meta.get("anthropic_vault_forward") or {}
@@ -399,7 +414,7 @@ class AnthropicPayloadCapture:
             pseudonymized=pseudonymized,
             pseudo_ran=pseudo_ran,
             unknown_host=unknown_host,
-            counterpart=name,
+            counterpart=name if keep_original else None,
             blocked=blocked,
             capture_only=capture_only,
             client_addr=client_addr,
@@ -438,10 +453,11 @@ class AnthropicPayloadCapture:
             sent_path.write_text(
                 json.dumps(sent_record, indent=2, ensure_ascii=False), encoding="utf-8"
             )
-            original_path.write_text(
-                json.dumps(original_record, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
+            if keep_original:
+                original_path.write_text(
+                    json.dumps(original_record, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
         except OSError as exc:
             # Fallo al persistir la evidencia = hueco de auditoría: rojo y re-lanza
             # (se preserva el comportamiento previo, que propagaba el error).
@@ -454,16 +470,17 @@ class AnthropicPayloadCapture:
         # Rojo si la request fue bloqueada (fail-closed, no salió). Si no: verde
         # cuando la seudonimización reescribió el cuerpo (dato sensible neutralizado
         # antes de salir); neutro cuando no había nada que reescribir.
+        files = f"sent/{name} + original/{name}" if keep_original else f"sent/{name}"
         if blocked:
             self._emit(
                 f"[anthropic-capture] {req.method} {req.path} → "
-                f"sent/{name} + original/{name} (BLOQUEADA — no salió)",
+                f"{files} (BLOQUEADA — no salió)",
                 level="error",
             )
         else:
             self._emit(
                 f"[anthropic-capture] {req.method} {req.path} → "
-                f"sent/{name} + original/{name} (pseudonymized={pseudonymized})",
+                f"{files} (pseudonymized={pseudonymized})",
                 level="ok" if pseudonymized else None,
             )
 

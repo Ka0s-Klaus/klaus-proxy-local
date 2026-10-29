@@ -88,6 +88,17 @@ Debajo de las tarjetas, cada informe muestra en qué se diferencia del inmediata
 | 🧪 Tests | Resultado de `pytest` (⬜ si no hay pytest o no reporta resultados) | 0 fallos y 0 errores | Fallos + errores < 10 % | El resto |
 | 📋 EFDEF | Checklist de compliance (secciones 22 y 23) | ≥ 90 % de checks | ≥ 70 % | < 70 % |
 
+### 🧹 Retención de capturas
+
+El plan de seguridad muestra la retención activa (#132), para que se vea aunque no se lean las notas de la release:
+
+- los días de `capture_retention_days` (por defecto 30), o «Sin límite» si es `0`;
+- la fecha de la captura más antigua que se conserva;
+- el último borrado al arrancar `claude-proxy`: cuántos pares y cuánto espacio (de `captures/.retention.json`);
+- si `capture_originals` es `false`, que no hay originales ni verificación por pares. En ese caso los planes se calculan con las capturas `sent/`.
+
+Es informativo: no cambia el estado del plan.
+
 ### 🌐 Hosts capturados y no capturados
 
 - **Hosts capturados:** las capturas de `captures/` por host. Un host es **esperado** si está en `hosts` o en `capture_only_hosts` de `config.json` (#123, #125); si no, sale como ⚠️ Inesperado y el plan pasa a 🔴. La tabla y el estado del plan usan el mismo criterio.
