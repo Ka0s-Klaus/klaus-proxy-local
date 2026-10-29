@@ -545,7 +545,7 @@ ANTHROPIC_PSEUDO_SALT=your-salt mitmdump \
 
 | Variable | Efecto | Por defecto |
 | --- | --- | --- |
-| `ANTHROPIC_CAPTURE_HOSTS` | Hosts a auditar (coma-separada) | `api.anthropic.com,llm.tools.cloud.customer1.es` |
+| `ANTHROPIC_CAPTURE_HOSTS` | Hosts a auditar (coma-separada); sustituye a `hosts` de `config.json` | `hosts` de `config.json` (`api.anthropic.com`) |
 | `ANTHROPIC_CAPTURE_DIR` | Directorio base de capturas | `captures/` |
 | `ANTHROPIC_PSEUDO_ENABLE` | Interruptor de la seudonimización | `1` |
 | `ANTHROPIC_PSEUDO_WORD_LITERALS` | Literales con frontera de palabra (org/proj IDs) | — |

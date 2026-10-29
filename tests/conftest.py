@@ -29,9 +29,11 @@ def _isolated_config_json(tmp_path_factory, monkeypatch):
     Las herramientas que protegen valores añaden reglas a config.json; aquí se
     redirige a uno temporal. Un test puede volver a parchear ``config_path``.
     """
+    import anthropic_payload_capture as cap
     import anthropic_payload_pseudonymize as ps
 
     cfg = tmp_path_factory.mktemp("isolated-config") / "config.json"
     cfg.write_text('{"salt": "x"}', encoding="utf-8")
     monkeypatch.setattr(ps, "config_path", lambda: cfg)
+    monkeypatch.setattr(cap, "config_path", lambda: cfg)
     return cfg
