@@ -390,7 +390,7 @@ If you enabled auto-startup but want to disable it:
 - 📝 **Logs en disco** (`~/.klaus-proxy/logs/proxy.log`) (#55)
 - 📂 **Histórico del audit dashboard** con selector y cambios respecto al anterior (#77)
 - ⚡ `anthropic-pair-verify` 7× más rápido y sin falsos positivos (#59, #73)
-- ✅ **619 tests passing** en Python 3.10–3.13
+- ✅ **625 tests passing** en Python 3.10–3.13
 
 [📖 Release Notes](./docs/RELEASE_v0.5.0_NOTES.md)
 
@@ -625,12 +625,12 @@ Ver sección anterior: [📚 Documentación](#-documentación)
 ## 🧪 Tests
 
 ```bash
-pytest -q          # 619 passed, 3 skipped (v0.5.0)
+pytest -q          # 625 passed, 3 skipped (v0.5.0)
                    # Includes: capture, pseudonymize, guard, verify, audit, dashboard, vault
 ```
 
 ### Test Coverage
-- ✅ **619 tests passing** en Python 3.10–3.13 (CI)
+- ✅ **625 tests passing** en Python 3.10–3.13 (CI)
 - ✅ Security tests for vault + pseudonymization
 - ✅ Integration tests for audit workflows
 - ✅ Unit tests for all components
