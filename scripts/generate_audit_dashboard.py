@@ -82,6 +82,83 @@ def _load_expected_hosts() -> set[str]:
 
 EXPECTED_HOSTS = _load_expected_hosts()
 
+
+def _is_expected_host(host: str) -> bool:
+    """Mismo criterio que la captura: el host o un subdominio suyo."""
+    host = host.lower()
+    return any(host == h or host.endswith("." + h) for h in EXPECTED_HOSTS)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Hosts no capturados (#123): lo que pasó por el proxy sin pseudonimizar
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Líneas de klaus_file_log: «METHOD host/ruta → …» (flujo descifrado) y
+# «TÚNEL host:puerto» (klaus_tls_passthrough, sin descifrar)
+_LOG_TS_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})")
+_LOG_FLOW_RE = re.compile(r"klaus\.flow: [A-Z]+ ([^/\s]+)\S* →")
+_LOG_TUNNEL_RE = re.compile(r"klaus\.flow: TÚNEL (\S+):\d+ ")
+
+
+def proxy_log_files() -> list[Path]:
+    """``proxy.log`` y sus rotaciones, de la más antigua a la más reciente."""
+    env = os.environ.get("KLAUS_LOG_DIR")
+    log_dir = Path(env).expanduser() if env else Path.home() / ".klaus-proxy" / "logs"
+    rotated = sorted(
+        log_dir.glob("proxy.log.*"),
+        key=lambda f: int(f.suffix[1:]) if f.suffix[1:].isdigit() else 0,
+        reverse=True,
+    )
+    current = log_dir / "proxy.log"
+    return rotated + ([current] if current.exists() else [])
+
+
+def audit_uncaptured_hosts(files: list[Path]) -> dict:
+    """Hosts que aparecen en el log del proxy y no se capturan.
+
+    - ``tunnel``: pasaron en túnel, sin descifrar (solo se sabe host y hora).
+    - ``decrypted``: el proxy los descifró pero no los pseudonimizó ni capturó
+      (antes de v0.6.0 se descifraba todo; ``anthropic.com`` y ``claude.ai``
+      se descifran siempre).
+    """
+    hosts: dict[str, dict] = {}
+    since = ""
+    for f in files:
+        try:
+            lines = f.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            ts_match = _LOG_TS_RE.match(line)
+            if not ts_match:
+                continue
+            ts = ts_match.group(1)
+            since = min(since, ts) if since else ts
+            if m := _LOG_TUNNEL_RE.search(line):
+                host, kind = m.group(1), "tunnel"
+            elif m := _LOG_FLOW_RE.search(line):
+                host, kind = m.group(1), "decrypted"
+            else:
+                continue
+            host = host.lower()
+            if _is_expected_host(host):
+                continue
+            entry = hosts.setdefault(
+                host,
+                {
+                    "host": host,
+                    "tunnel": 0,
+                    "decrypted": 0,
+                    "last_tunnel": "",
+                    "last_decrypted": "",
+                },
+            )
+            entry[kind] += 1
+            entry[f"last_{kind}"] = max(entry[f"last_{kind}"], ts)
+    ranked = sorted(hosts.values(), key=lambda e: -(e["tunnel"] + e["decrypted"]))
+    return {"hosts": ranked, "since": since}
+
+
 # Con \s+ entre palabras: además de admitir varios espacios o saltos de
 # línea, el código fuente no contiene las frases literales y leerlo no
 # dispara el detector (#86).
@@ -928,7 +1005,7 @@ HTML_TEMPLATE = """\
     <div class="stat-tile">
       <div class="stat-label">Hosts inesperados</div>
       <div class="stat-value" style="color:#SEC_HOSTS_COLOR#">#SEC_UNEXPECTED#</div>
-      <div class="stat-sub">se espera solo api.anthropic.com</div>
+      <div class="stat-sub">fuera de <code>hosts</code> de config.json</div>
     </div>
   </div>
   <div class="grid-2">
@@ -945,6 +1022,7 @@ HTML_TEMPLATE = """\
       #INJECTION_HTML#
     </div>
   </div>
+  #UNCAPTURED_HTML#
 </div>
 
 <!-- ── Pseudonimización ── -->
@@ -1158,10 +1236,11 @@ document.querySelectorAll('.summary-card').forEach(card => {
 (function() {
   const tbody = document.getElementById('hosts-table-body');
   if (!tbody) return;
-  const expected = new Set(['api.anthropic.com']);
+  // Mismo criterio que el estado del plan: hosts de config.json (#123)
+  const unexpected = new Set(DATA.security.unexpected_hosts || []);
   DATA.security.host_distribution.forEach(function(item) {
     const host = item[0], count = item[1];
-    const ok = expected.has(host);
+    const ok = !unexpected.has(host);
     const tr = document.createElement('tr');
     tr.innerHTML = '<td><code>' + host + '</code></td><td>' + count.toLocaleString() + '</td><td>' + (ok ? '✅ Esperado' : '⚠️ Inesperado') + '</td>';
     tbody.appendChild(tr);
@@ -1366,6 +1445,43 @@ credenciales, rótalas.</li>
 </ol></div>"""
 
 
+def _uncaptured_hosts_html(security: dict) -> str:
+    """Tabla de hosts que pasaron por el proxy sin pseudonimizar (#123)."""
+    esc = html.escape
+    data = security.get("uncaptured")
+    if not data:  # informes anteriores a #123
+        return ""
+    rows = data.get("hosts") or []
+    since = data.get("since") or ""
+    intro = (
+        "<p style='font-size:.8rem;color:var(--text-muted)'>"
+        "Tráfico que pasó por el proxy <b>sin pseudonimizar ni capturar</b>, según "
+        f"<code>proxy.log</code>{' desde ' + esc(since) if since else ''}. "
+        "🔒 <b>Túnel</b>: no se descifró; solo se conoce el host y la hora. "
+        "🔓 <b>Descifrado</b>: el proxy lo vio en claro pero lo dejó salir tal cual "
+        "(antes de v0.6.0 se descifraba todo; <code>anthropic.com</code> y "
+        "<code>claude.ai</code> se descifran siempre). Para auditar un host, "
+        "añádelo a <code>hosts</code> de config.json.</p>"
+    )
+    if not rows:
+        body = "<p>✅ Ningún host fuera de los capturados en el log.</p>"
+    else:
+        trs = "".join(
+            f"<tr><td><code>{esc(r['host'])}</code></td>"
+            f"<td>{r['tunnel']:,}</td><td>{r['decrypted']:,}</td>"
+            f"<td><code>{esc(r.get('last_decrypted') or '—')}</code></td>"
+            f"<td><code>{esc(r.get('last_tunnel') or '—')}</code></td></tr>"
+            for r in rows
+        )
+        body = (
+            "<table class='data-table mt8'><thead><tr><th>Host</th>"
+            "<th>🔒 Túnel</th><th>🔓 Descifrado</th><th>Último descifrado</th>"
+            "<th>Último túnel</th></tr>"
+            f"</thead><tbody>{trs}</tbody></table>"
+        )
+    return f"<div class='card mt8'><h3>Hosts no capturados</h3>{intro}{body}</div>"
+
+
 def _injection_hit_html(hit: dict | str) -> str:
     """Una coincidencia de injection con su contexto (#86)."""
     esc = html.escape
@@ -1520,6 +1636,7 @@ def render_html(
             "#d03b3b" if security.get("unexpected_count", 0) > 0 else "#0ca30c"
         ),
         "INJECTION_HTML": injection_html,
+        "UNCAPTURED_HTML": _uncaptured_hosts_html(security),
         # Pseudonymization
         "PSEUDO_COLOR": _status_color(pseudo.get("status", "no_data")),
         "PSEUDO_EMOJI": _status_emoji(pseudo.get("status", "no_data")),
@@ -1643,6 +1760,7 @@ def main(argv: list[str] | None = None) -> None:
 
     print("🔐 Auditoría de seguridad...")
     security = audit_security(original, sent, load_reviewed_injections(config_dir))
+    security["uncaptured"] = audit_uncaptured_hosts(proxy_log_files())
 
     print("📊 Auditoría de pseudonimización...")
     pseudo = audit_pseudonymization(original, config_dir)
