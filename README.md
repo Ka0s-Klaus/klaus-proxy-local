@@ -59,7 +59,7 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 ## 🚀 Inicio rápido (v0.5.2)
 
 > ℹ️ El paquete **no está publicado en PyPI**: se instala desde el repositorio con
-> `install.sh` (macOS y Linux, Python ≥ 3.13; en macOS lo instala vía Homebrew si falta).
+> `install.sh` (macOS y Linux, Python ≥ 3.10; en macOS instala Python 3.13 vía Homebrew si falta; en Debian/Ubuntu hace falta `python3-venv`).
 
 ```bash
 # Instalar: crea un venv en ~/.local/share/klaus/venv, instala mitmproxy, genera
