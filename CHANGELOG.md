@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Sección «Hosts no capturados» en el dashboard** (#123) — En el plan de Seguridad, una tabla con los hosts que pasaron por el proxy sin pseudonimizar ni capturar, según `proxy.log` y sus rotaciones. Muestra, por host, las conexiones en túnel (sin descifrar) y las descifradas que salieron tal cual, con la última vez de cada modo. Así se ve qué tráfico conviene añadir a `hosts`, por ejemplo subdominios de `anthropic.com` o `claude.ai`, que se descifran pero no se pseudonimizan.
+
 ### Fixed
 - **La tabla de hosts del dashboard marcaba como inesperados los hosts de `config.json`** (#123) — La tabla «Hosts capturados» del plan de Seguridad tenía fijado `api.anthropic.com` como único host esperado, mientras que el estado del plan usa `hosts` de `config.json`, así que el informe se contradecía (estado correcto y host «Inesperado»). Ahora la tabla marca como inesperados los mismos hosts que el estado.
 - **Un `config.json` ilegible desactivaba en silencio las reglas del usuario** (#121) — Si `~/.klaus-proxy/config.json` no se podía leer o no era JSON válido, el pseudonimizador descartaba `pseudo_literals`, `pseudo_word_literals` y `pseudo_patterns` sin dejar rastro. Ahora lo avisa en el log (`config.json ilegible`). El dashboard de auditoría también avisa al leer los hosts esperados. Cierra las alertas de CodeQL `py/empty-except` #62 y #63.
