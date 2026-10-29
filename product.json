@@ -8,7 +8,7 @@
   "icon": "🔌",
   "status": "production",
   "language": "Python 3.13+",
-  "tests": "619 passed ✅",
+  "tests": "625 passed ✅",
   "github": "https://github.com/Ka0s-Klaus/ka0s",
   "pypi": "https://pypi.org/project/Klaus-proxy-local/",
   "documentation": "https://docs.ka0s.io/",
