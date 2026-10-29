@@ -414,10 +414,11 @@ chmod +x ~/proyectos/klaus-proxy-local/klaus
 
 If you see "ModuleNotFoundError: No module named 'Klaus_proxy_local'":
 
+The menu uses the Python of the venv created by `install.sh` (`~/.local/share/klaus/venv`). If it is missing, it falls back to `python3`, which does not have the package. Reinstall:
+
 ```bash
-# Reinstall Klaus Proxy Local in development mode
 cd ~/proyectos/klaus-proxy-local
-pip install -e .
+./install.sh
 ```
 
 ---

@@ -63,7 +63,7 @@ Issue abierta → Fork o rama → Implementación → Tests → PR → Review �
 ```bash
 git clone https://github.com/Ka0s-Klaus/klaus-proxy-local.git
 cd klaus-proxy-local
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 ```

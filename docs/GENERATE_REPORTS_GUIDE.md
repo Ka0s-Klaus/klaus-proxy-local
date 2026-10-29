@@ -154,7 +154,7 @@ Cada reporte generado contiene:
 - Hay valores no pseudonimizados
 - Necesita investigación
 - Acción: Ejecutar audit_captures.py --find-leaks
-- Fix: python3 scripts/add_to_vault.py . --manual
+- Fix: añadir los valores reales a `pseudo_word_literals`/`pseudo_literals` de `config.json` (o `python3 auto_add_detected_leaks.py`) y reiniciar `claude-proxy`
 ```
 
 ### Escenario C: ">10 Fugas"
@@ -292,7 +292,7 @@ Solución: source .venv/bin/activate
     ☐ Investigo cualquier fuga nueva
 
 [ ] Acciono si hay problemas
-    ☐ Fugas detectadas → Ejecuto add_to_vault.py
+    ☐ Fugas reales → las añado a config.json y reinicio claude-proxy
     ☐ Cobertura baja → Reviso audit_captures.py --patterns
     ☐ Cambios grandes → Investigo root cause
 

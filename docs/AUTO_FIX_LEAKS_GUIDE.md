@@ -1,6 +1,8 @@
 # 🔧 Auto-Fix Detectadas Fugas — Guía Completa
 
-**Detecta automáticamente fugas y las añade al vault sin intervención manual.**
+**Detecta fugas en las capturas y añade los valores al vault y a las reglas del proxy (`config.json`).** Después hay que reiniciar `claude-proxy` para que se apliquen; las peticiones ya enviadas no cambian.
+
+> ⚠️ La detección es por patrones y da falsos positivos (p. ej. `python@3.13` como email). Usa `--dry-run` o el modo con confirmación antes de `--auto`.
 
 ---
 
@@ -10,7 +12,7 @@
 # Ejecuta el workflow completo (detecta + arregla + verifica)
 python3 full_audit_with_fixes.py --auto
 
-# ✅ Resultado: Pseudonimización 100% correcta
+# Después: reinicia claude-proxy y comprueba peticiones nuevas con src/anthropic_pair_verify.py
 ```
 
 ---
@@ -26,7 +28,7 @@ python3 full_audit_with_fixes.py --auto
 **Qué hace:**
 1. 📊 Genera reporte de auditoría
 2. 🚨 Detecta fugas en sent/
-3. ✅ Auto-añade al vault
+3. ✅ Añade los valores al vault y a `config.json`
 4. 🔍 Re-verifica que funcione
 
 **Output:**
@@ -281,10 +283,10 @@ $ python3 full_audit_with_fixes.py --auto >/dev/null 2>&1 && \
 **Solución:**
 ```bash
 # Opción 1: Generar y exportar
-export ANTHROPIC_PSEUDO_SALT=$(python -c 'import secrets; print(secrets.token_hex(16))')
+export ANTHROPIC_PSEUDO_SALT=$(python3 -c 'import secrets; print(secrets.token_hex(16))')
 
 # Opción 2: O usar launcher (genera config.json)
-python -m Klaus_proxy_local.launcher
+claude-proxy   # genera config.json con la SALT
 ```
 
 ### Problema: "No captures found"
@@ -311,7 +313,7 @@ chmod 600 captures/.pseudonym_vault.json
 
 ```
 🎉 PERFECTO
-- Pseudonimización 100% funcionando
+- Sin fugas detectadas en la muestra
 - Todas las fugas han sido corregidas
 - Listo para producción
 ```
@@ -381,7 +383,7 @@ jobs:
 
       - name: Run full audit with auto-fix
         run: |
-          export ANTHROPIC_PSEUDO_SALT=$(python -c 'import secrets; print(secrets.token_hex(16))')
+          export ANTHROPIC_PSEUDO_SALT=$(python3 -c 'import secrets; print(secrets.token_hex(16))')
           python3 full_audit_with_fixes.py --auto
 
       - name: Upload audit report
@@ -420,7 +422,7 @@ jobs:
 | Archivo | Propósito |
 |---------|-----------|
 | **full_audit_with_fixes.py** | Workflow completo (detecta + arregla + verifica) |
-| **auto_add_detected_leaks.py** | Auto-añadir leaks al vault |
+| **auto_add_detected_leaks.py** | Añadir las fugas detectadas al vault y a `config.json` |
 | **audit_captures.py** | Análisis manual de payloads |
 | **generate_audit_report.py** | Generar reportes |
 | **.gitignore** | Excluye informes (contienen datos sensibles) |
@@ -433,12 +435,12 @@ jobs:
 ┌─────────────────────────────────────────────────────────┐
 │ OPCIÓN                       COMANDO                    │
 ├─────────────────────────────────────────────────────────┤
-│ Workflow completo (automático) python full_audit...     │
-│ Workflow con confirmación      python full_audit...     │
-│ Solo preview (--dry-run)       python auto_add_...      │
+│ Workflow completo (automático) python3 full_audit...     │
+│ Workflow con confirmación      python3 full_audit...     │
+│ Solo preview (--dry-run)       python3 auto_add_...      │
 │ Solo detectar                  python3 audit_captures... │
-│ Auto-add detectadas            python auto_add_...      │
-│ Generar reporte                python generate_audit... │
+│ Auto-add detectadas            python3 auto_add_...      │
+│ Generar reporte                python3 generate_audit... │
 └─────────────────────────────────────────────────────────┘
 ```
 

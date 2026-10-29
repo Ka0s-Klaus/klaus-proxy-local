@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![Version](https://img.shields.io/badge/version-0.5.2-green)](./docs/RELEASE_v0.5.2_NOTES.md)
-[![Tests](https://img.shields.io/badge/tests-669%20passed-brightgreen)](./.github/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-670%20passed-brightgreen)](./.github/workflows/ci.yml)
 [![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.5.2_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
@@ -97,17 +97,12 @@ klaus-fix-pseudonymization --show-payloads
 klaus-audit-payloads --export=csv
 ```
 
-**Alternativamente, configuración automática al arrancar el shell:**
-```bash
-# Setup de una vez (auto-startup en nuevos terminales)
-klaus-setup
-# Selecciona 'y' para auto-startup, luego: exec $SHELL
-```
+**Opcional: `klaus-setup`** añade al shell un hook que carga `klaus-env.sh` y arranca el proxy en segundo plano si no está en marcha. **No exporta `HTTPS_PROXY`**, así que sigue haciendo falta el `export` del terminal 2 ([#105](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/105)).
 
 > ⚠️ La instalación es *editable*: el venv apunta al clon del repositorio. **No borres
 > ni muevas esa carpeta.** Para actualizar: `git pull && ./install.sh`.
 
-✨ **Eso es todo.** Todo es automático: configuración, certificados, SALT, auditoría, corrección de fugas, **y ahora con captura en usuario-local + colores + Ctrl+C rápido**.
+✨ **Eso es todo.** `install.sh` y `claude-proxy` generan la configuración, la SALT y los certificados, y protegen el org/repo y la carpeta de proyectos desde el primer arranque. Para proteger un valor propio (un cliente, un código interno), añádelo a `pseudo_word_literals` o `pseudo_literals` de `~/.klaus-proxy/config.json` y reinicia el proxy ([guía de uso](./docs/USER_GUIDE.md)).
 
 ---
 
@@ -641,12 +636,12 @@ Ver sección anterior: [📚 Documentación](#-documentación)
 ## 🧪 Tests
 
 ```bash
-pytest -q          # 666 passed, 3 skipped (v0.5.2)
+pytest -q          # 670 passed, 3 skipped
                    # Includes: capture, pseudonymize, guard, verify, audit, dashboard, vault
 ```
 
 ### Test Coverage
-- ✅ **666 tests passing** en Python 3.10–3.13 (CI)
+- ✅ **670 tests passing** en Python 3.10–3.13 (CI)
 - ✅ Security tests for vault + pseudonymization
 - ✅ Integration tests for audit workflows
 - ✅ Unit tests for all components
