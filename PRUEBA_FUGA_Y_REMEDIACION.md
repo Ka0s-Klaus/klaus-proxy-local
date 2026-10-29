@@ -24,7 +24,7 @@ Se realizó una prueba integral del sistema Klaus Proxy Local simulando:
 Se creó una captura simulada con un email confidencial **sin pseudonimizar**:
 
 ```
-Email confidencial: confidencial.ejecutivo@empresa-interna.com
+Email confidencial: director.financiero@empresa.example
 Archivo: original/v1_messages_20260919/request_test_leak.json
 Estado: EXPUESTO (no en vault)
 ```
@@ -33,11 +33,11 @@ Estado: EXPUESTO (no en vault)
 ```json
 {
   "model": "claude-3-5-sonnet-20241022",
-  "system": "You are a helpful assistant for confidencial.ejecutivo@empresa-interna.com",
+  "system": "You are a helpful assistant for director.financiero@empresa.example",
   "messages": [
     {
       "role": "user",
-      "content": "Procesar reporte mensual para confidencial.ejecutivo@empresa-interna.com"
+      "content": "Procesar reporte mensual para director.financiero@empresa.example"
     }
   ]
 }
@@ -67,7 +67,7 @@ La auditoría detectó el email expuesto:
 ```
 🔴 FUGA DETECTADA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Email no pseudonimizado: confidencial.ejecutivo@empresa-interna.com
+Email no pseudonimizado: director.financiero@empresa.example
 Archivo: original/v1_messages_20260919/request_test_leak.json
 Status: Email sensible EXPUESTO en captura original
 Debe estar en vault como: NO ENCONTRADO ❌
@@ -96,7 +96,7 @@ Se ejecutó un escaneo exhaustivo buscando todos los emails sin pseudonimizar:
 | `mySecretPass123@db.inte` | 27 | Credencial | **ALTA** |
 | `secret@db.internal` | 27 | Credencial | **ALTA** |
 | `dev4@example.com` | 21 | Email de equipo | **MEDIA** |
-| **`confidencial.ejecutivo@empresa-interna.com`** | **2** | **Email ejecutivo** | **CRÍTICA** |
+| **`director.financiero@empresa.example`** | **2** | **Email ejecutivo** | **CRÍTICA** |
 | `na@b.com` | 1 | Email genérico | BAJA |
 
 ### Clasificación de Severidad
@@ -117,7 +117,7 @@ Se agregaron los emails críticos al vault:
 🔧 REMEDIACIÓN AUTOMÁTICA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-✅ Email 1: confidencial.ejecutivo@empresa-interna.com
+✅ Email 1: director.financiero@empresa.example
    Pseudónimo generado: email_d610ab7a
    Estado: AGREGADO AL VAULT
 
@@ -138,7 +138,7 @@ Fórmula: SHA256(email + salt)[:8]
 Salt: 96eec427f3dd8c0500a2679085a4397f (único por instalación)
 
 Resultado: email_<8_hex_chars>
-Ejemplo: email_d610ab7a → confidencial.ejecutivo@empresa-interna.com
+Ejemplo: email_d610ab7a → director.financiero@empresa.example
 ```
 
 **Ventaja:** Mismo email siempre genera el mismo pseudónimo (útil para auditoría)
@@ -162,7 +162,7 @@ Contenido: Copia completa del vault con nuevas entradas
 ✅ VERIFICACIÓN POST-REMEDIACIÓN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-confidencial.ejecutivo@empresa-interna.com
+director.financiero@empresa.example
   Estado: ✅ REMEDIADO
   Pseudónimo: email_d610ab7a
 

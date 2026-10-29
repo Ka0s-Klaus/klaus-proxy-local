@@ -65,8 +65,8 @@ Acción: Añadir a vault (si es valor real)
 - noreply@anthropic.com
 - t@router.get
 - t@app.get
-- Juan@masorange.es
-- dev@masorange.example
+- soporte@cliente-x.example
+- equipo@cliente-x.example
 - ... y 104 más
 ```
 
@@ -88,9 +88,9 @@ Acción: Añadir a vault (si es valor real)
 ### Paths (3 entradas) ⚠️
 ```
 ⚠️ Cobertura baja
-- /Users/asantacana/proyectos/masorange-b2b
-- /Users/asantacana
-- /Users/asantacana/proyectos/klaus-proxy-local
+- /Users/<usuario>/proyectos/cliente-x-b2b
+- /Users/usuario
+- /Users/<usuario>/proyectos/klaus-proxy-local
 ```
 
 **Recomendación:** ⚠️ Considerar añadir más rutas si se capturan en payloads. Actualmente suficiente.
@@ -98,12 +98,12 @@ Acción: Añadir a vault (si es valor real)
 ### Orgs (8 entradas)
 ```
 ✅ Adecuado
-- kyndryl-global-delivery
-- masorange-b2b
+- acme-global-delivery
+- cliente-x-b2b
 - MC
 - TP
 - mm-datamart-kd
-- masorange.es
+- cliente-x.example
 - ... y 2 más
 ```
 
@@ -112,8 +112,8 @@ Acción: Añadir a vault (si es valor real)
 ### IDs/Identidades (2 entradas)
 ```
 ✅ Básico pero suficiente
-- asantacana_kyndryl
-- asantacana
+- usuario_empresa
+- usuario
 ```
 
 **Recomendación:** ✅ Cubre identidades principales

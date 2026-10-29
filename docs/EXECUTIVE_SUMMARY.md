@@ -39,7 +39,7 @@ Klaus Proxy Local es una herramienta de **auditoría y privacidad** que intercep
 ```
 ✅ Proxy escucha en puerto 8899
 ✅ Requests interceptadas y registradas
-✅ Email (asantacana@kyndryl.com) → email_16b8b260 (reversible)
+✅ Email (ana.garcia@empresa.example) → email_16b8b260 (reversible)
 ✅ Pseudonimización ocurre ANTES de enviar (fail-closed)
 ✅ Vault persiste en captures/.pseudonym_vault.json
 ✅ Capturas originales + enviadas separadas
@@ -56,9 +56,9 @@ Klaus Proxy Local es una herramienta de **auditoría y privacidad** que intercep
 
 Última prueba (2026-09-04 10:24:33):
 - **Request enviado a:** `/v1/messages` con email visible en payload
-- **En captura ORIGINAL:** `"system": "Eres un asistente. Mi email es asantacana@kyndryl.com"`
+- **En captura ORIGINAL:** `"system": "Eres un asistente. Mi email es ana.garcia@empresa.example"`
 - **En captura SENT:** Email NO presente, remplazado con pseudónimo
-- **En VAULT:** `asantacana@kyndryl.com → email_16b8b260`
+- **En VAULT:** `ana.garcia@empresa.example → email_16b8b260`
 
 ### Datos Sensibles Protegidos
 

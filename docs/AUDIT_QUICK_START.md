@@ -5,7 +5,7 @@
 ## 🚀 Ejecución Rápida
 
 ```bash
-cd /Users/asantacana/proyectos/klaus-proxy-local
+cd /Users/<usuario>/proyectos/klaus-proxy-local
 
 # Paso 1: Ver panorama
 python audit_captures.py --stats
@@ -36,7 +36,7 @@ python audit_captures.py --review
 ### Si hay problemas:
 ```
 ⚠️  Found 5 potential leaks
-  email        | dev@masorange.example
+  email        | equipo@cliente-x.example
   ip           | 160.79.104.20
   path         | /sensitive/path
 ```

@@ -23,7 +23,7 @@ Both issues have been **completely resolved** and all code is now in the main br
 
 **Reported Error:**
 ```
-/Users/asantacana/.local/bin/klaus: line 224: python: command not found
+/Users/<usuario>/.local/bin/klaus: line 224: python: command not found
 ```
 
 **Cause:** 
@@ -66,7 +66,7 @@ fix: replace all python with python3 in klaus menu functions
 Files changed: 3 (klaus, scripts/klaus, ~/.local/bin/klaus)
 Lines added: 6
 Date: 2026-09-19 10:28:54 UTC
-Author: asantacana_kyndryl
+Author: usuario_empresa
 ```
 
 **Changes:**
@@ -109,7 +109,7 @@ fix: disable set -u around empty array expansions in menu functions
 Files changed: 2 (klaus, scripts/klaus)
 Lines changed: 24 added, 12 deleted
 Date: 2026-09-19 11:40:00 UTC
-Author: asantacana_kyndryl
+Author: usuario_empresa
 Status: FINAL SOLUTION
 ```
 
@@ -134,8 +134,8 @@ All updates made to 3 locations (main + distribution copies):
 
 | File | Commits | Status |
 |------|---------|--------|
-| `/Users/asantacana/proyectos/klaus-proxy-local/klaus` | d9c9839, f52564f, 8bf2f8a | ✅ |
-| `/Users/asantacana/proyectos/klaus-proxy-local/scripts/klaus` | d9c9839, f52564f, 8bf2f8a | ✅ |
+| `/Users/<usuario>/proyectos/klaus-proxy-local/klaus` | d9c9839, f52564f, 8bf2f8a | ✅ |
+| `/Users/<usuario>/proyectos/klaus-proxy-local/scripts/klaus` | d9c9839, f52564f, 8bf2f8a | ✅ |
 | `~/.local/bin/klaus` | d9c9839, f52564f, 8bf2f8a | ✅ |
 
 ---

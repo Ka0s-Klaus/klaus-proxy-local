@@ -102,7 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.3] — 2026-09-20
 
 ### Fixed
-- **Progress feedback for large directory scans** — Added "Indexing files..." visual feedback during file traversal to prevent appearing frozen when scanning large directories like `/Users/asantacana`
+- **Progress feedback for large directory scans** — Added "Indexing files..." visual feedback during file traversal to prevent appearing frozen when scanning large directories like `/Users/usuario`
 - **Documentation version consistency** — Synchronized version references across all modules (README, docstrings, install commands)
 - **Test version assertions** — Updated tests to assert correct version (0.3.3)
 - **Invalid ruff version constraint** — Changed from non-existent 0.16.5 to valid 0.8.0+

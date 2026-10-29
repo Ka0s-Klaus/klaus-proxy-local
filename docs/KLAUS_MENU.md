@@ -363,8 +363,8 @@ Klaus Proxy configuration is stored in `~/.klaus-proxy/config.json`:
     "api.anthropic.com",
     "llm.tools.cloud.customer1.es"
   ],
-  "capture_dir": "/Users/asantacana/.klaus-proxy/captures",
-  "vault_path": "/Users/asantacana/.klaus-proxy/captures/.pseudonym_vault.json",
+  "capture_dir": "/Users/<usuario>/.klaus-proxy/captures",
+  "vault_path": "/Users/<usuario>/.klaus-proxy/captures/.pseudonym_vault.json",
   "log_level": "info"
 }
 ```
