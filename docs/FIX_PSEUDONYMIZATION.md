@@ -14,7 +14,7 @@ Aquí está el proceso paso a paso para identificar y solucionar el problema.
 Ejecuta el script de diagnóstico:
 
 ```bash
-python src/Klaus_proxy_local/fix_pseudonymization.py
+python3 src/Klaus_proxy_local/fix_pseudonymization.py
 ```
 
 Esto te dirá:
@@ -47,7 +47,7 @@ Esto te dirá:
 ## 🔍 Paso 2: Ver Payloads Específicos
 
 ```bash
-python src/Klaus_proxy_local/fix_pseudonymization.py --show-payloads
+python3 src/Klaus_proxy_local/fix_pseudonymization.py --show-payloads
 ```
 
 Output:
@@ -102,7 +102,7 @@ Path: /api/event_logging/v2/batch
 
 1. Ver configuración actual:
    ```bash
-   python src/Klaus_proxy_local/fix_pseudonymization.py --show-config
+   python3 src/Klaus_proxy_local/fix_pseudonymization.py --show-config
    ```
 
 2. Editar `~/.klaus-proxy/config.json`:
@@ -188,7 +188,7 @@ Después de hacer cambios:
 ### 1. Auditar nuevamente:
 
 ```bash
-python src/Klaus_proxy_local/audit_all_payloads.py
+python3 src/Klaus_proxy_local/audit_all_payloads.py
 ```
 
 Deberías ver:
@@ -201,7 +201,7 @@ Deberías ver:
 ### 2. Ver en detalle:
 
 ```bash
-python src/Klaus_proxy_local/fix_pseudonymization.py --show-payloads
+python3 src/Klaus_proxy_local/fix_pseudonymization.py --show-payloads
 ```
 
 Deberías ver:

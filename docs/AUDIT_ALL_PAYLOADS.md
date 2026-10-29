@@ -244,7 +244,7 @@ Secrets Redacted: 3/4 (75.0%)
 
 **Solution:**
 1. Check file permissions: `ls -la ~/.klaus-proxy/captures/sent/`
-2. Check if files are valid JSON: `cat ~/.klaus-proxy/captures/sent/new_capture_00.json | python -m json.tool`
+2. Check if files are valid JSON: `cat ~/.klaus-proxy/captures/sent/new_capture_00.json | python3 -m json.tool`
 3. If corrupted, delete and re-capture: `rm ~/.klaus-proxy/captures/sent/*.json`
 
 ### CSV Export Permission Error

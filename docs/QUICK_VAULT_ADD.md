@@ -3,10 +3,10 @@
 ## TL;DR
 
 ```bash
-python scripts/add_to_vault.py /ruta/a/tu/carpeta
+python3 scripts/add_to_vault.py /ruta/a/tu/carpeta
 ```
 
-**Eso es todo.** Los secretos se detectan y añaden automáticamente.
+Los secretos se detectan y se añaden al vault **y** a las reglas de `~/.klaus-proxy/config.json`. **Reinicia `claude-proxy`** para que se apliquen (#99).
 
 ---
 
@@ -14,13 +14,13 @@ python scripts/add_to_vault.py /ruta/a/tu/carpeta
 
 | Caso | Comando |
 |------|---------|
-| **Auto-añadir CRITICAL** | `python scripts/add_to_vault.py /ruta` |
-| **Ver qué haría (sin cambios)** | `python scripts/add_to_vault.py /ruta --dry-run` |
-| **Revisar antes de añadir** | `python scripts/add_to_vault.py /ruta --review` |
-| **Incluir HIGH + CRITICAL** | `python scripts/add_to_vault.py /ruta --high` |
-| **Incluir TODO (CRITICAL+HIGH+MEDIUM)** | `python scripts/add_to_vault.py /ruta --all` |
-| **Ver detalles** | `python scripts/add_to_vault.py /ruta --verbose` |
-| **JSON output (scripts)** | `python scripts/add_to_vault.py /ruta --json` |
+| **Auto-añadir CRITICAL** | `python3 scripts/add_to_vault.py /ruta` |
+| **Ver qué haría (sin cambios)** | `python3 scripts/add_to_vault.py /ruta --dry-run` |
+| **Revisar antes de añadir** | `python3 scripts/add_to_vault.py /ruta --review` |
+| **Incluir HIGH + CRITICAL** | `python3 scripts/add_to_vault.py /ruta --high` |
+| **Incluir TODO (CRITICAL+HIGH+MEDIUM)** | `python3 scripts/add_to_vault.py /ruta --all` |
+| **Ver detalles** | `python3 scripts/add_to_vault.py /ruta --verbose` |
+| **JSON output (scripts)** | `python3 scripts/add_to_vault.py /ruta --json` |
 
 ---
 
@@ -28,13 +28,13 @@ python scripts/add_to_vault.py /ruta/a/tu/carpeta
 
 ```bash
 # 1. Ver qué detectaría
-python scripts/add_to_vault.py ./my-project --dry-run
+python3 scripts/add_to_vault.py ./my-project --dry-run
 
 # 2. Si te gusta, añadir
-python scripts/add_to_vault.py ./my-project
+python3 scripts/add_to_vault.py ./my-project
 
 # 3. Verificar qué se añadió
-python scripts/inspect_vault.py --stats
+python3 scripts/inspect_vault.py --stats
 ```
 
 ---
@@ -54,8 +54,8 @@ python scripts/inspect_vault.py --stats
 ## Más Información
 
 - Full guide: `docs/ADD_TO_VAULT_AUTOMATIC.md`
-- Inspect: `python scripts/inspect_vault.py --help`
-- Scan (manual): `python scripts/add_to_vault.py --help`
+- Inspect: `python3 scripts/inspect_vault.py --help`
+- Scan (manual): `python3 scripts/add_to_vault.py --help`
 
 **Version:** 0.3.0  
 **Ready to use:** ✅

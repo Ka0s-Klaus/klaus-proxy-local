@@ -8,16 +8,14 @@ Klaus Proxy Local guarda las anonimizaciones en varios lugares:
 
 ### 1. **Vault Principal** (Mapeo completo)
 ```
-~/.klaus-proxy/../captures/.pseudonym_vault.json
+~/.klaus-proxy/captures/.pseudonym_vault.json
 ```
 
-Contiene:
-- `real_to_pseudo`: Valores reales → Pseudonimizados
-- `pseudo_to_real`: Pseudonimizados → Valores reales
+Un JSON plano `{"valor real": "seudónimo"}`, con permisos `0600`. **Contiene los valores reales en claro.**
 
 ### 2. **Capturas Originales** (Valores REALES)
 ```
-~/.klaus-proxy/../captures/original/
+~/.klaus-proxy/captures/original/
 ```
 
 Archivos JSON con los valores REALES que se enviaron.
@@ -25,15 +23,14 @@ Archivos JSON con los valores REALES que se enviaron.
 
 ### 3. **Capturas Enviadas** (Valores PSEUDONIMIZADOS)
 ```
-~/.klaus-proxy/../captures/sent/
+~/.klaus-proxy/captures/sent/
 ```
 
 Archivos JSON con los valores PSEUDONIMIZADOS que se enviaron a la API.
 
 ### 4. **Configuración**
 ```
-~/.klaus-proxy/config.json    # Configuración del proxy
-~/.klaus-proxy/.salt          # SALT para hashing (NO compartir)
+~/.klaus-proxy/config.json    # Configuración del proxy, incluida la SALT (NO compartir)
 ```
 
 ---
@@ -46,72 +43,72 @@ El más fácil de usar:
 
 ```bash
 # Ver estadísticas generales
-python scripts/inspect_vault.py
+python3 scripts/inspect_vault.py
 
 # Ver todas las anonimizaciones
-python scripts/inspect_vault.py --all
+python3 scripts/inspect_vault.py --all
 
 # Buscar una anonimización específica
-python scripts/inspect_vault.py --search "user@example.com"
+python3 scripts/inspect_vault.py --search "user@example.com"
 
 # Ver mapeo real → pseudo
-python scripts/inspect_vault.py --forward
+python3 scripts/inspect_vault.py --forward
 
 # Ver mapeo pseudo → real
-python scripts/inspect_vault.py --reverse
+python3 scripts/inspect_vault.py --reverse
 
 # Listar capturas
-python scripts/inspect_vault.py --captures original
-python scripts/inspect_vault.py --captures sent
+python3 scripts/inspect_vault.py --captures original
+python3 scripts/inspect_vault.py --captures sent
 ```
 
 ### Método 2: Comandos Linux/macOS
 
 #### Ver el vault completo:
 ```bash
-cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq .
+cat ~/.klaus-proxy/captures/.pseudonym_vault.json | jq .
 ```
 
 #### Ver solo mapeo real → pseudo:
 ```bash
-cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.real_to_pseudo'
+cat ~/.klaus-proxy/captures/.pseudonym_vault.json | jq .
 ```
 
 #### Ver solo mapeo pseudo → real:
 ```bash
-cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.pseudo_to_real'
+cat ~/.klaus-proxy/captures/.pseudonym_vault.json | jq 'with_entries({key: .value, value: .key})'
 ```
 
 #### Contar cuántas anonimizaciones hay:
 ```bash
-cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.real_to_pseudo | length'
+cat ~/.klaus-proxy/captures/.pseudonym_vault.json | jq 'length'
 ```
 
 #### Buscar un valor específico:
 ```bash
-grep "usuario" ~/.klaus-proxy/../captures/.pseudonym_vault.json
+grep "usuario" ~/.klaus-proxy/captures/.pseudonym_vault.json
 ```
 
 #### Ver primeras 10 líneas del vault:
 ```bash
-head -20 ~/.klaus-proxy/../captures/.pseudonym_vault.json
+head -20 ~/.klaus-proxy/captures/.pseudonym_vault.json
 ```
 
 ### Método 3: Listar archivos de capturas
 
 #### Ver capturas originales:
 ```bash
-ls -lh ~/.klaus-proxy/../captures/original/
+ls -lh ~/.klaus-proxy/captures/original/
 ```
 
 #### Ver capturas enviadas:
 ```bash
-ls -lh ~/.klaus-proxy/../captures/sent/
+ls -lh ~/.klaus-proxy/captures/sent/
 ```
 
 #### Contar archivos de captura:
 ```bash
-ls ~/.klaus-proxy/../captures/original/ | wc -l
+ls ~/.klaus-proxy/captures/original/ | wc -l
 ```
 
 ---
@@ -121,7 +118,7 @@ ls ~/.klaus-proxy/../captures/original/ | wc -l
 ### Ejemplo 1: Ver todas las anonimizaciones
 
 ```bash
-$ python scripts/inspect_vault.py --all
+$ python3 scripts/inspect_vault.py --all
 
 📋 TODAS LAS ANONIMIZACIONES
 ════════════════════════════════════════════════════════════════
@@ -147,7 +144,7 @@ Total de mapeos: 5
 ### Ejemplo 2: Buscar una anonimización
 
 ```bash
-$ python scripts/inspect_vault.py --search "alice"
+$ python3 scripts/inspect_vault.py --search "alice"
 
 🔍 BUSCANDO: 'alice'
 ════════════════════════════════════════════════════════════════
@@ -164,7 +161,7 @@ $ python scripts/inspect_vault.py --search "alice"
 ### Ejemplo 3: Ver estadísticas
 
 ```bash
-$ python scripts/inspect_vault.py
+$ python3 scripts/inspect_vault.py
 
 📊 ESTADÍSTICAS DEL VAULT
 ════════════════════════════════════════════════════════════════
@@ -181,7 +178,7 @@ Por categoría:
 ### Ejemplo 4: Ver JSON formateado
 
 ```bash
-$ cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.real_to_pseudo' | head -20
+$ cat ~/.klaus-proxy/captures/.pseudonym_vault.json | jq . | head -20
 
 {
   "/home/alice/project": "/proj_a1b2c3d4",
@@ -196,9 +193,9 @@ $ cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.real_to_pseudo' | 
 
 ### ⚠️ IMPORTANTE
 
-- **NUNCA** subir `~/.klaus-proxy/../captures/` a git
+- **NUNCA** subir `~/.klaus-proxy/captures/` a git
 - **NUNCA** compartir `.pseudonym_vault.json`
-- **NUNCA** exponer `.salt` (needed for reverting)
+- **NUNCA** exponer la SALT (`salt` de `~/.klaus-proxy/config.json`): con ella se pueden asociar seudónimos a valores candidatos
 - **NUNCA** compartir capturas en `original/`
 
 Estos archivos contienen información SENSIBLE y son específicos de tu usuario.
@@ -207,16 +204,16 @@ Estos archivos contienen información SENSIBLE y son específicos de tu usuario.
 
 ```bash
 # Asegurar permisos
-chmod 600 ~/.klaus-proxy/../captures/.pseudonym_vault.json
-chmod 600 ~/.klaus-proxy/.salt
+chmod 600 ~/.klaus-proxy/captures/.pseudonym_vault.json
+chmod 600 ~/.klaus-proxy/config.json
 
 # Verificar permisos
-ls -l ~/.klaus-proxy/.salt
-ls -l ~/.klaus-proxy/../captures/.pseudonym_vault.json
+ls -l ~/.klaus-proxy/config.json
+ls -l ~/.klaus-proxy/captures/.pseudonym_vault.json
 
 # Eliminar capturas antiguas (cuando no las necesites)
-rm -rf ~/.klaus-proxy/../captures/original/*
-rm -rf ~/.klaus-proxy/../captures/sent/*
+rm -rf ~/.klaus-proxy/captures/original/*
+rm -rf ~/.klaus-proxy/captures/sent/*
 ```
 
 ---
@@ -226,34 +223,34 @@ rm -rf ~/.klaus-proxy/../captures/sent/*
 ### 1. Verificar si un email está anonimizado
 
 ```bash
-python scripts/inspect_vault.py --search "user@example.com"
+python3 scripts/inspect_vault.py --search "user@example.com"
 ```
 
 ### 2. Saber cuántos valores hemos pseudonimizado
 
 ```bash
-cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.real_to_pseudo | length'
+cat ~/.klaus-proxy/captures/.pseudonym_vault.json | jq 'length'
 ```
 
 ### 3. Ver la ruta original de un proyecto
 
 ```bash
 # Si el pseudo es /proj_a1b2c3d4
-cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.pseudo_to_real."/proj_a1b2c3d4"'
+cat ~/.klaus-proxy/captures/.pseudonym_vault.json | jq -r 'to_entries[] | select(.value == "/proj_a1b2c3d4") | .key'
 ```
 
 ### 4. Auditar qué se envió a la API
 
 ```bash
 # Ver capturas pseudonimizadas enviadas
-ls -la ~/.klaus-proxy/../captures/sent/ | head -10
+ls -la ~/.klaus-proxy/captures/sent/ | head -10
 ```
 
 ### 5. Limpiar anonimizaciones antiguas
 
 ```bash
 # CUIDADO: Esto elimina TODO el historial de anonimizaciones
-rm ~/.klaus-proxy/../captures/.pseudonym_vault.json
+rm ~/.klaus-proxy/captures/.pseudonym_vault.json
 
 # Klaus-proxy generará un nuevo vault en la próxima ejecución
 ```
@@ -262,30 +259,19 @@ rm ~/.klaus-proxy/../captures/.pseudonym_vault.json
 
 ## 📋 ESTRUCTURA DEL VAULT
 
-El archivo `.pseudonym_vault.json` tiene esta estructura:
+El archivo `.pseudonym_vault.json` es un objeto plano, valor real → seudónimo:
 
 ```json
 {
-  "real_to_pseudo": {
-    "valor_real_1": "pseudonimo_1",
-    "valor_real_2": "pseudonimo_2",
-    "valor_real_3": "pseudonimo_3"
-  },
-  "pseudo_to_real": {
-    "pseudonimo_1": "valor_real_1",
-    "pseudonimo_2": "valor_real_2",
-    "pseudonimo_3": "valor_real_3"
-  }
+  "/Users/ana/proyectos/mi-repo": "/proj_1a2b3c4d",
+  "ana": "user_5e6f7a8b",
+  "cliente-x": "dir_9c0d1e2f"
 }
 ```
 
-### Propiedades
-
-- **real_to_pseudo**: Mapeo de valores reales a pseudonimizados
-  - Usado cuando se ENVÍA a la API (request)
-  
-- **pseudo_to_real**: Mapeo inverso (pseudonimizado a real)
-  - Usado cuando se RECIBE de la API (response)
+- El proxy lo carga al arrancar y lo usa en los dos sentidos: al **enviar**, para dar a cada valor su seudónimo; al **recibir**, para restaurar cada seudónimo a su valor real.
+- Solo contiene valores que alguna regla ha seudonimizado. Un valor que añadas **solo** aquí no se protege: tiene que estar en `pseudo_literals`, `pseudo_word_literals` o `pseudo_patterns` de `config.json`.
+- El proxy lo reescribe cuando acuña un seudónimo nuevo: edítalo solo con `claude-proxy` parado.
 
 ---
 
@@ -295,20 +281,20 @@ El archivo `.pseudonym_vault.json` tiene esta estructura:
 
 ```bash
 # Ver todas las rutas
-cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.real_to_pseudo | to_entries[] | select(.key | startswith("/")) | .value'
+cat ~/.klaus-proxy/captures/.pseudonym_vault.json | jq 'to_entries[] | select(.key | startswith("/")) | .value'
 
 # Ver todos los emails
-cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.real_to_pseudo | to_entries[] | select(.key | contains("@")) | .value'
+cat ~/.klaus-proxy/captures/.pseudonym_vault.json | jq 'to_entries[] | select(.key | contains("@")) | .value'
 
 # Ver todos los API keys
-cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.real_to_pseudo | to_entries[] | select(.key | startswith("sk-")) | .value'
+cat ~/.klaus-proxy/captures/.pseudonym_vault.json | jq 'to_entries[] | select(.key | startswith("sk-")) | .value'
 ```
 
 ### Exportar para auditoría
 
 ```bash
 # Crear copia de backup (MANTENER SEGURO)
-cp ~/.klaus-proxy/../captures/.pseudonym_vault.json ~/vault_backup.json
+cp ~/.klaus-proxy/captures/.pseudonym_vault.json ~/vault_backup.json
 
 # Restringir permisos
 chmod 600 ~/vault_backup.json
@@ -325,11 +311,11 @@ chmod 600 ~/vault_backup.json
 # El vault se crea en la primera ejecución
 
 # Verifica la ruta
-ls -la ~/.klaus-proxy/../captures/
+ls -la ~/.klaus-proxy/captures/
 
 # Si no existe, crea los directorios
-mkdir -p ~/.klaus-proxy/../captures/original
-mkdir -p ~/.klaus-proxy/../captures/sent
+mkdir -p ~/.klaus-proxy/captures/original
+mkdir -p ~/.klaus-proxy/captures/sent
 ```
 
 ### El vault está vacío
@@ -352,7 +338,7 @@ brew install jq  # macOS
 apt install jq   # Linux
 
 # O usa Python
-python -m json.tool ~/.klaus-proxy/../captures/.pseudonym_vault.json
+python3 -m json.tool ~/.klaus-proxy/captures/.pseudonym_vault.json
 ```
 
 ---
@@ -363,17 +349,17 @@ Para verificar que todo está guardado correctamente:
 
 ```bash
 # 1. Comprobar que el vault existe
-test -f ~/.klaus-proxy/../captures/.pseudonym_vault.json && echo "✅ Vault encontrado"
+test -f ~/.klaus-proxy/captures/.pseudonym_vault.json && echo "✅ Vault encontrado"
 
 # 2. Verificar que es JSON válido
-cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq . > /dev/null && echo "✅ JSON válido"
+cat ~/.klaus-proxy/captures/.pseudonym_vault.json | jq . > /dev/null && echo "✅ JSON válido"
 
 # 3. Contar anonimizaciones
-echo "Anonimizaciones: $(cat ~/.klaus-proxy/../captures/.pseudonym_vault.json | jq '.real_to_pseudo | length')"
+echo "Anonimizaciones: $(cat ~/.klaus-proxy/captures/.pseudonym_vault.json | jq 'length')"
 
 # 4. Ver que hay capturas
-echo "Capturas originales: $(ls ~/.klaus-proxy/../captures/original/ | wc -l)"
-echo "Capturas enviadas: $(ls ~/.klaus-proxy/../captures/sent/ | wc -l)"
+echo "Capturas originales: $(ls ~/.klaus-proxy/captures/original/ | wc -l)"
+echo "Capturas enviadas: $(ls ~/.klaus-proxy/captures/sent/ | wc -l)"
 ```
 
 ---

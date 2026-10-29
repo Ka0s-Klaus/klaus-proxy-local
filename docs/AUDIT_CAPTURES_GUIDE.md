@@ -15,7 +15,7 @@
 
 **Comando:**
 ```bash
-python audit_captures.py --stats
+python3 audit_captures.py --stats
 ```
 
 **Qué hace:**
@@ -52,7 +52,7 @@ Patterns found in sample:
 
 **Comando:**
 ```bash
-python audit_captures.py --find-leaks
+python3 audit_captures.py --find-leaks
 ```
 
 **Qué hace:**
@@ -78,16 +78,20 @@ Scanning 100 sent payloads...
 
 **Significado:**
 - ✅ Si **0 leaks** → Pseudonimización funcionando perfectamente
-- ⚠️ Si hay **leaks** → Hay valores que NO se pseudonimizaron. Deben añadirse al vault
+- ⚠️ Si hay **leaks** → puede haber valores que no se pseudonimizaron. Es una búsqueda por patrones sobre una muestra: revisa la lista, porque da falsos positivos.
 
-**Qué hacer si hay leaks:**
+**Qué hacer si son valores reales:**
 ```bash
-# Añade valores filtrante al vault
-python scripts/add_to_vault.py --manual
+# Opción A: a mano, en ~/.klaus-proxy/config.json
+#   "pseudo_word_literals": ["cliente-x"]      ← tokens (frontera de palabra)
+#   "pseudo_literals": ["Cliente Uno S.A."]    ← con espacios o barras
 
-# O automáticamente desde los leaks encontrados
-python scripts/add_to_vault.py --from-leaks audit_report.json
+# Opción B: las fugas detectadas por --find-leaks (pide confirmación)
+python3 auto_add_detected_leaks.py --dry-run
+python3 auto_add_detected_leaks.py
 ```
+
+Después, **reinicia `claude-proxy`**. Añadir un valor solo al vault no lo protege: tiene que estar en las reglas de `config.json`.
 
 ---
 
@@ -95,7 +99,7 @@ python scripts/add_to_vault.py --from-leaks audit_report.json
 
 **Comando:**
 ```bash
-python audit_captures.py --patterns
+python3 audit_captures.py --patterns
 ```
 
 **Qué hace:**
@@ -152,7 +156,7 @@ Vault breakdown by type:
 
 **Comando:**
 ```bash
-python audit_captures.py --review
+python3 audit_captures.py --review
 ```
 
 **Qué hace:**
@@ -186,16 +190,16 @@ python audit_captures.py --review
 
 ```bash
 # 1. Ver panorama general
-python audit_captures.py --stats
+python3 audit_captures.py --stats
 
 # 2. Buscar problemas críticos (fugas)
-python audit_captures.py --find-leaks
+python3 audit_captures.py --find-leaks
 
 # 3. Analizar cobertura actual
-python audit_captures.py --patterns
+python3 audit_captures.py --patterns
 
 # 4. Revisión interactiva de muestras
-python audit_captures.py --review
+python3 audit_captures.py --review
 ```
 
 ### Ejemplo Completo:
@@ -204,19 +208,19 @@ python audit_captures.py --review
 cd /Users/<usuario>/proyectos/klaus-proxy-local
 
 # Terminal 1: Ver estadísticas
-python audit_captures.py --stats
+python3 audit_captures.py --stats
 # Output: 9,021 payloads, 259 vault entries, 45 emails encontrados
 
 # Terminal 1: Buscar fugas reales
-python audit_captures.py --find-leaks
+python3 audit_captures.py --find-leaks
 # Output: ✅ No obvious leaks detected (EXCELENTE)
 
 # Terminal 1: Analizar cobertura
-python audit_captures.py --patterns
+python3 audit_captures.py --patterns
 # Output: Emails 111, IPs 42, Paths 45 (buena cobertura)
 
 # Terminal 1: Revisar muestras interactivas
-python audit_captures.py --review
+python3 audit_captures.py --review
 # Output: Revisa primeros 50 payloads lado a lado
 ```
 
@@ -224,53 +228,23 @@ python audit_captures.py --review
 
 ## 🔧 Si Encuentras Valores Faltantes
 
-### Caso 1: Fuga Detectada (Valor en `sent/` que no debería estar)
+Un valor real que aparece en `sent/` salió sin pseudonimizar porque ninguna regla lo reconoce. Protégelo:
 
 ```bash
-# Script añade a vault automáticamente
-python scripts/add_to_vault.py /Users/<usuario>/proyectos/klaus-proxy-local \
-  --manual \
-  --value "el-valor-filtrado@example.com"
+# Opción A: a mano, en ~/.klaus-proxy/config.json
+#   "pseudo_word_literals": ["cliente-x"]      ← tokens (frontera de palabra)
+#   "pseudo_literals": ["Cliente Uno S.A."]    ← con espacios o barras
 
-# O en modo review interactivo
-python scripts/add_to_vault.py . --review
-# (Approves valores uno a uno)
+# Opción B: las fugas detectadas por --find-leaks (pide confirmación)
+python3 auto_add_detected_leaks.py --dry-run
+python3 auto_add_detected_leaks.py
 ```
 
-### Caso 2: Valor en `original/` pero sin vault entry
+Después, **reinicia `claude-proxy`**. Añadir un valor solo al vault no lo protege: tiene que estar en las reglas de `config.json`.
 
-**Opción A: Automática (recomendado)**
-```bash
-# Escanea original/ recursivamente y añade a vault
-python scripts/add_to_vault.py /Users/<usuario>/proyectos/klaus-proxy-local \
-  --scan-captures \
-  --review
-```
+Para secretos de una carpeta de tu disco (claves, tokens, `.env`), usa `python3 scripts/add_to_vault.py ~/proyectos/mi-repo --review` ([guía](./ADD_TO_VAULT_AUTOMATIC.md)).
 
-**Opción B: Manual (más control)**
-```bash
-# Abre editor para añadir valores manualmente
-python scripts/add_to_vault.py . --manual
-
-# Ingresa:
-# Valor real: equipo@cliente-x.example
-# Pseudónimo prefix (default "email"): email
-# → Se genera: email_<hash-derivado-del-salt>
-```
-
-**Opción C: Bulk (desde lista)**
-```bash
-# Crea archivo valores_nuevos.txt
-cat > valores_nuevos.txt << 'EOF'
-equipo@cliente-x.example
-equipo@cliente-x.example
-160.79.104.20
-192.168.1.50
-EOF
-
-# Añade todos
-python scripts/add_to_vault.py . --from-file valores_nuevos.txt --review
-```
+Comprueba el resultado en peticiones **nuevas** con `python3 src/anthropic_pair_verify.py`: las ya enviadas no cambian.
 
 ---
 
@@ -281,9 +255,9 @@ python scripts/add_to_vault.py . --from-file valores_nuevos.txt --review
 ✅ PERFECTO
 - No hay fugas de valores sensibles en sent/
 - Cobertura del vault es completa
-- Pseudonimización funcionando al 100%
+- Ninguna fuga detectada en la muestra
 
-Acción: Documentar "v0.3.0 audit complete, zero leaks"
+Acción: confirmar con python3 src/anthropic_pair_verify.py (sin muestreo)
 ```
 
 ### Escenario B: "5 Leaks Detected"
@@ -369,11 +343,11 @@ Después de ejecutar audit_captures.py:
 cd /Users/<usuario>/proyectos/klaus-proxy-local
 
 # 1. Estadísticas
-python audit_captures.py --stats
+python3 audit_captures.py --stats
 # → Output: Resumen de capturados
 
 # 2. Detectar leaks críticos
-python audit_captures.py --find-leaks
+python3 audit_captures.py --find-leaks
 # → Output: ✅ No leaks (o ⚠️ N leaks found)
 
 echo "✅ Audit complete"
@@ -382,18 +356,18 @@ echo "✅ Audit complete"
 ### Ejemplo 2: Auditoría Profunda (20 minutos)
 ```bash
 # 1. Todo lo anterior +
-python audit_captures.py --patterns
+python3 audit_captures.py --patterns
 # → Output: Desglose por tipo de dato
 
 # 2. Revisar muestras
-python audit_captures.py --review
+python3 audit_captures.py --review
 # → Proceso interactivo, 50 payloads
 
-# 3. Si hay valores a añadir:
-python scripts/add_to_vault.py . --manual --review
+# 3. Si hay valores reales: añadirlos a config.json o
+python3 auto_add_detected_leaks.py   # y reiniciar claude-proxy
 
 # 4. Verificar nuevamente
-python audit_captures.py --find-leaks
+python3 audit_captures.py --find-leaks
 ```
 
 ### Ejemplo 3: Integración Automated
@@ -401,9 +375,9 @@ python audit_captures.py --find-leaks
 # En GitHub Actions (.github/workflows/audit.yml):
 - name: Audit captures for leaks
   run: |
-    python audit_captures.py --stats > audit_report.txt
-    python audit_captures.py --find-leaks >> audit_report.txt
-    python audit_captures.py --patterns >> audit_report.txt
+    python3 audit_captures.py --stats > audit_report.txt
+    python3 audit_captures.py --find-leaks >> audit_report.txt
+    python3 audit_captures.py --patterns >> audit_report.txt
     if grep -q "potential leaks" audit_report.txt; then
       echo "⚠️  Leaks detected in audit"
       exit 1
