@@ -1198,18 +1198,20 @@ def test_user_dirs_pattern_leaves_placeholders_and_vault_clean():
 
 
 def test_pattern_ignore_list_from_config(tmp_path, monkeypatch):
+    # No usar el usuario de la máquina (en GitHub Actions es "runner"):
+    # build_rules() protege siempre el home real como prefijo de ruta.
     home = tmp_path / "home"
     (home / ".klaus-proxy").mkdir(parents=True)
     (home / ".klaus-proxy" / "config.json").write_text(
-        json.dumps({"pseudo_pattern_ignore": ["runner", 7]})
+        json.dumps({"pseudo_pattern_ignore": ["ejemplo-ci", 7]})
     )
     monkeypatch.setattr(ps.Path, "home", lambda: home)
     rules = ps.build_rules()
-    assert rules.pattern_ignore == frozenset({"runner"})
+    assert rules.pattern_ignore == frozenset({"ejemplo-ci"})
     v = ps.Vault()
-    out = ps.pseudonymize_text("/home/runner/work y /home/ana.lopez/x", v, rules)
-    assert "/home/runner/work" in out and "ana.lopez" not in out
-    assert "runner" not in v.to_dict()
+    out = ps.pseudonymize_text("/home/ejemplo-ci/work y /home/ana.lopez/x", v, rules)
+    assert "/home/ejemplo-ci/work" in out and "ana.lopez" not in out
+    assert "ejemplo-ci" not in v.to_dict()
 
 
 def test_prune_vault_removes_only_ignorable_pattern_entries():
