@@ -212,8 +212,9 @@ def ask_user_permission() -> bool:
     print("    (from the folder where the terminal opens; log in")
     print("    ~/.klaus-proxy/logs/autostart.log)")
     print("  • Exports HTTPS_PROXY: claude AND any other HTTPS client of the")
-    print("    terminal (pip, git, curl…) go through the proxy. Tools that do")
-    print("    not trust its CA will fail: use `klaus-off` in that terminal")
+    print("    terminal (pip, git, curl…) go through the proxy and are logged.")
+    print("    Only the LLM API is decrypted; the rest is tunnelled with its")
+    print("    real certificate, so there are no certificate errors")
     print("  • Remove the block between the Klaus Proxy markers to disable it")
     print()
 

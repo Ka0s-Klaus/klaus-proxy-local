@@ -65,7 +65,9 @@ echo $HTTPS_PROXY       # en la terminal de Claude Code: debe ser http://127.0.0
 - `HTTPS_PROXY` solo afecta a la terminal donde lo exportas y a los procesos que arranques **después**. Reinicia `claude` tras exportarlo.
 - Con `klaus-setup`, abre una terminal **nueva** tras ejecutarlo (o `exec $SHELL`). Si alguna vez usaste `klaus-off`, vuelve con `klaus-on`.
 
-**Con `klaus-setup`, falla el HTTPS de otras herramientas** (pip, git, contenedores…): todo el HTTPS de la terminal pasa por el proxy. Las que no usan el bundle de `klaus-env.sh` no confían en su CA. Usa `klaus-off` en esa terminal.
+**Con `klaus-setup`, falla el HTTPS de otras herramientas** (pip, git, contenedores…): no debería, porque solo se descifran los hosts de la API y el resto va en túnel con su certificado real. Comprueba en `~/.klaus-proxy/logs/proxy.log` que aparece `🔓 Se descifra solo: …` al arrancar y `TÚNEL host:puerto` para esa herramienta. Si el host que falla aparece en la lista de descifrados, o tienes `"intercept_all": true`, esa herramienta necesita confiar en la CA del proxy; mientras tanto, `klaus-off` en esa terminal.
+
+**Un gateway LLM propio no se seudonimiza:** si no está en `hosts` de `config.json` ni en `ANTHROPIC_BASE_URL`, va en túnel sin descifrar. Añádelo a `hosts` y reinicia `claude-proxy`.
 
 **Con `klaus-setup`, el proxy no arrancó:** mira `~/.klaus-proxy/logs/autostart.log`.
 

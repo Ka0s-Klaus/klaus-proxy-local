@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **`klaus-setup` envía cada terminal nueva por el proxy** (#105) — El bloque que añade al shell (bash, zsh, fish) carga `klaus-env.sh`, arranca `claude-proxy` en segundo plano con `nohup` si no está en marcha (log en `~/.klaus-proxy/logs/autostart.log`) y ahora **exporta `HTTPS_PROXY`** (y `NO_PROXY` para loopback). Antes no lo exportaba y `claude` no pasaba por el proxy. Funciones `klaus-off`/`klaus-on` para quitarlo o restaurarlo en una terminal. Volver a ejecutar `klaus-setup` sustituye el bloque y el hook antiguo. PowerShell deja de estar soportado (Windows no lo está).
+- **Solo se descifra la API del LLM** (#105) — Nuevo addon `klaus_tls_passthrough`: descifra `anthropic.com`, `claude.ai`, los `hosts` de `config.json` y el host de `ANTHROPIC_BASE_URL`; el resto del HTTPS pasa en túnel con su certificado real (sin errores de certificado en pip, git, brew…) y queda registrado como `TÚNEL host:puerto` en `proxy.log`. `"intercept_all": true` en `config.json` o `KLAUS_INTERCEPT_ALL=1` descifran todo, como antes.
 - **`claude-with-proxy` funciona tras `install.sh`** (#105) — `install.sh` lo enlaza en `~/.local/bin`. Carga `klaus-env.sh` (antes faltaba `NODE_EXTRA_CA_CERTS` y Claude Code rechazaba el certificado) y se niega a ejecutar `claude` si el proxy no escucha.
 
 ### Changed

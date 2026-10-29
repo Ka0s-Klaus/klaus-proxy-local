@@ -149,7 +149,8 @@ It adds a block between `# >>> Klaus Proxy Local (klaus-setup) >>>` markers to y
 
 Things to know:
 
-- **All HTTPS of the terminal goes through the proxy** (pip, git, curl, brew…). Tools that don't use the CA bundle of `klaus-env.sh` (some Go, Rust or Java binaries, container runtimes) will fail with certificate errors: run `klaus-off` in that terminal (`klaus-on` restores it).
+- **All HTTPS of the terminal goes through the proxy** (pip, git, curl, brew…) and each connection is logged in `~/.klaus-proxy/logs/proxy.log`. Only the LLM API hosts (`anthropic.com`, `claude.ai`, the `hosts` of `config.json` and the host of `ANTHROPIC_BASE_URL`) are decrypted, pseudonymized and captured. Everything else goes through as a TLS tunnel with the server's real certificate, so no tool gets certificate errors; the log records `TÚNEL host:port` (host and time, not contents). `"intercept_all": true` in `config.json` (or `KLAUS_INTERCEPT_ALL=1`) decrypts everything, as before. `klaus-off` / `klaus-on` drop or restore `HTTPS_PROXY` in one terminal.
+- **A gateway other than Anthropic must be in `hosts` of `config.json`** (or in `ANTHROPIC_BASE_URL`): otherwise it would be tunnelled without pseudonymization.
 - The proxy registers the org/repo of the folder where it **starts**: the first terminal you open. For a different repo, stop it and start `claude-proxy` from that repo.
 - Right after opening the first terminal the proxy needs a few seconds to listen.
 - To disable it, remove the marked block from your shell config.
