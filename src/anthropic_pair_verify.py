@@ -47,7 +47,7 @@ import argparse
 import functools
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -200,7 +200,11 @@ class Span:
     """Un valor real que NO debería reaparecer verbatim en el sent."""
 
     value: str
-    category: str  # "email" | "ipv4" | "path" | "identity" | "org" | "vault"
+    category: (
+        str  # "email" | "ipv4" | "path" | "identity" | "org" | "vault" | "pattern"
+    )
+    # Solo en la capa "pattern": el regex de pseudo_patterns que lo detectó (#42).
+    pattern: re.Pattern | None = field(default=None, compare=False)
 
 
 def _record_text(record: dict[str, Any]) -> str:
@@ -264,6 +268,23 @@ def regex_matches(record: dict[str, Any], regex: re.Pattern) -> set[str]:
     return {m for leaf in leaves for m in regex.findall(leaf)}
 
 
+@functools.lru_cache(maxsize=262_144)
+def _leaf_pattern_values(pattern: re.Pattern, leaf: str) -> tuple[str, ...]:
+    """Valores del grupo 1 (o coincidencia) en una hoja; en caché como #73."""
+    group = 1 if pattern.groups else 0
+    return tuple(m.group(group) for m in pattern.finditer(leaf) if m.group(group))
+
+
+def pattern_values(record: dict[str, Any], pattern: re.Pattern) -> set[str]:
+    """Valores que un ``pseudo_patterns`` seudonimizaría: grupo 1 o coincidencia."""
+    found: set[str] = set()
+    for leaf in _string_leaves([record.get("payload"), record.get("headers")]):
+        values = _leaf_pattern_values(pattern, leaf)
+        if values:
+            found.update(values)
+    return found
+
+
 def sensitive_spans(
     record: dict[str, Any], vault: dict[str, str], rules: Rules
 ) -> list[Span]:
@@ -301,11 +322,20 @@ def sensitive_spans(
         add(lit, "identity")
     for word in rules.word_literals:
         add(word, "org")
+    # pseudo_patterns (#42): con contexto, como email/IPv4.
+    for pattern, _prefix in rules.patterns:
+        for value in sorted(pattern_values(record, pattern)):
+            if len(value) >= _MIN_LEAK_LEN and value not in seen and value in text:
+                seen.add(value)
+                spans.append(Span(value, "pattern", pattern))
 
     # 3) Valores reales del vault presentes en el original. Los de email/IPv4
     # ya los cubre la capa 1 con contexto.
+    pattern_prefixes = tuple(f"{prefix}_" for _p, prefix in rules.patterns)
     for real, pseudo in vault.items():
         if pseudo.startswith(_REGEX_PSEUDO_PREFIXES):
+            continue
+        if pattern_prefixes and pseudo.startswith(pattern_prefixes):
             continue
         add(real, "vault")
 
@@ -323,15 +353,18 @@ def diff_leaks(
     if haystack is None:
         haystack = _record_text(sent_record)
     sent_matches = layer_matches(sent_record)
-    return [
-        s
-        for s in spans
-        if (
-            s.value in sent_matches[s.category]
-            if s.category in sent_matches
-            else s.value in haystack
-        )
-    ]
+    by_pattern: dict[re.Pattern, set[str]] = {}
+
+    def leaked(s: Span) -> bool:
+        if s.pattern is not None:
+            if s.pattern not in by_pattern:
+                by_pattern[s.pattern] = pattern_values(sent_record, s.pattern)
+            return s.value in by_pattern[s.pattern]
+        if s.category in sent_matches:
+            return s.value in sent_matches[s.category]
+        return s.value in haystack
+
+    return [s for s in spans if leaked(s)]
 
 
 def secrets_in_sent(

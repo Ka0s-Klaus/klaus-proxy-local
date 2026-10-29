@@ -199,6 +199,48 @@ def remember_repo_tokens(cwd: Path | None = None) -> tuple[list[str], list[str]]
     return ps.add_word_literals_to_config(tokens, config_file())
 
 
+def remember_projects_root(cwd: Path | None = None) -> tuple[str | None, int]:
+    """Protect every directory next to the current repo (#42).
+
+    Adds a ``pseudo_patterns`` entry for the parent of the git top-level of
+    ``cwd`` (e.g. ``~/proyectos``), so the names of sibling projects never
+    leave in clear, even truncated or when they are not git repos. Skipped if
+    that parent is the home directory or ``/``: it would pseudonymize every
+    directory in it.
+
+    Returns ``(root_added_now_or_None, total_patterns)``. Best-effort.
+    """
+    ps = _pseudonymizer()
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=str(cwd or Path.cwd()),
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+        top = (out.stdout or "").strip()
+    except Exception:
+        top = ""
+    root = Path(top).parent if top else None
+    if root is None or root in (Path.home(), Path(root.anchor)):
+        return None, len(_current_patterns())
+    added, patterns = ps.add_pattern_to_config(
+        ps.projects_root_pattern(str(root)), config_file()
+    )
+    return (str(root) if added else None), len(patterns)
+
+
+def _current_patterns() -> list:
+    try:
+        return (
+            json.loads(config_file().read_text(encoding="utf-8")).get("pseudo_patterns")
+            or []
+        )
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
 def load_config() -> dict:
     """Load configuration from ~/.klaus-proxy/config.json.
 

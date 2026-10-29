@@ -31,7 +31,11 @@ from Klaus_proxy_local.certs import (
     mitmproxy_cert_dir,
     mitmproxy_cert_file,
 )
-from Klaus_proxy_local.setup import init_config_if_missing, remember_repo_tokens
+from Klaus_proxy_local.setup import (
+    init_config_if_missing,
+    remember_projects_root,
+    remember_repo_tokens,
+)
 
 
 class ProxyLauncher:
@@ -51,6 +55,7 @@ class ProxyLauncher:
         self.mitmdump_process = None
         self.enable_monitor = enable_monitor
         self.protected_tokens: list[str] = []
+        self.pattern_count = 0
         self.addons_info: dict = {}
 
     def regenerate_certs_if_needed(self) -> None:
@@ -107,6 +112,11 @@ class ProxyLauncher:
         if added:
             print(f"✅ Org/repo added to protected list: {', '.join(added)}\n")
 
+        # Step 1c: Protect the names of every sibling project directory (#42)
+        root, self.pattern_count = remember_projects_root()
+        if root:
+            print(f"✅ Project names under {root}/ are now pseudonymized\n")
+
         # Step 2: Auto-regenerate or ensure certs
         try:
             self.regenerate_certs_if_needed()
@@ -143,6 +153,8 @@ class ProxyLauncher:
                 "inside each repo\n   (or add them to pseudo_word_literals in "
                 "~/.klaus-proxy/config.json)\033[0m"
             )
+        if self.pattern_count:
+            print(f"🗂️  pseudo_patterns:       {self.pattern_count} active")
         print(f"🔒 Certificate:           {self.cert_file}")
         print("✅ Auto-configuration:    ALL CERTIFICATES + ENV VARS SET")
         print("")
