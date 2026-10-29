@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **El patrón de usuarios `/Users/<u>` registraba marcadores y puntuación en el vault** (#92) — Una ruta con el usuario tapado (`…`, `|`, `«X»`, `{user}`) o genérica (`/Users/Shared`) entraba al vault como si fuera un usuario real, se sustituía por un seudónimo y el verificador la tomaba por fuga. Los patrones ignoran ahora los valores sin letras ni números, de un carácter, los marcadores de plantilla y, como usuario, los nombres genéricos; `pseudo_pattern_ignore` en `config.json` excluye valores concretos. `scripts/prune_vault.py` quita del vault los que ya habían entrado (con el proxy parado; copia de seguridad).
+
 ---
 
 ## [0.5.1] — 2026-10-29
