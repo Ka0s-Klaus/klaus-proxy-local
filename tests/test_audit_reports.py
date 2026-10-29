@@ -486,3 +486,31 @@ def test_tool_source_keeps_end_of_long_paths(dashboard):
     assert len(src) == 120
     cmd = dashboard._tool_source({"command": "cd /repo && " + "y" * 200})
     assert cmd.startswith("cd /repo && ") and cmd.endswith("…")
+
+
+# --- tabla de hosts del plan de seguridad (#123) ------------------------------
+
+
+def test_security_unexpected_hosts_follow_config(dashboard, monkeypatch):
+    monkeypatch.setattr(
+        dashboard, "EXPECTED_HOSTS", {"api.anthropic.com", "telemetry.example"}
+    )
+    caps = [
+        {"host": "api.anthropic.com"},
+        {"host": "telemetry.example"},
+        {"host": "other.example"},
+    ]
+    sec = dashboard.audit_security(caps, [], {})
+    assert sec["unexpected_hosts"] == ["other.example"]
+    assert dict(sec["host_distribution"]) == {
+        "api.anthropic.com": 1,
+        "telemetry.example": 1,
+        "other.example": 1,
+    }
+
+
+def test_hosts_table_uses_unexpected_hosts(dashboard):
+    # La tabla no puede tener su propia lista fija de hosts esperados
+    src = (ROOT / "scripts" / "generate_audit_dashboard.py").read_text(encoding="utf-8")
+    assert "new Set(['api.anthropic.com'])" not in src
+    assert "new Set(DATA.security.unexpected_hosts" in src

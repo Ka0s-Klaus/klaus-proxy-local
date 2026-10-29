@@ -1154,10 +1154,11 @@ document.querySelectorAll('.summary-card').forEach(card => {
 (function() {
   const tbody = document.getElementById('hosts-table-body');
   if (!tbody) return;
-  const expected = new Set(['api.anthropic.com']);
+  // Mismo criterio que el estado del plan: hosts de config.json (#123)
+  const unexpected = new Set(DATA.security.unexpected_hosts || []);
   DATA.security.host_distribution.forEach(function(item) {
     const host = item[0], count = item[1];
-    const ok = expected.has(host);
+    const ok = !unexpected.has(host);
     const tr = document.createElement('tr');
     tr.innerHTML = '<td><code>' + host + '</code></td><td>' + count.toLocaleString() + '</td><td>' + (ok ? '✅ Esperado' : '⚠️ Inesperado') + '</td>';
     tbody.appendChild(tr);
