@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Documentación revisada contra la funcionalidad real** (#98) — Reescritos el inicio rápido, la guía de uso, el entorno de desarrollo, el troubleshooting, la arquitectura y el diagnóstico de pseudonimización; corregidos el runbook, el README, `PRODUCT_DESCRIPTION.md`, `product.json`, `CONTRIBUTING.md`, `SECURITY.md` y las guías de auditoría y del vault. Fuera: instalación desde PyPI, opciones de `add_to_vault.py` y claves de `config.json` que no existen, la ruta `~/.klaus-proxy/../captures`, el formato antiguo del vault, `~/.klaus-proxy/.salt`, el monitor TUI y las funciones de shell no incluidas. Once documentos que describían versiones pasadas pasan a `docs/archive/`. Se sustituyen dos SALT de ejemplo con forma real.
+
 ### Fixed
 - **`klaus-fix-pseudonymization --show-config` imprimía la SALT en claro** (#106) — Si lo ejecutaba un agente, la SALT viajaba a la API sin pseudonimizar en el resultado de la herramienta. Ahora se muestra enmascarada. `audit_captures.py --find-leaks` y `generate_audit_report.py` recomendaban `add_to_vault.py --manual`, que no existe; ahora indican cómo añadir los valores a `config.json`.
 - **Los valores añadidos solo al vault no se pseudonimizaban** (#99) — `scripts/add_to_vault.py`, `klaus-scan --approve-all` y `auto_add_detected_leaks.py` escribían el valor solo en el vault, pero el proxy solo sustituye lo que casa con una regla: el valor seguía saliendo en claro. Ahora también lo añaden a `config.json` (`pseudo_word_literals` si es un único token, `pseudo_literals` si no) e indican que hay que reiniciar `claude-proxy`. Los tests ya no pueden escribir en el `config.json` real.
