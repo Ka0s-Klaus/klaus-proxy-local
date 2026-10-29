@@ -53,7 +53,7 @@ Primero, para registrar también lo que los demás registran al cargar. Escribe 
 
 Decide en el ClientHello de cada conexión TLS si se descifra:
 
-- **Se descifran** `anthropic.com`, `claude.ai` y sus subdominios, los `hosts` de `config.json` (o `ANTHROPIC_PSEUDO_HOSTS` / `ANTHROPIC_CAPTURE_HOSTS`) y el host de `ANTHROPIC_BASE_URL` (del entorno o de `~/.claude/settings.json`). Pasan por los addons siguientes como siempre.
+- **Se descifra solo lo que se audita** (#125): `api.anthropic.com` y sus subdominios, los `hosts` y `capture_only_hosts` de `config.json` (o `ANTHROPIC_PSEUDO_HOSTS` / `ANTHROPIC_CAPTURE_HOSTS`) y el host de `ANTHROPIC_BASE_URL` (del entorno o de `~/.claude/settings.json`). Pasan por los addons siguientes. Nada sale descifrado sin quedar capturado; hasta #125 se descifraban todos los subdominios de `anthropic.com` y `claude.ai`, y algunos (`mcp-proxy`, `downloads`, `platform`) salían sin pseudonimizar ni capturar.
 - **El resto va en túnel** (`ignore_connection`): mitmproxy reenvía los bytes sin descifrar y el cliente ve el certificado real del servidor, así que pip, git, brew o gh no dan errores de certificado aunque no confíen en la CA del proxy. En `proxy.log` queda `TÚNEL host:puerto (sin descifrar)`: host y hora, no contenido.
 
 Al cargar registra `🔓 Se descifra solo: …`. `"intercept_all": true` en `config.json` o `KLAUS_INTERCEPT_ALL=1` lo descifran todo, como antes de v0.6.0.
@@ -63,7 +63,7 @@ Al cargar registra `🔓 Se descifra solo: …`. `"intercept_all": true` en `con
 
 ### 🔐 `anthropic_payload_pseudonymize.py`
 
-**Petición** (hosts de `hosts` en `config.json`, por defecto `api.anthropic.com`; un host desconocido con ruta de LLM también se pseudonimiza, con un aviso, si se descifra: ver `klaus_tls_passthrough`). Recorre el JSON y aplica a cada texto, en este orden:
+**Petición** (hosts de `hosts` en `config.json`, por defecto `api.anthropic.com`; un host desconocido con ruta de LLM también se pseudonimiza, con un aviso, si se descifra: ver `klaus_tls_passthrough`). Los `capture_only_hosts` (#125) no se tocan: la petición sale tal cual y solo se deja a la captura el cuerpo con los secretos redactados. Recorre el JSON y aplica a cada texto, en este orden:
 
 | # | Regla | Resultado | Reversible |
 | --- | --- | --- | --- |

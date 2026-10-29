@@ -610,7 +610,17 @@ def _resolve_targets(
     pairs, orphans = discover_pairs(original_dir, sent_dir)
     if args.name:
         pairs = [p for p in pairs if p[0] == args.name]
-    return pairs, orphans
+    return [p for p in pairs if not is_capture_only(p[2])], orphans
+
+
+def is_capture_only(sent_path: Path) -> bool:
+    """Captura de un host de solo auditoría (#125): no se seudonimiza a
+    propósito, así que sus valores reales no son fugas."""
+    try:
+        return bool(load_capture(sent_path).get("capture_only"))
+    except (OSError, ValueError):
+        # Ilegible: se deja que la verificación normal la reporte
+        return False
 
 
 def main(argv: list[str]) -> int:

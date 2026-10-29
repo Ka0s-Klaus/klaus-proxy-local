@@ -36,7 +36,7 @@ def clienthello(sni, address=("example.org", 443)):
 
 class TestInterceptHosts:
     def test_defaults(self, home):
-        assert tp.intercept_hosts() == ("anthropic.com", "claude.ai")
+        assert tp.intercept_hosts() == ("api.anthropic.com",)
 
     def test_config_hosts_and_env(self, home, monkeypatch):
         write_json(home / ".klaus-proxy" / "config.json", {"hosts": ["GW.Example"]})
@@ -45,6 +45,14 @@ class TestInterceptHosts:
         assert "gw.example" in hosts
         assert "llm.example" in hosts
         assert "" not in hosts
+
+    def test_capture_only_hosts_are_decrypted(self, home):
+        # #125: lo que se captura sin seudonimizar también hay que descifrarlo
+        write_json(
+            home / ".klaus-proxy" / "config.json",
+            {"capture_only_hosts": ["mcp-proxy.anthropic.com"]},
+        )
+        assert "mcp-proxy.anthropic.com" in tp.intercept_hosts()
 
     def test_base_url_from_env_and_claude_settings(self, home, monkeypatch):
         monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://gw1.example:8443/v1")
@@ -59,23 +67,27 @@ class TestInterceptHosts:
     def test_broken_config_keeps_defaults(self, home):
         (home / ".klaus-proxy").mkdir()
         (home / ".klaus-proxy" / "config.json").write_text("{no json")
-        assert tp.intercept_hosts() == ("anthropic.com", "claude.ai")
+        assert tp.intercept_hosts() == ("api.anthropic.com",)
 
 
 @pytest.mark.parametrize(
     "host,expected",
     [
         ("api.anthropic.com", True),
-        ("anthropic.com", True),
+        ("edge.api.anthropic.com", True),
+        ("anthropic.com", False),
+        ("mcp-proxy.anthropic.com", False),
+        ("downloads.claude.ai", False),
         ("API.Anthropic.com.", True),
-        ("claude.ai", True),
-        ("evilanthropic.com", False),
+        ("evilapi.anthropic.com", False),
+        ("claude.ai", False),
+        ("api.anthropic.com.evil.example", False),
         ("pypi.org", False),
         ("", False),
     ],
 )
 def test_should_intercept(host, expected):
-    assert tp.should_intercept(host, ("anthropic.com", "claude.ai")) is expected
+    assert tp.should_intercept(host, ("api.anthropic.com",)) is expected
 
 
 class TestInterceptAll:

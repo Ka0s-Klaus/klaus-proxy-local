@@ -63,14 +63,21 @@ def _ts_to_date(ts_str: str | None) -> str | None:
 
 
 def _load_expected_hosts() -> set[str]:
-    """Lee los hosts esperados desde config.json. Fallback: solo api.anthropic.com."""
+    """Hosts esperados: ``hosts`` y ``capture_only_hosts`` (#125) de config.json.
+
+    Fallback: solo api.anthropic.com.
+    """
     try:
         cfg_path = Path.home() / ".klaus-proxy" / "config.json"
         if cfg_path.exists():
             cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
             hosts = [h.strip().lower() for h in cfg.get("hosts", []) if h.strip()]
             if hosts:
-                return set(hosts)
+                return set(hosts) | {
+                    str(h).strip().lower()
+                    for h in cfg.get("capture_only_hosts") or []
+                    if str(h).strip()
+                }
     except (OSError, ValueError, AttributeError) as exc:
         # Sin config.json legible, el informe solo da por esperado api.anthropic.com
         print(
@@ -1459,9 +1466,10 @@ def _uncaptured_hosts_html(security: dict) -> str:
         f"<code>proxy.log</code>{' desde ' + esc(since) if since else ''}. "
         "🔒 <b>Túnel</b>: no se descifró; solo se conoce el host y la hora. "
         "🔓 <b>Descifrado</b>: el proxy lo vio en claro pero lo dejó salir tal cual "
-        "(antes de v0.6.0 se descifraba todo; <code>anthropic.com</code> y "
-        "<code>claude.ai</code> se descifran siempre). Para auditar un host, "
-        "añádelo a <code>hosts</code> de config.json.</p>"
+        "(antes de v0.6.0 se descifraba todo, y hasta #125 todos los subdominios "
+        "de <code>anthropic.com</code> y <code>claude.ai</code>). Para auditar un "
+        "host, añádelo a <code>hosts</code> o a <code>capture_only_hosts</code> "
+        "de config.json.</p>"
     )
     if not rows:
         body = "<p>✅ Ningún host fuera de los capturados en el log.</p>"

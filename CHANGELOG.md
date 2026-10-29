@@ -10,7 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`capture_only_hosts`: auditar sin pseudonimizar** (#125) — Hosts de `config.json` que se descifran y se capturan pero cuya petición sale tal cual, para tráfico que dejaría de funcionar con seudónimos, como los conectores MCP de claude.ai (`mcp-proxy.anthropic.com`). En disco se guardan con los secretos Tier-1 redactados y `"capture_only": true`. `anthropic-pair-verify`, `klaus-audit-payloads` y `klaus-fix-pseudonymization` no los cuentan como fugas ni como «no pseudonimizados», y el dashboard los da por esperados. Si un host está también en `hosts`, se pseudonimiza; una ruta de LLM se pseudonimiza siempre.
 - **Sección «Hosts no capturados» en el dashboard** (#123) — En el plan de Seguridad, una tabla con los hosts que pasaron por el proxy sin pseudonimizar ni capturar, según `proxy.log` y sus rotaciones. Muestra, por host, las conexiones en túnel (sin descifrar) y las descifradas que salieron tal cual, con la última vez de cada modo. Así se ve qué tráfico conviene añadir a `hosts`, por ejemplo subdominios de `anthropic.com` o `claude.ai`, que se descifran pero no se pseudonimizan.
+
+### Changed
+- **Solo se descifra lo que se audita** (#125) — `klaus_tls_passthrough` descifraba todos los subdominios de `anthropic.com` y `claude.ai`, y algunos (`mcp-proxy.anthropic.com`, `downloads.claude.ai`, `platform.claude.com`) salían descifrados sin pseudonimizar ni capturar. Ahora descifra `api.anthropic.com`, `hosts`, `capture_only_hosts` y el host de `ANTHROPIC_BASE_URL`; el resto, incluida la renovación del token OAuth, va en túnel.
 
 ### Fixed
 - **La tabla de hosts del dashboard marcaba como inesperados los hosts de `config.json`** (#123) — La tabla «Hosts capturados» del plan de Seguridad tenía fijado `api.anthropic.com` como único host esperado, mientras que el estado del plan usa `hosts` de `config.json`, así que el informe se contradecía (estado correcto y host «Inesperado»). Ahora la tabla marca como inesperados los mismos hosts que el estado.
