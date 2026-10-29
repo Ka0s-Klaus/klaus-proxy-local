@@ -6,7 +6,7 @@ set -e
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_DIR"
 
-echo "🚀 Klaus Proxy Local v0.5.1"
+echo "🚀 Klaus Proxy Local v0.5.2"
 echo "============================"
 echo ""
 

@@ -265,12 +265,12 @@ class TestPackageMetadata:
     """Test package metadata is correct."""
 
     def test_package_version(self):
-        """Package version is 0.5.1."""
+        """Package version is 0.5.2."""
         import Klaus_proxy_local
 
         # Check if __version__ exists
         if hasattr(Klaus_proxy_local, "__version__"):
-            assert Klaus_proxy_local.__version__ == "0.5.1"
+            assert Klaus_proxy_local.__version__ == "0.5.2"
 
     def test_package_has_docstring(self):
         """Package has a docstring."""

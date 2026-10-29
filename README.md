@@ -6,9 +6,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.5.1-green)](./docs/RELEASE_v0.5.1_NOTES.md)
-[![Tests](https://img.shields.io/badge/tests-634%20passed-brightgreen)](./docs/FIX_SUMMARY.md)
-[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.5.1_NOTES.md)
+[![Version](https://img.shields.io/badge/version-0.5.2-green)](./docs/RELEASE_v0.5.2_NOTES.md)
+[![Tests](https://img.shields.io/badge/tests-666%20passed-brightgreen)](./docs/FIX_SUMMARY.md)
+[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.5.2_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
 
@@ -56,7 +56,7 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.5.1)
+## 🚀 Inicio rápido (v0.5.2)
 
 > ℹ️ El paquete **no está publicado en PyPI**: se instala desde el repositorio con
 > `install.sh` (macOS y Linux, Python ≥ 3.13; en macOS lo instala vía Homebrew si falta).
@@ -383,6 +383,13 @@ If you enabled auto-startup but want to disable it:
 
 ## 📦 Releases
 
+### v0.5.2 — Carpetas de proyectos protegidas fuera de las rutas y vault limpio ✅
+- 🗂️ Los nombres de carpeta de proyectos se protegen también fuera de una ruta: `<carpeta>.md`, árboles de directorios y rutas con guiones (#93)
+- 🧹 Los patrones ignoran marcadores, puntuación y nombres genéricos; `pseudo_pattern_ignore` y `scripts/prune_vault.py` para limpiar el vault (#92)
+- ✅ **666 tests passing** en Python 3.10–3.13
+
+[📖 Release Notes](./docs/RELEASE_v0.5.2_NOTES.md)
+
 ### v0.5.1 — Avisos de prompt injection detallados y accionables ✅
 - 🔐 Cada aviso del audit dashboard muestra origen, fuente, fragmento, captura e id; un texto reenviado cuenta una vez (#86)
 - 🧭 Indicaciones a seguir y `klaus-audit-dashboard --mark-reviewed` para los falsos positivos (#88)
@@ -483,7 +490,7 @@ Release notes no conservadas en `docs/`.
 | [🛠️ Troubleshooting](./docs/TROUBLESHOOTING.md) | Solución de problemas comunes |
 | [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
 | [📊 Executive Summary](./docs/EXECUTIVE_SUMMARY.md) | Estado actual del sistema |
-| [🚀 Release v0.5.1](./docs/RELEASE_v0.5.1_NOTES.md) | Notas de la última release |
+| [🚀 Release v0.5.2](./docs/RELEASE_v0.5.2_NOTES.md) | Notas de la última release |
 
 ---
 
@@ -563,7 +570,8 @@ Para datos con forma reconocible que no son un literal fijo. Se aplican **antes*
 - `replacement_prefix`: solo minúsculas (`[a-z]+`); por defecto `pat`. Una entrada inválida se ignora.
 - **Automático:** al arrancar dentro de un repo, `claude-proxy` añade un patrón para la carpeta que lo contiene (p. ej. `~/proyectos`). Así los nombres de **todos** los proyectos de esa carpeta se protegen en las rutas, aunque no tengan remote o aparezcan truncados. No se añade si esa carpeta es el home.
 - **Integrado:** el nombre de usuario de cualquier ruta `/Users/<u>/…` o `/home/<u>/…`, aunque sea de otra máquina (p. ej. un `@import` en un `CLAUDE.md`). Se desactiva con `ANTHROPIC_PSEUDO_USER_DIRS=0`.
-- No cubre las rutas codificadas con guiones (`-Users-u-proyectos-<dir>-…`); ahí siguen protegiendo los word-literals.
+- **Fuera de una ruta** (#93): un nombre de carpeta que ya está en el vault se sustituye también suelto, como palabra completa y con el mismo seudónimo (`<carpeta>.md`, la raíz de un árbol, rutas codificadas con guiones `-Users-u-proyectos-<dir>-…`). Solo con 5 caracteres o más y si no es genérico (`scripts`, `tests`…). Se desactiva con `ANTHROPIC_PSEUDO_DIR_WORDS=0`.
+- **Valores ignorados** (#92): marcadores (`…`, `{user}`, `$USER`…), puntuación, un solo carácter y nombres genéricos de usuario (`Shared`, `root`…) no se pseudonimizan. `pseudo_pattern_ignore` en `config.json` excluye valores concretos, y `scripts/prune_vault.py` los quita del vault (con el proxy parado).
 - `anthropic-pair-verify` comprueba cada patrón por contexto (capa `[pattern]`).
 
 ### Addons: snapshot inmutable y guardián
@@ -633,12 +641,12 @@ Ver sección anterior: [📚 Documentación](#-documentación)
 ## 🧪 Tests
 
 ```bash
-pytest -q          # 634 passed, 3 skipped (v0.5.1)
+pytest -q          # 666 passed, 3 skipped (v0.5.2)
                    # Includes: capture, pseudonymize, guard, verify, audit, dashboard, vault
 ```
 
 ### Test Coverage
-- ✅ **634 tests passing** en Python 3.10–3.13 (CI)
+- ✅ **666 tests passing** en Python 3.10–3.13 (CI)
 - ✅ Security tests for vault + pseudonymization
 - ✅ Integration tests for audit workflows
 - ✅ Unit tests for all components

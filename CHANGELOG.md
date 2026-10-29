@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.5.2] — 2026-10-29
+
 ### Added
 - **Nombres de carpeta de proyectos protegidos también fuera de una ruta** (#93) — `pseudo_patterns` solo los sustituía dentro de `/Users/<u>/proyectos/<carpeta>`, así que un `<carpeta>.md` o la raíz de un árbol en un README salían en claro aunque el vault los conociera (detectado vigilando una sesión en otro repo). Ahora los nombres `dir_…` del vault se sustituyen también como palabra completa, con el mismo seudónimo, si tienen 5 caracteres o más y no son genéricos ni están en `pseudo_pattern_ignore`. Cubre también las rutas codificadas con guiones (`-Users-u-proyectos-<carpeta>-…`) de carpetas ya conocidas. `anthropic-pair-verify` los marca como fuga (`[dir]`) si reaparecen como palabra. Se desactiva con `ANTHROPIC_PSEUDO_DIR_WORDS=0`.
 
