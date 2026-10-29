@@ -82,6 +82,7 @@ claude "tu pregunta"
 klaus-audit-payloads
 
 # Terminal 3 alternativo: dashboard visual en el navegador
+# (guarda cada informe en informes/; selector de anteriores + cambios)
 klaus-audit-dashboard --open
 ```
 
