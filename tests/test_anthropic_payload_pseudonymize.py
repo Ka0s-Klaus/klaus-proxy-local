@@ -1309,3 +1309,50 @@ def test_known_dir_name_in_dash_encoded_path(projects_rules):
     out = ps.pseudonymize_text(text, v, rules)
     assert "cliente-x" not in out
     assert ps.restore_text(out, v) == text
+
+
+# --- #99: proteger un valor = vault + regla en config.json ------------------
+
+
+def test_add_protected_values_splits_words_and_literals(tmp_config):
+    added = ps.add_protected_values_to_config(
+        ["proyecto-secreto", "Cliente Uno S.A.", "/srv/datos/cliente", "keep-me", ""],
+        tmp_config,
+    )
+    assert added == ["proyecto-secreto", "Cliente Uno S.A.", "/srv/datos/cliente"]
+    saved = json.loads(tmp_config.read_text(encoding="utf-8"))
+    assert saved["pseudo_word_literals"] == ["keep-me", "proyecto-secreto"]
+    assert saved["pseudo_literals"] == ["Cliente Uno S.A.", "/srv/datos/cliente"]
+    assert stat.S_IMODE(tmp_config.stat().st_mode) == 0o600
+
+
+def test_value_protected_by_tools_is_pseudonymized_by_proxy(tmp_path, monkeypatch):
+    """Regresión #99: solo en el vault salía en claro; con la regla, no."""
+    home = tmp_path / "home"
+    (home / ".klaus-proxy").mkdir(parents=True)
+    cfg = home / ".klaus-proxy" / "config.json"
+    cfg.write_text(json.dumps({"salt": "x"}), encoding="utf-8")
+    monkeypatch.setattr(ps.Path, "home", lambda: home)
+    monkeypatch.setenv("ANTHROPIC_PSEUDO_USER_DIRS", "0")
+    v = ps.Vault.from_dict({"proyecto-secreto": "id_12345678"})
+    text = "el proyecto-secreto va bien"
+    assert ps.pseudonymize_text(text, v, ps.build_rules()) == text
+
+    ps.add_protected_values_to_config(["proyecto-secreto"], cfg)
+    assert ps.pseudonymize_text(text, v, ps.build_rules()) == "el id_12345678 va bien"
+
+
+def test_scanner_vault_integration_also_adds_rule(tmp_config, tmp_path, monkeypatch):
+    from Klaus_proxy_local.sensitive_data_scanner import (
+        SensitiveDataFinding,
+        VaultIntegration,
+    )
+
+    monkeypatch.setattr(ps, "vault_path", lambda: tmp_path / "vault.json")
+    integration = VaultIntegration()
+    finding = SensitiveDataFinding.__new__(SensitiveDataFinding)
+    finding.value = "cliente-confidencial"
+    pseudo = integration.add_finding_to_vault(finding, "secret")
+    assert pseudo.startswith("secret_")
+    saved = json.loads(tmp_config.read_text(encoding="utf-8"))
+    assert "cliente-confidencial" in saved["pseudo_word_literals"]

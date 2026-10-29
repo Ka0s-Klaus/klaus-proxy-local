@@ -210,7 +210,7 @@ def interactive_review(
                 try:
                     prefix = _get_prefix_for_category(finding.category)
                     pseudo = vault_integration.add_finding_to_vault(finding, prefix)
-                    print("  ✓ Approved and added to vault")
+                    print("  ✓ Approved: added to vault and config.json")
                     print(f"     Pseudonym: {pseudo}")
                 except Exception as e:
                     print(f"  ⚠️  Approved but vault error: {e}")
@@ -237,7 +237,7 @@ def interactive_review(
                 try:
                     prefix = _get_prefix_for_category(finding.category)
                     pseudo = vault_integration.add_finding_to_vault(finding, prefix)
-                    print("  ✓ Approved and added to vault")
+                    print("  ✓ Approved: added to vault and config.json")
                     print(f"     Pseudonym: {pseudo}")
                 except Exception as e:
                     print(f"  ⚠️  Approved but vault error: {e}")
@@ -372,6 +372,8 @@ def main(argv: list[str] | None = None) -> NoReturn:
     print(f"  Files scanned: {result.total_files_scanned}")
     print(f"  Findings: {len(result.findings)}")
     print(f"  Approved for vault: {approved_count}")
+    if approved_count:
+        print("  Restart claude-proxy to apply the new rules in config.json.")
 
     sys.exit(0)
 
