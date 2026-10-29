@@ -6,9 +6,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.4.0-green)](./docs/RELEASE_v0.4.0_NOTES.md)
+[![Version](https://img.shields.io/badge/version-0.5.0-green)](./docs/RELEASE_v0.5.0_NOTES.md)
 [![Tests](https://img.shields.io/badge/tests-487%20passed-brightgreen)](./docs/FIX_SUMMARY.md)
-[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.4.0_NOTES.md)
+[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.5.0_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
 
@@ -32,13 +32,15 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
   Claude Code deja en disco.
 
 ### ¿Cómo lo hago?
-- Un proxy `mitmproxy` local (`mitmdump --listen-host 127.0.0.1 -p 8899`, solo loopback) con dos addons Python en
-  [`src/`](./src): `anthropic_payload_pseudonymize.py` (reescribe/revierte) y
-  `anthropic_payload_capture.py` (graba la evidencia).
+- Un proxy `mitmproxy` local (`claude-proxy` → `mitmdump --listen-host 127.0.0.1 -p 8899`, solo loopback)
+  con cuatro addons Python de [`src/`](./src), cargados desde un snapshot inmutable:
+  `klaus_file_log.py` (log en disco), `anthropic_payload_pseudonymize.py` (reescribe/revierte),
+  `anthropic_payload_capture.py` (graba la evidencia) y `klaus_pseudo_guard.py` (bloquea lo
+  que no se haya pseudonimizado).
 - Claude Code se enruta por el proxy vía `HTTPS_PROXY` + `NODE_EXTRA_CA_CERTS`, de
   forma **fail-closed** (si el proxy no escucha, `claude` aborta y no deja salir
   tráfico sin auditar).
-- La evidencia cae en [`captures/`](./captures) como pares espejo `original/` (datos
+- La evidencia cae en `~/.klaus-proxy/captures/` como pares espejo `original/` (datos
   reales) vs `sent/` (lo que realmente salió, seudonimizado).
 
 ### ¿Y para qué lo hago?
@@ -54,7 +56,7 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.4.0)
+## 🚀 Inicio rápido (v0.5.0)
 
 > ℹ️ El paquete **no está publicado en PyPI**: se instala desde el repositorio con
 > `install.sh` (macOS y Linux, Python ≥ 3.13; en macOS lo instala vía Homebrew si falta).
@@ -381,6 +383,24 @@ If you enabled auto-startup but want to disable it:
 
 ## 📦 Releases
 
+### v0.5.0 — Protección de cualquier proyecto, guardián fail-closed e histórico del dashboard ✅
+- 🛡️ **Org/repo y carpetas de proyectos protegidos** sin configurar nada: aprendidos de cada petición, `pseudo_patterns` y usuarios en rutas (#42, #61, #63, #65)
+- 🚧 **Guardián fail-closed + snapshot inmutable de addons**: un `checkout` ya no cambia ni rompe el pseudonimizador en marcha (#71)
+- 🔁 **Seudónimos partidos en streaming** restaurados por bloque (#67)
+- 📝 **Logs en disco** (`~/.klaus-proxy/logs/proxy.log`) (#55)
+- 📂 **Histórico del audit dashboard** con selector y cambios respecto al anterior (#77)
+- ⚡ `anthropic-pair-verify` 7× más rápido y sin falsos positivos (#59, #73)
+- ✅ **619 tests passing** en Python 3.10–3.13
+
+[📖 Release Notes](./docs/RELEASE_v0.5.0_NOTES.md)
+
+### v0.4.0 — Instalación completa, dashboard de auditoría y proxy solo en localhost ✅
+- 📦 Instalador `install.sh` con venv global (#33)
+- 📊 Dashboard HTML de auditoría (#35)
+- 🔒 El proxy solo escucha en `127.0.0.1` (#47)
+
+[📖 Release Notes](./docs/RELEASE_v0.4.0_NOTES.md)
+
 ### v0.3.2 — Critical Bugfixes ✅
 - ✅ **Captures directory migration** — All files now stored in `~/.klaus-proxy/captures/` (not repo)
 - ✅ **ANSI colors restored** — Full color support in mitmproxy logs (green requests, red errors)
@@ -420,7 +440,7 @@ If you enabled auto-startup but want to disable it:
 - 🔗 Vault integration with v0.1.0
 - 🧪 65+ tests (100% passing)
 
-[📖 Release Notes](./docs/RELEASE_v0.2.0.md)
+Release notes no conservadas en `docs/`.
 
 ### v0.1.0 — Initial Release ✅
 - 🔐 HTTPS proxy + pseudonymization
@@ -428,9 +448,9 @@ If you enabled auto-startup but want to disable it:
 - 🛡️ Security hardening (3 critical fixes)
 - 🔒 Bidirectional vault mapping
 
-[📖 Release Notes](./docs/RELEASE_v0.1.0.md)
+Release notes no conservadas en `docs/`.
 
-**[🔗 All Releases](./docs/RELEASES.md)**
+**[🔗 Todas las releases](https://github.com/Ka0s-Klaus/klaus-proxy-local/releases)** · [CHANGELOG](./CHANGELOG.md)
 
 ---
 
@@ -455,7 +475,7 @@ If you enabled auto-startup but want to disable it:
 | [🛠️ Troubleshooting](./docs/TROUBLESHOOTING.md) | Solución de problemas comunes |
 | [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
 | [📊 Executive Summary](./docs/EXECUTIVE_SUMMARY.md) | Estado actual del sistema |
-| [🚀 Release v0.3.2](./docs/RELEASE_v0.3.2_NOTES.md) | Notas de la última release |
+| [🚀 Release v0.5.0](./docs/RELEASE_v0.5.0_NOTES.md) | Notas de la última release |
 
 ---
 
@@ -579,15 +599,22 @@ tail -f ~/.klaus-proxy/logs/proxy.log
 
 ```text
 klaus-proxy-local/
-├── src/         # addons de mitmproxy + CLIs (capture, pseudonymize, verify, pair-verify, analyze, cleanup)
-├── tests/       # suite pytest (158 tests) — pytest -q
-├── docs/        # runbook + MANIFIESTO + MANUAL + plantilla LaunchAgent
-└── captures/    # 🔒 DATOS SENSIBLES (gitignored): original/, sent/, .pseudonym_vault.json
+├── src/         # addons de mitmproxy + CLIs (capture, pseudonymize, guard, file log, verify, pair-verify…)
+├── scripts/     # generador del audit dashboard, wrappers de shell
+├── tests/       # suite pytest — pytest -q
+├── docs/        # runbook, guías, informes y ADRs
+└── informes/    # 🔒 DATOS SENSIBLES (gitignored): histórico del audit dashboard e informes Markdown
+
+~/.klaus-proxy/  # fuera del repo
+├── config.json  # salt, hosts, pseudo_literals, pseudo_word_literals, pseudo_patterns (0600)
+├── captures/    # 🔒 original/, sent/, .pseudonym_vault.json
+├── logs/        # proxy.log (rotado)
+└── addons/      # snapshots inmutables de los addons que ejecuta mitmdump
 ```
 
-> ⚠️ **`captures/` nunca se versiona.** Contiene prompts, contenido real de ficheros y
-> el vault real↔seudónimo. Está en `.gitignore` y jamás debe subir a este repositorio
-> público.
+> ⚠️ **Las capturas, el vault e `informes/` nunca se versionan.** Contienen prompts,
+> contenido real de ficheros y el mapa real↔seudónimo. Viven en `~/.klaus-proxy/` o
+> están en `.gitignore`, y jamás deben subir a este repositorio público.
 
 ---
 
@@ -598,12 +625,12 @@ Ver sección anterior: [📚 Documentación](#-documentación)
 ## 🧪 Tests
 
 ```bash
-pytest -q          # 465 tests passing (all passing ✅)
-                   # Includes: capture, pseudonymize, verify, audit, vault management
+pytest -q          # 619 passed, 3 skipped (v0.5.0)
+                   # Includes: capture, pseudonymize, guard, verify, audit, dashboard, vault
 ```
 
 ### Test Coverage
-- ✅ **465 tests passing** (100%)
+- ✅ **619 tests passing** en Python 3.10–3.13 (CI)
 - ✅ Security tests for vault + pseudonymization
 - ✅ Integration tests for audit workflows
 - ✅ Unit tests for all components
