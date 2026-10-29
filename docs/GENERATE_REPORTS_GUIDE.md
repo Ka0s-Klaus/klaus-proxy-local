@@ -7,7 +7,7 @@
 ## ⚡ Inicio Rápido (30 segundos)
 
 ```bash
-cd /Users/asantacana/proyectos/klaus-proxy-local
+cd /Users/<usuario>/proyectos/klaus-proxy-local
 python generate_audit_report.py
 ```
 
@@ -86,7 +86,7 @@ jobs:
 ```bash
 # Cron job para monitoreo automático
 # Añade a crontab:
-0 */4 * * * cd /Users/asantacana/proyectos/klaus-proxy-local && \
+0 */4 * * * cd /Users/<usuario>/proyectos/klaus-proxy-local && \
              python generate_audit_report.py >> audit_monitor.log 2>&1
 ```
 
@@ -310,7 +310,7 @@ Solución: source .venv/bin/activate
 #!/bin/bash
 # Auditoría semanal automatizada
 
-cd /Users/asantacana/proyectos/klaus-proxy-local
+cd /Users/<usuario>/proyectos/klaus-proxy-local
 
 echo "📊 Iniciando auditoría semanal..."
 echo ""

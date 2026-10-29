@@ -33,7 +33,7 @@ Esto te dirá:
 
 ⚙️  CONFIGURATION
 ────────────────────────────────────────────────────────────
-  Config File:                /Users/asantacana/.klaus-proxy/config.json
+  Config File:                /Users/<usuario>/.klaus-proxy/config.json
   Pseudonymization Enabled:   True
   SALT Set:                   True
   Patterns Count:             0  ⚠️  PROBLEMA!
@@ -280,7 +280,7 @@ nano ~/.klaus-proxy/config.json
 # Agregar tu host:
 "capture_hosts": [
   "api.anthropic.com",
-  "llm.tools.cloud.masorange.es",
+  "llm.tools.cloud.cliente-x.example",
   "otro-host.com"  # ← Agregar aquí
 ]
 ```

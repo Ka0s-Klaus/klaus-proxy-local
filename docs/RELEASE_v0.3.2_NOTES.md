@@ -14,7 +14,7 @@ v0.3.2 fixes three critical bugs that were blocking production use:
 
 ### 1. ✅ Captures Directory Migration
 
-**Problem:** Captures were stored in `/Users/asantacana/proyectos/klaus-proxy-local/captures/` (the repo root) instead of the user-local `~/.klaus-proxy/captures/`.
+**Problem:** Captures were stored in `/Users/<usuario>/proyectos/klaus-proxy-local/captures/` (the repo root) instead of the user-local `~/.klaus-proxy/captures/`.
 
 **Impact:** 
 - Commits accidentally included sensitive payload data

@@ -214,9 +214,9 @@ def test_secrets_in_sent_clean_when_redacted():
 
 
 def test_survivor_tokens_flags_unpseudonymized_slug():
-    original = _record(_msg_payload("repo masorange-b2b del cliente"))
-    sent = _record(_msg_payload("repo masorange-b2b del cliente"), variant="sent")
-    assert "masorange-b2b" in pv.survivor_tokens(original, sent)
+    original = _record(_msg_payload("repo cliente-x-b2b del cliente"))
+    sent = _record(_msg_payload("repo cliente-x-b2b del cliente"), variant="sent")
+    assert "cliente-x-b2b" in pv.survivor_tokens(original, sent)
 
 
 def test_survivor_tokens_ignores_allowlisted_and_removed():
@@ -265,8 +265,8 @@ def test_verify_pair_secret_in_sent_fails():
 def test_verify_pair_survivor_slug_is_not_a_verdict():
     # Un slug superviviente NO tumba ni avisa en el veredicto: es descubrimiento
     # aparte (--survivors), no una comprobación por par.
-    original = _record(_msg_payload("cliente kyndryl-global-delivery"))
-    sent = _record(_msg_payload("cliente kyndryl-global-delivery"), variant="sent")
+    original = _record(_msg_payload("cliente acme-global-delivery"))
+    sent = _record(_msg_payload("cliente acme-global-delivery"), variant="sent")
     results = pv.verify_pair(original, sent, {}, Rules())
     assert not pv.pair_failed(results)
     assert not pv.pair_warned(results)

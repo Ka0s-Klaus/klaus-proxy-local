@@ -12,7 +12,7 @@ fix: replace all python with python3 in klaus menu functions
 The Klaus interactive menu had incomplete Python 3 compatibility. While some references to `python` were changed to `python3` in the direct CLI mode, the interactive menu functions still called `python -m` which caused:
 
 ```
-/Users/asantacana/.local/bin/klaus: line 224: python: command not found
+/Users/<usuario>/.local/bin/klaus: line 224: python: command not found
 ```
 
 This error occurred when users selected:

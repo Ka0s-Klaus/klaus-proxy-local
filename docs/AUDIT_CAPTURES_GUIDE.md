@@ -69,10 +69,10 @@ Scanning 100 sent payloads...
 
 ⚠️  Found 5 potential leaks:
 
-  email        | juan@masorange.es
+  email        | soporte@cliente-x.example
   ip           | 160.79.104.10
-  path         | /Users/asantacana/proyectos
-  email        | dev@masorange.example
+  path         | /Users/<usuario>/proyectos
+  email        | equipo@cliente-x.example
   uuid         | 550e8400-e29b-41d4-a716-446655440000
 ```
 
@@ -112,8 +112,8 @@ Vault breakdown by type:
 
   email          111 entries
               → noreply@anthropic.com
-              → juan@masorange.es
-              → dev@masorange.example
+              → soporte@cliente-x.example
+              → equipo@cliente-x.example
               → ... and 108 more
 
   ip             42 entries
@@ -123,18 +123,18 @@ Vault breakdown by type:
               → ... and 39 more
 
   path           45 entries
-              → /Users/asantacana/proyectos/masorange-b2b
-              → /Users/asantacana
+              → /Users/<usuario>/proyectos/cliente-x-b2b
+              → /Users/usuario
               → ... and 43 more
 
   org            15 entries
-              → kyndryl-global-delivery
-              → masorange-b2b
+              → acme-global-delivery
+              → cliente-x-b2b
               → ... and 13 more
 
   id             28 entries
-              → asantacana_kyndryl
-              → asantacana
+              → usuario_empresa
+              → usuario
               → ... and 26 more
 
   other          18 entries
@@ -170,11 +170,11 @@ python audit_captures.py --review
 ```
 [1/50] msg_20260905_143022.json
   Potentially sensitive in original but NOT in sent:
-    • asantacana@kyndryl.com
+    • ana.garcia@empresa.example
       → NOT in vault. Add? (A/S/C)
-    • /Users/asantacana/proyectos/masorange-b2b
+    • /Users/<usuario>/proyectos/cliente-x-b2b
       → Already in vault ✓
-    • dev@masorange.example
+    • equipo@cliente-x.example
       → NOT in vault. Add? (A/S/C)
 ```
 
@@ -201,7 +201,7 @@ python audit_captures.py --review
 ### Ejemplo Completo:
 
 ```bash
-cd /Users/asantacana/proyectos/klaus-proxy-local
+cd /Users/<usuario>/proyectos/klaus-proxy-local
 
 # Terminal 1: Ver estadísticas
 python audit_captures.py --stats
@@ -228,7 +228,7 @@ python audit_captures.py --review
 
 ```bash
 # Script añade a vault automáticamente
-python scripts/add_to_vault.py /Users/asantacana/proyectos/klaus-proxy-local \
+python scripts/add_to_vault.py /Users/<usuario>/proyectos/klaus-proxy-local \
   --manual \
   --value "el-valor-filtrado@example.com"
 
@@ -242,7 +242,7 @@ python scripts/add_to_vault.py . --review
 **Opción A: Automática (recomendado)**
 ```bash
 # Escanea original/ recursivamente y añade a vault
-python scripts/add_to_vault.py /Users/asantacana/proyectos/klaus-proxy-local \
+python scripts/add_to_vault.py /Users/<usuario>/proyectos/klaus-proxy-local \
   --scan-captures \
   --review
 ```
@@ -253,7 +253,7 @@ python scripts/add_to_vault.py /Users/asantacana/proyectos/klaus-proxy-local \
 python scripts/add_to_vault.py . --manual
 
 # Ingresa:
-# Valor real: dev@masorange.example
+# Valor real: equipo@cliente-x.example
 # Pseudónimo prefix (default "email"): email
 # → Se genera: email_<hash-derivado-del-salt>
 ```
@@ -262,8 +262,8 @@ python scripts/add_to_vault.py . --manual
 ```bash
 # Crea archivo valores_nuevos.txt
 cat > valores_nuevos.txt << 'EOF'
-dev@masorange.example
-ops@masorange.example
+equipo@cliente-x.example
+equipo@cliente-x.example
 160.79.104.20
 192.168.1.50
 EOF
@@ -366,7 +366,7 @@ Después de ejecutar audit_captures.py:
 
 ### Ejemplo 1: Auditoría Rápida (5 minutos)
 ```bash
-cd /Users/asantacana/proyectos/klaus-proxy-local
+cd /Users/<usuario>/proyectos/klaus-proxy-local
 
 # 1. Estadísticas
 python audit_captures.py --stats

@@ -91,7 +91,7 @@ _REGEX_REQUIRES = {"email": "@", "ipv4": "."}
 # entradas que el regex ya no considera IP (``2.1.312.625``, #57).
 _REGEX_PSEUDO_PREFIXES = ("ip_", "email_")
 
-# Slug con guion (``org-repo``, ``kyndryl-global-delivery``, ``Ka0s-Klaus``): forma
+# Slug con guion (``org-repo``, ``acme-global-delivery``, ``Ka0s-Klaus``): forma
 # de alto valor para identificadores privados y rara en el andamiaje de la API
 # (los esquemas de tools usan snake_case/camelCase, no slugs con guion).
 _SLUG_RE = re.compile(r"\b[A-Za-z0-9]+(?:-[A-Za-z0-9]+)+\b")
