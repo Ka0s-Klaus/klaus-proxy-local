@@ -31,6 +31,7 @@ lo que REALMENTE sale del equipo):
 """
 from __future__ import annotations
 
+import functools
 import getpass
 import hashlib
 import json
@@ -181,6 +182,11 @@ def user_dirs_enabled() -> bool:
     return _env_flag("ANTHROPIC_PSEUDO_USER_DIRS", True)
 
 
+def dir_words_enabled() -> bool:
+    """Palanca: nombres de carpeta del vault también fuera de una ruta (#93)."""
+    return _env_flag("ANTHROPIC_PSEUDO_DIR_WORDS", True)
+
+
 def regexes_enabled() -> bool:
     """Palanca de detección por regex (email / IPv4)."""
     return _env_flag("ANTHROPIC_PSEUDO_REGEX", True)
@@ -315,6 +321,21 @@ class Vault:
         # ruta y conserve la estructura relativa que cuelga de él.
         return self._register(real, f"/{label}_{_hash(real)}")
 
+    def dir_words(self, ignore: frozenset[str] = frozenset()) -> list[tuple[str, str]]:
+        """Nombres de carpeta (``dir_…``) que se sustituyen también sueltos (#93).
+
+        Longest-first, como los word-literals.
+        """
+        return sorted(
+            (
+                (real, pseudo)
+                for real, pseudo in self.real_to_pseudo.items()
+                if pseudo.startswith("dir_") and is_dir_word(real, ignore)
+            ),
+            key=lambda t: len(t[0]),
+            reverse=True,
+        )
+
     # -- persistencia --
     def to_dict(self) -> dict[str, str]:
         return dict(self.real_to_pseudo)
@@ -370,6 +391,8 @@ class Rules:
       regex tiene grupos solo se seudonimiza el grupo 1 (#42). Reversibles.
     - ``pattern_ignore``: valores que los patrones no seudonimizan
       (``pseudo_pattern_ignore`` de config, #92).
+    - ``dir_words``: los nombres de carpeta del vault (``dir_…``) se
+      sustituyen también fuera de una ruta, como palabra completa (#93).
     """
 
     def __init__(
@@ -382,6 +405,7 @@ class Rules:
         secret_kv: bool = False,
         patterns: list[tuple[re.Pattern, str]] | None = None,
         pattern_ignore: Iterable[str] | None = None,
+        dir_words: bool = False,
     ) -> None:
         # Longest-first: una raíz de repo (más larga) se sustituye antes que el
         # home que la contiene; una identidad git antes que el usuario suelto.
@@ -402,6 +426,7 @@ class Rules:
         self.secret_kv = secret_kv
         self.patterns = patterns or []
         self.pattern_ignore = frozenset(pattern_ignore or ())
+        self.dir_words = dir_words
 
     def add_word_literals(self, tokens: list[str]) -> list[str]:
         """Añade word-literals en caliente (longest-first); devuelve los nuevos."""
@@ -645,6 +670,47 @@ _GENERIC_USER_DIRS = frozenset(
 )
 
 
+# Nombres de carpeta que, fuera de una ruta, son palabras corrientes (#93).
+DIR_WORD_MIN_LEN = 5
+_GENERIC_DIR_WORDS = frozenset(
+    {
+        "assets",
+        "backup",
+        "backups",
+        "build",
+        "config",
+        "configs",
+        "examples",
+        "github",
+        "images",
+        "projects",
+        "proyectos",
+        "public",
+        "scripts",
+        "shared",
+        "static",
+        "tests",
+        "tools",
+        "utils",
+        "vendor",
+        "workspace",
+    }
+)
+
+
+def is_dir_word(value: str, ignore: frozenset[str] = frozenset()) -> bool:
+    """True si un nombre de carpeta del vault se sustituye también suelto (#93).
+
+    Con ``DIR_WORD_MIN_LEN`` caracteres o más, que no sea un nombre genérico
+    (``scripts``, ``tests``…) ni un valor que los patrones ignoran (#92).
+    """
+    return (
+        len(value) >= DIR_WORD_MIN_LEN
+        and value.lower() not in _GENERIC_DIR_WORDS
+        and not is_ignorable_pattern_value(value, "dir", ignore)
+    )
+
+
 def is_ignorable_pattern_value(
     value: str, prefix: str, ignore: frozenset[str] = frozenset()
 ) -> bool:
@@ -790,12 +856,14 @@ def build_rules() -> Rules:
         secret_kv=secret_kv,
         patterns=patterns,
         pattern_ignore=pattern_ignore,
+        dir_words=dir_words_enabled(),
     )
 
 
 # --- Núcleo: forward / restore ----------------------------------------------
 
 
+@functools.lru_cache(maxsize=4096)
 def _word_boundary_re(literal: str) -> re.Pattern:
     """Compila un literal con fronteras alfanuméricas (más robusto que \\b para
     tokens con puntos o guiones: ``orgcode3``, ``example.com``)."""
@@ -877,6 +945,14 @@ def pseudonymize_text(text: str, vault: Vault, rules: Rules) -> str:
         pat = _word_boundary_re(real)
         if pat.search(text):
             text = pat.sub(lambda m, _r=real: vault.map(_r, "org"), text)
+
+    # (5) Nombres de carpeta de proyectos ya conocidos, también fuera de una
+    # ruta (#93): un ``<carpeta>.md`` o la raíz de un árbol en un README. Con
+    # el mismo seudónimo que en la ruta, así la respuesta se restaura igual.
+    if rules.dir_words:
+        for real, pseudo in vault.dir_words(rules.pattern_ignore):
+            if real in text:
+                text = _word_boundary_re(real).sub(lambda m, _p=pseudo: _p, text)
 
     return text
 

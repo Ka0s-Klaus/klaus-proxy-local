@@ -1229,3 +1229,83 @@ def test_prune_vault_removes_only_ignorable_pattern_entries():
     assert sorted(removed) == sorted(["\u2026", "|", "run" + "ner"])
     assert set(v.to_dict()) == {"ana.lopez", "x"}
     assert "user_00000001" not in v.pseudo_to_real
+
+
+# --- #93: nombres de carpeta de proyectos también fuera de una ruta ---------
+
+
+def _dir_word_rules(projects_rules, **kw):
+    projects_rules.dir_words = True
+    for key, value in kw.items():
+        setattr(projects_rules, key, value)
+    return projects_rules
+
+
+def test_dir_name_repeated_as_file_name_is_hidden(projects_rules):
+    rules = _dir_word_rules(projects_rules)
+    v = ps.Vault()
+    text = "@/Users/u/proyectos/cliente-x/cliente-x.md"
+    out = ps.pseudonymize_text(text, v, rules)
+    assert "cliente-x" not in out
+    pseudo = v.real_to_pseudo["cliente-x"]
+    assert out.endswith(f"/{pseudo}/{pseudo}.md")
+    assert ps.restore_text(out, v) == text
+    assert ps.pseudonymize_text(out, v, rules) == out
+
+
+def test_known_dir_name_is_hidden_outside_a_path(projects_rules):
+    rules = _dir_word_rules(projects_rules)
+    v = ps.Vault()
+    ps.pseudonymize_text("cd /Users/u/proyectos/cliente-x", v, rules)
+    tree = "```\ncliente-x/\n├── README.md\n```\nVer cliente-x-old y subcliente-xy."
+    out = ps.pseudonymize_text(tree, v, rules)
+    pseudo = v.real_to_pseudo["cliente-x"]
+    assert out.startswith(f"```\n{pseudo}/\n")
+    # Frontera alfanumérica, como los word-literals: "subcliente-xy" se queda.
+    assert "subcliente-xy" in out
+    assert ps.restore_text(out, v) == tree
+
+
+def test_short_generic_or_ignored_dir_names_stay_outside_paths(projects_rules):
+    rules = _dir_word_rules(projects_rules, pattern_ignore=frozenset({"mi-web"}))
+    v = ps.Vault()
+    for name in ("docs", "scripts", "mi-web"):
+        ps.pseudonymize_text(f"ls /Users/u/proyectos/{name}/x", v, rules)
+    text = "Ver docs, scripts y mi-web."
+    assert ps.pseudonymize_text(text, v, rules) == text
+    # Dentro de la ruta "mi-web" tampoco se seudonimiza (#92); el resto sí.
+    assert "mi-web" not in v.real_to_pseudo and "docs" in v.real_to_pseudo
+
+
+def test_dir_words_can_be_disabled(projects_rules, monkeypatch):
+    v = ps.Vault()
+    ps.pseudonymize_text("cd /Users/u/proyectos/cliente-x", v, projects_rules)
+    text = "cliente-x/README.md"
+    assert ps.pseudonymize_text(text, v, projects_rules) == text  # dir_words=False
+    monkeypatch.setenv("ANTHROPIC_PSEUDO_DIR_WORDS", "0")
+    assert ps.build_rules().dir_words is False
+    monkeypatch.delenv("ANTHROPIC_PSEUDO_DIR_WORDS")
+    assert ps.build_rules().dir_words is True
+
+
+def test_vault_dir_words_only_dir_entries_longest_first():
+    v = ps.Vault.from_dict(
+        {
+            "cliente-x": "dir_00000001",
+            "cliente-xyz": "dir_00000002",
+            "docs": "dir_00000003",
+            "cliente-org": "org_00000004",
+        }
+    )
+    assert [real for real, _p in v.dir_words()] == ["cliente-xyz", "cliente-x"]
+
+
+def test_known_dir_name_in_dash_encoded_path(projects_rules):
+    """Rutas codificadas con guiones (~/.claude/projects/-Users-…): ya cubiertas."""
+    rules = _dir_word_rules(projects_rules)
+    v = ps.Vault()
+    ps.pseudonymize_text("cd /Users/u/proyectos/cliente-x", v, rules)
+    text = "~/.claude/projects/-Users-u-proyectos-cliente-x/abc.jsonl"
+    out = ps.pseudonymize_text(text, v, rules)
+    assert "cliente-x" not in out
+    assert ps.restore_text(out, v) == text
