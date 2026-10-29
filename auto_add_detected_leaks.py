@@ -22,7 +22,11 @@ import hashlib
 import json
 import os
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+from anthropic_payload_pseudonymize import add_protected_values_to_config  # noqa: E402
 
 CAPTURES_DIR = Path.home() / ".klaus-proxy" / "captures"
 SENT_DIR = CAPTURES_DIR / "sent"
@@ -201,6 +205,7 @@ def main():
 
     # Load vault
     vault = load_vault()
+    new_values: list[str] = []
     added_count = 0
     skipped_count = 0
 
@@ -230,6 +235,7 @@ def main():
 
         if not dry_run:
             vault[value] = pseudo
+            new_values.append(value)
             added_count += 1
 
     if dry_run:
@@ -242,6 +248,10 @@ def main():
             save_vault(vault)
             print(f"✅ Vault actualizado: {VAULT_PATH}")
             print("   Permisos: 0o600 (solo lectura/escritura dueño)\n")
+            # Sin regla en config.json el proxy los dejaría en claro (#99).
+            add_protected_values_to_config(new_values)
+            print("✅ Reglas añadidas a ~/.klaus-proxy/config.json")
+            print("   Reinicia claude-proxy para que se apliquen.\n")
 
     # Summary
     print("=" * 70)

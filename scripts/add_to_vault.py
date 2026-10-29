@@ -321,6 +321,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(f"Hallazgos encontrados: {len(result.findings)}")
         print(f"Hallazgos procesados: {len(above_threshold)}")
         print(f"Añadidos al vault: {added_count}")
+        if added_count:
+            print("Protegidos en ~/.klaus-proxy/config.json: reinicia claude-proxy")
+            print("para que se apliquen.")
         if errors:
             print(f"Errores: {len(errors)}")
     else:
