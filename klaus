@@ -15,6 +15,10 @@ RESET='\033[0m'
 # Version
 VERSION="0.5.2"
 
+# install.sh instala el paquete en este venv, no en el python3 del sistema (#103).
+KLAUS_PYTHON="${HOME}/.local/share/klaus/venv/bin/python"
+[[ -x "$KLAUS_PYTHON" ]] || KLAUS_PYTHON="python3"
+
 show_banner() {
     echo "🔐 Klaus Proxy Local v${VERSION}"
     echo ""
@@ -183,7 +187,7 @@ cmd_scan() {
         set -u
     else
         set +u
-        python3 -m Klaus_proxy_local.scan "${cmd_args[@]}"
+        "$KLAUS_PYTHON" -m Klaus_proxy_local.scan "${cmd_args[@]}"
         set -u
     fi
 }
@@ -228,7 +232,7 @@ cmd_audit() {
         set -u
     else
         set +u
-        python3 -m Klaus_proxy_local.audit_all_payloads "${cmd_args[@]}"
+        "$KLAUS_PYTHON" -m Klaus_proxy_local.audit_all_payloads "${cmd_args[@]}"
         set -u
     fi
 }
@@ -273,7 +277,7 @@ cmd_fix() {
         set -u
     else
         set +u
-        python3 -m Klaus_proxy_local.fix_pseudonymization "${cmd_args[@]}"
+        "$KLAUS_PYTHON" -m Klaus_proxy_local.fix_pseudonymization "${cmd_args[@]}"
         set -u
     fi
 }
@@ -290,7 +294,7 @@ main() {
                 if command -v klaus-scan &> /dev/null; then
                     klaus-scan "$@"
                 else
-                    python3 -m Klaus_proxy_local.scan "$@"
+                    "$KLAUS_PYTHON" -m Klaus_proxy_local.scan "$@"
                 fi
                 ;;
             audit|audit-payloads)
@@ -298,7 +302,7 @@ main() {
                 if command -v klaus-audit-payloads &> /dev/null; then
                     klaus-audit-payloads "$@"
                 else
-                    python3 -m Klaus_proxy_local.audit_all_payloads "$@"
+                    "$KLAUS_PYTHON" -m Klaus_proxy_local.audit_all_payloads "$@"
                 fi
                 ;;
             fix|fix-pseudonymization)
@@ -306,7 +310,7 @@ main() {
                 if command -v klaus-fix-pseudonymization &> /dev/null; then
                     klaus-fix-pseudonymization "$@"
                 else
-                    python3 -m Klaus_proxy_local.fix_pseudonymization "$@"
+                    "$KLAUS_PYTHON" -m Klaus_proxy_local.fix_pseudonymization "$@"
                 fi
                 ;;
             --help|-h|help)

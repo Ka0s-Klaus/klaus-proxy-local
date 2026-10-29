@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Los valores añadidos solo al vault no se pseudonimizaban** (#99) — `scripts/add_to_vault.py`, `klaus-scan --approve-all` y `auto_add_detected_leaks.py` escribían el valor solo en el vault, pero el proxy solo sustituye lo que casa con una regla: el valor seguía saliendo en claro. Ahora también lo añaden a `config.json` (`pseudo_word_literals` si es un único token, `pseudo_literals` si no) e indican que hay que reiniciar `claude-proxy`. Los tests ya no pueden escribir en el `config.json` real.
 - **`install.sh` exigía Python 3.13** (#101) — El paquete declara `requires-python >=3.10` y CI prueba 3.10–3.13, pero el instalador se detenía en Ubuntu 24.04 LTS (3.12), Debian 12 (3.11) o RHEL 9. Ahora acepta ≥ 3.10 y busca primero la versión más nueva; en macOS sigue instalando 3.13 con Homebrew si no hay ninguna. Si falta el módulo `venv` (Debian/Ubuntu sin `python3-venv`), indica el paquete que hay que instalar en vez de fallar a medias. Probado de principio a fin en Ubuntu 24.04.
+- **El menú `klaus` fallaba con «No module named Klaus_proxy_local»** (#103) — Usaba el `python3` del sistema, pero `install.sh` instala el paquete en `~/.local/share/klaus/venv`. Ahora usa el Python de ese venv si existe.
+
+### Removed
+- **`claude-proxy --monitor`** (#103) — El monitor TUI se eliminó en v0.3.3; la opción solo imprimía un aviso de que faltaba el módulo.
 
 ---
 
