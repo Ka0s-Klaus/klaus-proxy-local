@@ -2,22 +2,27 @@
 """generate_audit_dashboard.py — Klaus Proxy Local Audit Dashboard Generator #34
 
 Lee las capturas de ~/.klaus-proxy/captures/, ejecuta 5 planes de auditoría
-y genera docs/reports/web/audit-dashboard.html (se abre directamente en el
-navegador con file://).
+y guarda el informe en informes/ (#77): audit-<fecha>.json + .html, index.js
+y audit-dashboard.html (el último). Cada HTML tiene un selector de informes y
+los cambios respecto al anterior; se abre directamente con file://.
 
 Uso:
-    python3 scripts/generate_audit_dashboard.py [--captures-dir PATH] [--output PATH]
+    python3 scripts/generate_audit_dashboard.py [--captures-dir PATH] [--reports-dir PATH]
     python3 scripts/generate_audit_dashboard.py --open
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from Klaus_proxy_local import audit_reports  # noqa: E402
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -680,6 +685,7 @@ HTML_TEMPLATE = """\
     .summary-card { min-width: 100px; }
     .tab-btn { padding: 10px 10px; }
   }
+#HISTORY_CSS#
 </style>
 </head>
 <body>
@@ -689,6 +695,7 @@ HTML_TEMPLATE = """\
     <div>
       <h1>🔌 Klaus Proxy &mdash; Audit Dashboard</h1>
       <div class="meta">Generado: #GENERATED_AT# &middot; Capturas totales: #TOTAL_CAPTURES# &middot; Periodo: #DATE_RANGE#</div>
+      #HISTORY_HTML#
     </div>
     <button class="theme-btn" onclick="toggleTheme()">🌙 Modo oscuro</button>
   </div>
@@ -696,6 +703,7 @@ HTML_TEMPLATE = """\
     #SUMMARY_CARDS_HTML#
   </div>
 </div>
+#CHANGES_HTML#
 
 <nav class="tabs" id="tabs">
   <button class="tab-btn active" data-tab="security">🔐 Seguridad</button>
@@ -1132,6 +1140,7 @@ function buildCharts() {
 buildCharts();
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', buildCharts);
 </script>
+<script>#HISTORY_JS#</script>
 </body>
 </html>
 """
@@ -1145,6 +1154,10 @@ def render_html(
     efdef: dict,
     total_captures: int,
     date_range: str,
+    *,
+    generated_at: str | None = None,
+    history_html: str = "",
+    changes_html: str = "",
 ) -> str:
     plans = [
         ("security", security, "🔐 Seguridad"),
@@ -1198,7 +1211,11 @@ def render_html(
     )
 
     replacements = {
-        "GENERATED_AT": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "GENERATED_AT": generated_at or datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "HISTORY_HTML": history_html,
+        "CHANGES_HTML": changes_html,
+        "HISTORY_CSS": audit_reports.HISTORY_CSS,
+        "HISTORY_JS": audit_reports.HISTORY_JS,
         "TOTAL_CAPTURES": f"{total_captures:,}",
         "DATE_RANGE": date_range,
         "SUMMARY_CARDS_HTML": cards_html,
@@ -1285,15 +1302,15 @@ def main(argv: list[str] | None = None) -> None:
         help="Directorio de configuración (default: ~/.klaus-proxy)",
     )
     parser.add_argument(
+        "--reports-dir",
+        default=str(Path(__file__).parent.parent / "informes"),
+        help="Directorio del histórico de informes (default: informes/ del repo)",
+    )
+    parser.add_argument(
         "--output",
-        default=str(
-            Path(__file__).parent.parent
-            / "docs"
-            / "reports"
-            / "web"
-            / "audit-dashboard.html"
-        ),
-        help="Ruta de salida del dashboard HTML",
+        default=None,
+        help="Copia adicional del último dashboard (el principal va a "
+        "<reports-dir>/audit-dashboard.html)",
     )
     parser.add_argument(
         "--open", action="store_true", help="Abre el dashboard en el navegador"
@@ -1302,7 +1319,8 @@ def main(argv: list[str] | None = None) -> None:
 
     captures_dir = Path(args.captures_dir)
     config_dir = Path(args.config_dir)
-    output_path = Path(args.output)
+    reports_dir = Path(args.reports_dir)
+    output_path = reports_dir / audit_reports.DASHBOARD_FILE
     project_root = Path(__file__).parent.parent
 
     print("🔍 Leyendo capturas...")
@@ -1334,14 +1352,62 @@ def main(argv: list[str] | None = None) -> None:
     print("📋 Auditoría EFDEF...")
     efdef = audit_efdef(project_root, config_dir)
 
-    print("🎨 Generando dashboard HTML...")
-    html = render_html(security, pseudo, perf, tests, efdef, total, date_range)
+    print("💾 Guardando informe...")
+    report = audit_reports.build_report(
+        {
+            "security": security,
+            "pseudonymization": pseudo,
+            "performance": perf,
+            "tests": tests,
+            "efdef": efdef,
+        },
+        total,
+        date_range,
+    )
+    report_json = audit_reports.save_report(report, reports_dir)
+    reports = audit_reports.list_reports(reports_dir)
+    previous = audit_reports.predecessor(reports, report["id"])
+    # Se compara la versión ya guardada: mismo formato JSON que el anterior
+    # (en memoria hay tuplas que en el JSON son listas).
+    saved = next(r for r in reports if r["id"] == report["id"])
+    changes = audit_reports.diff_reports(saved, previous)
+    audit_reports.write_index(reports, reports_dir)
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(html, encoding="utf-8")
+    print("🎨 Generando dashboard HTML...")
+
+    def _render(base: str) -> str:
+        return render_html(
+            security,
+            pseudo,
+            perf,
+            tests,
+            efdef,
+            total,
+            date_range,
+            generated_at=report["generated_at"].replace("T", " "),
+            history_html=audit_reports.render_history_html(report, base),
+            changes_html=audit_reports.render_changes_html(changes, previous),
+        )
+
+    html = _render("")
+    report_html = reports_dir / f"{report['id']}.html"
+    audit_reports.write_private(report_html, html)
+    audit_reports.write_private(output_path, html)
+    if args.output:
+        extra = Path(args.output)
+        extra.parent.mkdir(parents=True, exist_ok=True)
+        base = os.path.relpath(reports_dir.resolve(), extra.parent.resolve()) + "/"
+        audit_reports.write_private(extra, _render(base))
+        print(f"   Copia adicional: {extra}")
     size_kb = output_path.stat().st_size / 1024
-    print(f"✅ Dashboard generado: {output_path}")
-    print(f"   Tamaño: {size_kb:.1f} KB")
+    print(f"✅ Informe guardado: {report_json.name} (+ {report_html.name})")
+    print(f"✅ Dashboard: {output_path}  ({size_kb:.1f} KB)")
+    print(f"   Histórico: {len(reports)} informe(s) en {reports_dir}")
+    if previous is None:
+        print("   Cambios: primer informe, nada con lo que comparar")
+    else:
+        worse = sum(c["trend"] == "worse" for c in changes)
+        print(f"   Cambios respecto al anterior: {len(changes)} ({worse} a peor)")
 
     print()
     print("┌─────────────────────────────────────────────────────────┐")
