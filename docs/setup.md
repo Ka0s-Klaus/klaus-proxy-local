@@ -130,8 +130,8 @@ flowchart LR
 
 ## 🔗 Documentos relacionados
 
-- [🏗️ Arquitectura](architecture.md) — qué hace el proxy y cómo está estructurado
+- [🏗️ Arquitectura](ARCHITECTURE_DEEP_DIVE.md) — qué hace el proxy y cómo está estructurado
 - [🔍 Runbook de auditoría](anthropic-audit-proxy.md) — captura, seudonimización, verificación
-- [⚙️ CI/CD Pipeline](ci-cd.md) — validaciones en cada PR
-- [🔒 Seguridad](security.md) — postura de seguridad del repo
+- [⚙️ CI/CD Pipeline](../.github/workflows/ci.yml) — validaciones en cada PR
+- [🔒 Seguridad](../SECURITY.md) — postura de seguridad del repo
 - [📄 CONTRIBUTING.md](../CONTRIBUTING.md) — guía de contribución

@@ -37,12 +37,12 @@ La inferencia **no** viaja directamente a `api.anthropic.com`. Claude Code (v2.1
 | Destino | Endpoint | Qué contiene | Sensibilidad |
 | --- | --- | --- | --- |
 | **`llm.tools.cloud.customer1.es`** (gateway corporativo, GCP `203.0.113.10`) | `POST /v1/messages?beta=true` | **La inferencia real**: system prompt, definición de las 25 tools, historial de mensajes, y **todo el contenido de ficheros que se lean/editen**. `model=claude-opus-4-8`, `max_tokens=64000`. | 🔴 Alta |
-| `api.anthropic.com` | `POST /api/event_logging/v2/batch` | Telemetría de uso (eventos del CLI). ~226 KB. Rutas y contenido **hasheados**; comandos y prompts reducidos a **longitud/tipo**. Ver [análisis detallado](telemetria-anthropic-event-logging.md). | 🟢 Baja |
+| `api.anthropic.com` | `POST /api/event_logging/v2/batch` | Telemetría de uso (eventos del CLI). ~226 KB. Rutas y contenido **hasheados**; comandos y prompts reducidos a **longitud/tipo**. El análisis detallado se retiró de `docs/` en `b825f9d`. | 🟢 Baja |
 | `api.anthropic.com` | `GET /mcp-registry/v0/servers` | Lookup del catálogo de servidores MCP (sin datos del usuario). | 🟢 Baja |
 
 > **Implicación de compliance:** los prompts y el contenido del repositorio salen hacia el **gateway de customer 1**, que actúa como intermediario y reenvía a Anthropic (API estilo Anthropic, cabecera `anthropic-version: 2023-06-01`). La telemetría, en cambio, va **directa** a Anthropic. Cualquier DPA/evaluación de privacidad debe cubrir ambos flujos por separado.
 
-> 📡 **Telemetría — veredicto (2026-07-24):** analizada en detalle en [telemetria-anthropic-event-logging.md](telemetria-anthropic-event-logging.md). Sensibilidad **baja** (rutas/contenido hasheados; prompts/comandos reducidos a metadatos). Único dato identificativo: `device_id` + fingerprint de `env`. Decisión: **documentar y no bloquear**.
+> 📡 **Telemetría — veredicto (2026-07-24):** analizada en detalle en el informe de telemetría (retirado de `docs/` en `b825f9d`). Sensibilidad **baja** (rutas/contenido hasheados; prompts/comandos reducidos a metadatos). Único dato identificativo: `device_id` + fingerprint de `env`. Decisión: **documentar y no bloquear**.
 
 ```mermaid
 flowchart LR
@@ -102,7 +102,7 @@ claude  →  mitmproxy 127.0.0.1:8899 (seudonimiza + captura)  →  proveedor
 
 | Comando | Efecto |
 | --- | --- |
-| `claude-proxy [repo]` | Arranca `mitmdump` **en PRIMER PLANO** en ESTA terminal (addons `pseudonymize` + `capture` en `:8899`, `ANTHROPIC_PSEUDO_WORD_LITERALS` seteado). Hace `cd` al **repo auditado** (arg opcional; por defecto el `$PWD` actual) para que la palanca de rutas y la identidad git operen sobre él. Los addons viven en el tooling y las capturas/vault en `<tool>/captures/`, con independencia del cwd. Los logs de flujo salen aquí en tiempo real; **Ctrl-C** lo detiene. Aborta si ya hay algo escuchando en `:8899`. |
+| `claude-proxy` | Arranca `mitmdump` **en PRIMER PLANO** en ESTA terminal, en `127.0.0.1:8899`. Carga 4 addons desde un **snapshot inmutable** en `~/.klaus-proxy/addons/<hash>/` (#71): log en disco → seudonimizador → captura → guardián fail-closed. No hace `cd`: el directorio desde el que se lanza solo sirve para aprender el org/repo y la carpeta de proyectos, que se guardan en `config.json` (#61, #42). Capturas y vault en `~/.klaus-proxy/captures/`; log en `~/.klaus-proxy/logs/proxy.log`. **Los cambios en `src/` solo se aplican al reiniciarlo.** **Ctrl-C** lo detiene. Opción `--monitor` para la TUI. |
 | `claude [args…]` | `claude` **siempre** enrutado por el proxy. **Solo enruta**: NO levanta el proxy. Fail-closed — si `:8899` no escucha o falta la CA, **aborta** (no deja salir tráfico sin auditar). |
 | `claude-noaudit [args…]` | Bypass deliberado: `claude` directo al gateway, **sin** auditar (`command claude`). |
 
@@ -292,7 +292,7 @@ python3 src/anthropic_pair_verify.py --survivors   # tabla de slugs a revisar
 
 - **Código de salida:** `0` sin fugas · `1` alguna fuga HARD (o WARN con
   `--fail-on-warn`) · `2` no hay pares. Gateable en CI (formaliza el caso **T7**
-  del [plan de pruebas de control](plan-pruebas-control.md)).
+  del plan de pruebas de control).
 - **No re-expone valores:** las fugas HARD se reportan **enmascaradas** (`mask`),
   agrupadas por categoría; nunca el valor completo.
 
@@ -350,7 +350,9 @@ flowchart LR
     P2 -->|real| CLI
 ```
 
-- **Qué seudonimiza (por defecto, autodetectado):** raíz del repo y `$HOME` (**palanca de rutas**), usuario del SO e identidad git (`user.name`/`user.email`), org y nombre de repo del `remote origin`, y por regex emails e IPv4.
+- **Qué seudonimiza (por defecto, autodetectado):** raíz del repo y `$HOME` (**palanca de rutas**), usuario del SO e identidad git (`user.name`/`user.email`), org y nombre de repo del `remote origin`, y por regex emails e IPv4 (con octetos 0–255; las versiones tipo `cc_version=2.1.312.625` no cuentan, #57).
+- **Org/repo de cualquier proyecto:** además del repo desde el que arranca `claude-proxy` (#61), el seudonimizador **aprende** el org/repo de los remotes que Claude Code envía en cada petición y los guarda en `pseudo_word_literals` (#63). Solo en los modos de permisos `auto` y `plan` (ver README). Los nombres con puntos se reconocen (#65).
+- **`pseudo_patterns` (#42):** regex de `config.json` que se aplican antes que el resto de reglas, sobre el texto real. Si hay grupos, solo se seudonimiza el grupo 1. `claude-proxy` registra la carpeta que contiene el repo (p. ej. `~/proyectos`), con lo que los nombres de todos los proyectos quedan ocultos en las rutas aunque no tengan remote o vayan truncados. Hay un patrón integrado para el usuario de cualquier `/Users/<u>` o `/home/<u>`.
 - **Secretos (Tier 1) — redacción IRREVERSIBLE:** si un `Read`/`Bash` arrastra una credencial, el **cuerpo** no está redactado como las cabeceras. Estos patrones la sustituyen por un placeholder fijo `«REDACTED:label»` que **no entra al vault** (no se revierte — el modelo casi nunca necesita el valor real, y así el vault no acumula secretos):
 
   | Patrón | Detecta |
@@ -372,9 +374,14 @@ flowchart LR
 El orden importa: el seudonimizador debe reescribir **antes** de que la captura grabe, para que la evidencia refleje lo que *realmente* sale del equipo.
 
 ```bash
-mitmdump -s src/anthropic_payload_pseudonymize.py \
-         -s src/anthropic_payload_capture.py --listen-host 127.0.0.1 -p 8899
+# Lo que lanza claude-proxy (desde el snapshot ~/.klaus-proxy/addons/<hash>/):
+mitmdump -s klaus_file_log.py \
+         -s anthropic_payload_pseudonymize.py \
+         -s anthropic_payload_capture.py \
+         -s klaus_pseudo_guard.py --listen-host 127.0.0.1 -p 8899
 ```
+
+El log va primero para registrar la carga de los demás; el guardián, el último, para comprobar que el seudonimizador procesó cada petición.
 
 ### Configuración por entorno
 
@@ -388,12 +395,16 @@ mitmdump -s src/anthropic_payload_pseudonymize.py \
 | `ANTHROPIC_PSEUDO_LITERALS` | Literales extra por substring (coma-separados) | — |
 | `ANTHROPIC_PSEUDO_WORD_LITERALS` | Literales con frontera de palabra: `orgcode1,orgcode2,orgcode3,customer1.es` | — |
 | `ANTHROPIC_PSEUDO_PATHS_EXTRA` | Prefijos de ruta extra `"/ruta=label,..."` | — |
-| `ANTHROPIC_PSEUDO_SALT` | Sal del hash de seudónimos | `mo-ecosistema1-audit` |
+| `ANTHROPIC_PSEUDO_USER_DIRS` | Patrón integrado de usuarios en `/Users/<u>` y `/home/<u>` (#42) | `1` |
+| `ANTHROPIC_PSEUDO_SALT` | Sal del hash de seudónimos. **Obligatoria**: `claude-proxy` la exporta desde `config.json` | (de `config.json`) |
 | `ANTHROPIC_PSEUDO_VAULT` | Ruta del vault | `captures/.pseudonym_vault.json` |
+| `KLAUS_LOG_DIR` | Directorio del log en disco (`proxy.log`, rotado 5 MB × 5) (#55) | `~/.klaus-proxy/logs/` |
 
-> ⚠️ **Limitación conocida (streaming):** esta versión procesa la respuesta **completa** (mitmproxy bufferiza por defecto), lo que es correcto para las tool calls pero retrasa el render token-a-token. La variante en streaming (reemplazo con buffer de arrastre sobre SSE) queda como mejora posterior.
+Además de las variables, `~/.klaus-proxy/config.json` admite `pseudo_literals`, `pseudo_word_literals` y `pseudo_patterns`, que persisten entre reinicios.
 
-> Tests en [`tests/test_anthropic_payload_pseudonymize.py`](../tests/test_anthropic_payload_pseudonymize.py) (43): round-trip forward/restore, longest-match-first, palanca de rutas, regex, idempotencia, persistencia del vault, redacción irreversible de secretos, word-literals con frontera (no corrompen `HTTPS`/`COMMIT`), transformación estructural JSON (regresión del `400`) y `secret-kv` sin morder `os.getenv(...)`.
+> ⚠️ **Limitación conocida (streaming):** la respuesta se procesa **completa** (mitmproxy bufferiza por defecto), lo que es correcto para las tool calls pero retrasa el render token a token. Las respuestas SSE se restauran **por bloque** (#67): se concatenan los `content_block_delta` de cada bloque (texto, argumentos de `tool_use` y thinking) antes de revertir, porque un seudónimo puede llegar partido entre dos deltas.
+
+> Tests en [`tests/test_anthropic_payload_pseudonymize.py`](../tests/test_anthropic_payload_pseudonymize.py): round-trip forward/restore, longest-match-first, palanca de rutas, regex, idempotencia, persistencia del vault, redacción irreversible de secretos, word-literals con frontera (no corrompen `HTTPS`/`COMMIT`), transformación estructural JSON (regresión del `400`) y `secret-kv` sin morder `os.getenv(...)`.
 
 ---
 
@@ -404,7 +415,7 @@ Los dos addons colorean sus líneas de log **por semántica**, para escanear en 
 | Color | Nivel | Cuándo | Ejemplo |
 | --- | --- | --- | --- |
 | 🟢 Verde | `ok` | Se ejecutó una acción de auditoría real: el cuerpo se **reescribió** (dato sensible neutralizado) o la respuesta se **revirtió** | `[anthropic-pseudo] request POST /v1/messages seudónimos=53`<br>`[anthropic-capture] POST /v1/messages → sent/… (pseudonymized=True)` |
-| ⚪ Neutro | — | La request salió pero **no había nada que seudonimizar** (p. ej. telemetría `event_logging`). No es un problema — ver [telemetría](telemetria-anthropic-event-logging.md) | `[anthropic-capture] POST /api/event_logging/v2/batch → sent/… (pseudonymized=False)` |
+| ⚪ Neutro | — | La request salió pero **no había nada que seudonimizar** (p. ej. telemetría `event_logging`). No es un problema — ver telemetría | `[anthropic-capture] POST /api/event_logging/v2/batch → sent/… (pseudonymized=False)` |
 | 🟡 Amarillo | `warn` | Degradación que **no es fuga**: no se pudo persistir el vault (la request ya salió seudonimizada) o no se pudo revertir la response (el CLI puede ver seudónimos) | `[anthropic-pseudo] WARN no pude persistir el vault: … (la request va seudonimizada)`<br>`[anthropic-pseudo] WARN no pude leer la response de /… — no se revierte` |
 | 🔴 Rojo | `error` | Fallo serio: request **bloqueada en fail-closed** (no se pudo seudonimizar → no salió) o fallo al **escribir la evidencia** en disco | `[anthropic-pseudo] BLOQUEADA (fail-closed) POST /v1/messages: …`<br>`[anthropic-capture] ERROR escribiendo evidencia 20260724_130145_… : …` |
 
@@ -430,6 +441,8 @@ El seudonimizador está diseñado para **fallar cerrado**: si cualquier paso de 
 - **Por qué:** sin esta red, una excepción en un hook de mitmproxy se **loguea pero el flujo continúa con el cuerpo original** — es decir, saldría **sin seudonimizar** (fail-**open**). El fail-closed convierte ese borde silencioso en un bloqueo ruidoso (línea 🔴 roja).
 - **Evidencia:** la request bloqueada se marca con `blocked: true` en el par `sent`/`original`. El cuerpo de `sent/` es un **marcador** (`«BLOCKED: …»`), no el cuerpo real — porque no salió nada. El cuerpo real (con secretos redactados) queda en `original/` para diagnóstico.
 - **Alcance:** solo aplica a la **request** (hacia Anthropic). En la **response** (hacia el CLI) NO se bloquea: no poder revertir seudónimos no es una fuga, así que se avisa en 🟡 amarillo y se deja pasar (bloquearla solo rompería la sesión).
+
+- **Guardián (#71):** `klaus_pseudo_guard.py` se carga el último y bloquea con **502** cualquier petición que el seudonimizador no haya marcado como procesada, por ejemplo si su addon no llegó a cargar. En el log aparece `[klaus-guard] BLOQUEADA …`. Cubre el caso en que mitmproxy se queda sin el addon, que el `try` de `request()` no puede ver.
 
 > En la práctica este bloqueo casi nunca se dispara: `get_text`/`pseudonymize_body` no lanzan sobre el JSON bien formado que envía Claude Code. Es una **red de seguridad**, no un camino habitual.
 
@@ -487,8 +500,8 @@ Cinco scripts **versionados** en `src/`, cada uno con su test espejo en
 | [`anthropic_payload_pseudonymize.py`](../src/anthropic_payload_pseudonymize.py) | Addon de **seudonimización** bidireccional (forward/restore). | §"Seudonimización bidireccional" |
 | [`anthropic_capture_verify.py`](../src/anthropic_capture_verify.py) | **Verificador** de una captura (destino, secretos, fugas). | §"Verificación en un comando" |
 | [`anthropic_pair_verify.py`](../src/anthropic_pair_verify.py) | **Validador diferencial** por pares `original`↔`sent` (fugas independientes del vault + descubrimiento de slugs). | §"Validación diferencial por pares" |
-| [`anthropic_payload_analyze.py`](../src/anthropic_payload_analyze.py) | **Analizador**: vuelca todo lo que sale al modelo (system, tools, historial, ficheros embebidos). | [`MANIFIESTO_ficheros_embebidos.md`](MANIFIESTO_ficheros_embebidos.md) |
-| [`anthropic_artifacts_cleanup.py`](../src/anthropic_artifacts_cleanup.py) | **Limpieza + hardening** del riesgo *data-at-rest* (artefactos en claro que Claude Code deja en disco). | [`MANUAL_limpieza_hardening.md`](MANUAL_limpieza_hardening.md) |
+| [`anthropic_payload_analyze.py`](../src/anthropic_payload_analyze.py) | **Analizador**: vuelca todo lo que sale al modelo (system, tools, historial, ficheros embebidos). | `MANIFIESTO_ficheros_embebidos.md` (retirado) |
+| [`anthropic_artifacts_cleanup.py`](../src/anthropic_artifacts_cleanup.py) | **Limpieza + hardening** del riesgo *data-at-rest* (artefactos en claro que Claude Code deja en disco). | `MANUAL_limpieza_hardening.md` (retirado) |
 
 ## 🧪 Tests
 
