@@ -135,7 +135,7 @@ Lo mismo con `config.json`: las reglas nuevas (`pseudo_literals`, `pseudo_word_l
 `python3 src/anthropic_pair_verify.py` (desde el clon) marca qué ha salido en claro y en qué capa.
 
 - **Un valor tuyo** (cliente, código de proyecto): añádelo a `pseudo_word_literals` o `pseudo_literals` de `config.json` y reinicia `claude-proxy`. Ponerlo **solo en el vault no basta**.
-- **El org/repo de un proyecto**: arranca `claude-proxy` desde ese repo, o añádelo a `pseudo_word_literals`. El aprendizaje por petición solo funciona en los modos de permisos `auto` y `plan`.
+- **El org/repo de un proyecto**: clónalo en la carpeta de proyectos y ejecuta `klaus-scan-repos` (o arranca `claude-proxy` desde ese repo), o añádelo a `pseudo_word_literals`. El aprendizaje por petición solo funciona en los modos de permisos `auto` y `plan`.
 - **Un nombre de carpeta suelto** (sin ruta): se protege cuando el vault ya conoce la carpeta, tras aparecer una vez en una ruta; si es corto (< 5) o genérico, no.
 - Lo que ya se envió no se puede deshacer; se puede archivar la evidencia (ver [runbook](./anthropic-audit-proxy.md)).
 

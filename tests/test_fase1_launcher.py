@@ -51,6 +51,15 @@ def _no_real_repo_tokens():
         yield mock
 
 
+@pytest.fixture(autouse=True)
+def _no_real_repo_scan():
+    """Never walk the user's real projects folder (#134)."""
+    with patch(
+        "Klaus_proxy_local.launcher.scan_repos.scan_and_protect", return_value=[]
+    ) as mock:
+        yield mock
+
+
 class TestProxyLauncherInit:
     """Test ProxyLauncher initialization."""
 
@@ -201,14 +210,15 @@ class TestShowDashboard:
 
         assert "~/.klaus-proxy/captures/" in captured.out
 
-    def test_show_dashboard_lists_protected_tokens(self, capsys):
-        """show_dashboard() lists the protected org/repo (#61)."""
+    def test_show_dashboard_counts_protected_tokens(self, capsys):
+        """show_dashboard() counts the protected org/repo, never names them (#134)."""
         launcher = ProxyLauncher()
         launcher.cert_file = Path("/tmp/cert.pem")
         launcher.protected_tokens = ["acme-org", "acme-repo"]
         launcher.show_dashboard()
         out = capsys.readouterr().out
-        assert "acme-org, acme-repo" in out
+        assert "Protected org/repo:    2 tokens" in out
+        assert "acme-org" not in out
         assert "NONE" not in out
 
     def test_show_dashboard_warns_without_protected_tokens(self, capsys):
