@@ -466,6 +466,39 @@ def test_word_literal_matches_standalone_token():
     assert ps.restore_text(out, v) == "cliente orgcode2 y cliente orgcode1"
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        r're.compile(r"\borgcode2\.es\b")',
+        r"línea\norgcode2 fin",
+        r"col\torgcode2",
+        "\\sorgcode2",
+    ],
+)
+def test_word_literal_after_escape_sequence(text):
+    """Una secuencia de escape escrita en el texto es frontera (#142)."""
+    v = ps.Vault()
+    out = ps.pseudonymize_text(text, v, _word_rules())
+    assert "orgcode2" not in out
+    assert ps.restore_text(out, v) == text
+
+
+def test_word_literal_glued_to_letters_untouched():
+    """La frontera sigue exigiendo un escape, no cualquier letra (#142)."""
+    v = ps.Vault()
+    text = "xorgcode2 orgcode2y aorgcode2"
+    assert ps.pseudonymize_text(text, v, _word_rules()) == text
+
+
+def test_word_literal_escape_in_json_body():
+    """En el cuerpo JSON, el valor de un regex de código se pseudonimiza (#142)."""
+    v = ps.Vault()
+    raw = json.dumps({"content": 'pat = r"\\borgcode2\\.es\\b"'})
+    out = ps.pseudonymize_body(raw, v, _word_rules())
+    assert "orgcode2" not in out
+    assert json.loads(ps.restore_body(out, v)) == json.loads(raw)
+
+
 def test_word_literal_longest_first():
     """`example-org` se mapea entero, no como `<pseudo>-global-delivery`."""
     v = ps.Vault()
