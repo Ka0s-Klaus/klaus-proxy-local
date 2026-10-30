@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`klaus-leak-report`: informe de fugas y cobertura por proyecto** (#146) — Para cada repo de la carpeta de proyectos responde a cuatro preguntas: qué datos sensibles tiene (`klaus-scan`), cuáles no cubre el proxy (pasados por el pseudonimizador con las reglas actuales), qué fugas ha sufrido (en qué capturas, atribuidas por el directorio de trabajo o los remotes) y qué % de cobertura tiene, con colores. Guarda caché por repo y por captura, solo con identificadores; los valores se muestran como `⟨categoría·hash·longitud⟩` salvo con `--reveal`. El informe va a `informes/fugas/`, y el dashboard de auditoría añade la tarjeta «🕵️ Fugas por proyecto» con el resumen.
 - **`klaus-scan` detecta nombres de negocio** (#140) — Busca razones sociales con forma jurídica, titulares de copyright, dominios corporativos de email, URL y `git log` (también el *tenant* de un SaaS), IDs de proyecto cloud, la identidad de paquete en los manifiestos y las claves de incidencias. Cada valor aparece una vez, con sus apariciones. Lo ya protegido en `config.json` solo se cuenta. Activado por defecto (`--no-business`) y umbral por defecto HIGH. Opción nueva `--counts` para obtener solo recuentos.
 
 ### Security

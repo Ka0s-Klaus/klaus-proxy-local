@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from Klaus_proxy_local import (  # noqa: E402
     audit_reports,
     capture_retention,
+    leak_report,
     scan_repos,
 )
 
@@ -137,6 +138,29 @@ def audit_projects(config_dir: Path, captures_dir: Path, original: list[dict]) -
         "dirs": [str(d) for d in dirs],
         "repos": repos,
         "protected": sum(1 for r in repos if r["status"] in ("ok", "no_remote")),
+    }
+
+
+def audit_leaks(leaks_dir: Path) -> dict | None:
+    """Resumen del último ``klaus-leak-report`` (#146); no recalcula nada."""
+    report = leak_report.load_latest(leaks_dir)
+    if report is None:
+        return None
+    return {
+        "generated_at": report.get("generated_at"),
+        "coverage_pct": (report.get("totals") or {}).get("coverage_pct"),
+        "link": f"{leaks_dir.name}/{leak_report.REPORT_FILE}",
+        "projects": [
+            {
+                "name": p["name"],
+                "coverage_pct": p.get("coverage_pct"),
+                "status": p.get("status", "no_data"),
+                "uncovered": p.get("detected", 0) - p.get("covered", 0),
+                "leak_captures": (p.get("leaks") or {}).get("captures", 0),
+                "recent": (p.get("leaks") or {}).get("recent", 0),
+            }
+            for p in report.get("projects") or []
+        ],
     }
 
 
@@ -1117,6 +1141,7 @@ HTML_TEMPLATE = """\
     </div>
   </div>
   #PROJECTS_HTML#
+  #LEAKS_HTML#
   #RETENTION_HTML#
   #UNCAPTURED_HTML#
 </div>
@@ -1651,6 +1676,47 @@ def _projects_html(security: dict) -> str:
     return f"<div class='card mt8'><h3>🛡️ Proyectos protegidos</h3>{intro}{body}</div>"
 
 
+def _leaks_html(security: dict) -> str:
+    """Cobertura por proyecto del último ``klaus-leak-report`` (#146)."""
+    esc = html.escape
+    if "leaks" not in security:  # informes anteriores a #146
+        return ""
+    data = security["leaks"]
+    head = "<div class='card mt8'><h3>🕵️ Fugas por proyecto</h3>"
+    if not data:
+        return (
+            head + "<p>Sin informe de fugas. Genera uno con "
+            "<code>klaus-leak-report</code>: qué datos sensibles tiene cada proyecto, "
+            "cuáles no cubre el proxy y qué ha salido en las capturas.</p></div>"
+        )
+    colors = {"good": "#0ca30c", "warning": "#d4a017", "critical": "#d03b3b"}
+    icons = {"good": "🟢", "warning": "🟡", "critical": "🔴"}
+
+    def pct(v):
+        return "—" if v is None else f"{v:.1f} %"
+
+    trs = "".join(
+        f"<tr><td>{esc(p['name'])}</td>"
+        f"<td style='color:{colors.get(p['status'], 'inherit')}'><b>"
+        f"{icons.get(p['status'], '⬜')} {pct(p['coverage_pct'])}</b></td>"
+        f"<td>{p['uncovered']:,}</td><td>{p['leak_captures']:,}"
+        f"{' (' + str(p['recent']) + ' recientes)' if p['recent'] else ''}</td></tr>"
+        for p in data["projects"]
+    )
+    return (
+        head + "<p style='font-size:.8rem;color:var(--text-muted)'>"
+        f"Cobertura global <b>{pct(data.get('coverage_pct'))}</b> según el informe del "
+        f"<code>{esc(str(data.get('generated_at') or ''))}</code>: valores CRITICAL/HIGH "
+        "de cada proyecto que el proxy sustituye o redacta. 🔴 también si hubo una "
+        f"fuga en los últimos {leak_report.RECENT_DAYS} días. "
+        f"<a href='{esc(data['link'])}'>Abrir el informe completo</a> · "
+        "<code>klaus-leak-report</code> lo actualiza.</p>"
+        "<table class='data-table mt8'><thead><tr><th>Proyecto</th><th>Cobertura</th>"
+        "<th>Sin cubrir</th><th>Capturas con fugas</th></tr></thead>"
+        f"<tbody>{trs}</tbody></table></div>"
+    )
+
+
 def _uncaptured_hosts_html(security: dict) -> str:
     """Tabla de hosts que pasaron por el proxy sin pseudonimizar (#123)."""
     esc = html.escape
@@ -1846,6 +1912,7 @@ def render_html(
         "UNCAPTURED_HTML": _uncaptured_hosts_html(security),
         "RETENTION_HTML": _retention_html(security),
         "PROJECTS_HTML": _projects_html(security),
+        "LEAKS_HTML": _leaks_html(security),
         # Pseudonymization
         "PSEUDO_COLOR": _status_color(pseudo.get("status", "no_data")),
         "PSEUDO_EMOJI": _status_emoji(pseudo.get("status", "no_data")),
@@ -1975,6 +2042,10 @@ def main(argv: list[str] | None = None) -> None:
         security["projects"] = audit_projects(config_dir, captures_dir, original)
     except Exception as e:  # noqa: BLE001 - la tarjeta no debe tumbar el informe
         print(f"   ⚠️  Proyectos protegidos no disponibles: {type(e).__name__}: {e}")
+    try:
+        security["leaks"] = audit_leaks(reports_dir / "fugas")
+    except Exception as e:  # noqa: BLE001 - la tarjeta no debe tumbar el informe
+        print(f"   ⚠️  Informe de fugas no disponible: {type(e).__name__}: {e}")
 
     print("📊 Auditoría de pseudonimización...")
     pseudo = audit_pseudonymization(original, config_dir)
