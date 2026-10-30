@@ -242,3 +242,58 @@ def test_safe_id_is_stable_and_opaque(monkeypatch):
 
 def test_business_prefix():
     assert scan._get_prefix_for_category("corporate-domain") == "org"
+
+
+# --- aprobar sin ANTHROPIC_PSEUDO_SALT en el entorno (#156) -------------------------
+
+
+def test_approve_without_env_salt(monkeypatch, _isolated_config_json, tmp_path):
+    import anthropic_payload_pseudonymize as ps
+    from Klaus_proxy_local.sensitive_data_scanner import (
+        Confidence,
+        SensitiveDataFinding,
+        VaultIntegration,
+    )
+
+    monkeypatch.delenv("ANTHROPIC_PSEUDO_SALT", raising=False)
+    monkeypatch.setenv("ANTHROPIC_PSEUDO_VAULT", str(tmp_path / "vault.json"))
+    monkeypatch.setattr(ps, "vault_path", lambda: tmp_path / "vault.json")
+    _isolated_config_json.write_text('{"salt": "salt-de-config"}')
+    finding = SensitiveDataFinding(
+        CLIENT, "business-name", "business", Confidence.HIGH, tmp_path, 1, "", ""
+    )
+    pseudo = VaultIntegration().add_finding_to_vault(finding, "org")
+    cfg = json.loads(_isolated_config_json.read_text())
+    assert CLIENT in cfg["pseudo_literals"]
+    # El mismo seudónimo que daría claude-proxy con la SALT de config.json
+    monkeypatch.setenv("ANTHROPIC_PSEUDO_SALT", "salt-de-config")
+    assert pseudo == ps.Vault().map(CLIENT, "org")
+
+
+def test_rule_added_even_if_vault_fails(monkeypatch, _isolated_config_json, tmp_path):
+    from Klaus_proxy_local.sensitive_data_scanner import (
+        Confidence,
+        SensitiveDataFinding,
+        VaultIntegration,
+    )
+
+    vi = VaultIntegration()
+
+    def broken_vault():
+        raise RuntimeError("vault roto")
+
+    monkeypatch.setattr(vi, "get_vault", broken_vault)
+    finding = SensitiveDataFinding(
+        "wingtip-legal.es",
+        "corporate-domain",
+        "business",
+        Confidence.HIGH,
+        tmp_path,
+        1,
+        "",
+        "",
+    )
+    with pytest.raises(RuntimeError):
+        vi.add_finding_to_vault(finding, "org")
+    cfg = json.loads(_isolated_config_json.read_text())
+    assert "wingtip-legal.es" in cfg["pseudo_word_literals"]
