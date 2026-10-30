@@ -336,14 +336,30 @@ def is_llm_path(path: str) -> bool:
     return any(p == pat or p.endswith(pat) for pat in _LLM_PATH_PATTERNS)
 
 
+def _config_salt() -> str:
+    """SALT de config.json, la misma que exporta ``claude-proxy`` (#156).
+
+    Las herramientas que escriben el vault (``klaus-scan``, ``add_to_vault``)
+    se lanzan en una terminal sin ``ANTHROPIC_PSEUDO_SALT``: con otra SALT los
+    seudónimos no coincidirían con los del proxy.
+    """
+    try:
+        config = json.loads(config_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    salt = config.get("salt") if isinstance(config, dict) else None
+    return str(salt) if salt else ""
+
+
 def _salt() -> str:
     """Load pseudonymization salt; must be explicitly configured.
 
-    Raises RuntimeError if ANTHROPIC_PSEUDO_SALT is not set. The default
+    ``ANTHROPIC_PSEUDO_SALT`` o, si no está, la ``salt`` de config.json (#156).
+    Raises RuntimeError if neither is set. The default
     salt was removed (it was public in the repo). In v0.1.0, auto-generation
     will handle this transparently.
     """
-    salt = os.environ.get("ANTHROPIC_PSEUDO_SALT")
+    salt = os.environ.get("ANTHROPIC_PSEUDO_SALT") or _config_salt()
     if not salt:
         raise RuntimeError(
             "⚠️  ANTHROPIC_PSEUDO_SALT environment variable is required.\n"
@@ -354,7 +370,8 @@ def _salt() -> str:
             "Then set it in your shell:\n"
             "  export ANTHROPIC_PSEUDO_SALT=<your-32-char-hex-salt>\n"
             "\n"
-            "(v0.1.0 will auto-generate this on first run)"
+            "or run install.sh / claude-proxy once: they write it to\n"
+            "~/.klaus-proxy/config.json, and every tool reads it from there."
         )
     return salt
 

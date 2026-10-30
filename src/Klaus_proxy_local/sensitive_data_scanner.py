@@ -856,13 +856,14 @@ class VaultIntegration:
         Returns:
             The generated pseudonym
         """
-        vault = self.get_vault()
-        pseudo = vault.map(finding.value, prefix)
-        vault.save()
-        # El vault solo no basta: sin regla, el proxy lo dejaría en claro (#99).
+        # Primero la regla: es lo que protege. El vault solo guarda el
+        # seudónimo, que el proxy acuña igual al primer uso (#99, #156).
         from anthropic_payload_pseudonymize import add_protected_values_to_config
 
         add_protected_values_to_config([finding.value])
+        vault = self.get_vault()
+        pseudo = vault.map(finding.value, prefix)
+        vault.save()
         return pseudo
 
     def check_already_in_vault(self, value: str) -> Optional[str]:
