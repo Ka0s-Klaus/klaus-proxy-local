@@ -113,7 +113,14 @@ Cada valor se lista **una vez**, con sus apariciones y la primera ubicación. Lo
 - **`--reveal`** muestra valores y contexto en claro. Úsalo solo en tu terminal: lo que se imprime en una sesión de Claude Code llega al modelo.
 - **Sin terminal interactiva** (por ejemplo, lanzado por Claude Code) no se pregunta nada: termina con el resumen. Para aprobar, usa `--approve-all` o lánzalo tú.
 
-Los valores aprobados se añaden al vault y a `config.json`: a `pseudo_word_literals` si son un único token y a `pseudo_literals` si no. Reinicia `claude-proxy` para que se apliquen.
+Los valores aprobados se añaden al vault y a `config.json`: a `pseudo_word_literals` si son un único token y a `pseudo_literals` si no. Al terminar, el resumen dice `Approved for vault: N`.
+
+**Reinicia `claude-proxy` después de aprobar.** El proxy lee las reglas al arrancar: hasta que lo reinicies, lo que acabas de aprobar sigue saliendo en claro. Un reinicio anterior a la aprobación no sirve.
+
+**Orden completo:**
+1. `klaus-scan ~/proyectos --reveal` en tu terminal. Responde `Y` a `Review N finding(s)?` y aprueba con `A`.
+2. Reinicia `claude-proxy`.
+3. `klaus-leak-report --open` para medir la cobertura con las reglas nuevas.
 
 ---
 
@@ -133,11 +140,26 @@ klaus-leak-report --open      # genera informes/fugas/leak-report.html y lo abre
 klaus-leak-report --no-cache  # recalcula todo
 ```
 
-- **Caché:** la primera ejecución analiza todas las capturas y tarda varios minutos. Después solo analiza lo nuevo. Un repo se vuelve a revisar si cambian su commit o sus ficheros, y todo se recalcula si cambian tus reglas. La caché está en `~/.klaus-proxy/leak-report-cache.json` y solo guarda identificadores.
+- **Caché:** la primera ejecución analiza todas las capturas y tarda varios minutos. Después solo analiza lo nuevo. Un repo se vuelve a revisar si cambian su commit o sus ficheros. Todo se recalcula si cambian tus reglas o el código de Klaus. La caché está en `~/.klaus-proxy/leak-report-cache.json` y solo guarda identificadores.
+- **Tiempos:** en la instalación del autor, la primera ejecución tardó unos 9 minutos. Tras aprobar cientos de reglas de golpe tardó 20, porque hubo que recalcularlo todo. Con la caché al día tarda unos segundos.
+- **Qué cuenta para la cobertura:** solo los valores CRITICAL y HIGH. Los dominios de confianza MEDIUM, los nombres de paquete y las claves de incidencia (LOW) aparecen como sin cubrir, pero no bajan el %.
 - **Valores:** se muestran como `⟨categoría·hash·longitud⟩`, igual que en `klaus-scan`. `--reveal` los muestra en claro; úsalo solo en tu terminal.
 - **Nombres de proyecto:** el informe muestra los nombres de tus proyectos. Es local (`informes/` no se versiona); no lo compartas tal cual.
 - **Dashboard de auditoría:** la tarjeta «🕵️ Fugas por proyecto» resume el último informe y enlaza a él.
-- **Para cubrir un valor:** `klaus-scan <proyecto> --reveal` en tu terminal, apruébalo y reinicia `claude-proxy`.
+- **Para cubrir un valor:** `klaus-scan <proyecto> --reveal` en tu terminal, apruébalo y reinicia `claude-proxy`. Lanza el informe después del reinicio, no a la vez que `klaus-scan`, o medirá sin las reglas nuevas.
+
+### Cómo leer las fugas después de aprobar reglas
+
+El informe busca en **todas** las capturas los valores que protegen **tus reglas actuales**. Al aprobar reglas nuevas pasan dos cosas a la vez:
+
+- **La cobertura sube.** En la instalación del autor pasó del 64 % al 100 %, y de 12 proyectos 🔴 a 3.
+- **Las capturas con fugas también suben.** En la instalación del autor pasaron de 461 a 1351. No son fugas nuevas: son peticiones **anteriores** a la regla que ya llevaban ese valor, y ahora el informe sabe que es sensible. Lo enviado no se puede deshacer, pero sí archivar como evidencia (ver [runbook](./anthropic-audit-proxy.md)).
+
+Para saber si el proxy protege **ahora**, mira las capturas con fugas posteriores al último reinicio de `claude-proxy`. Su hora va en el nombre del fichero (`AAAAMMDD_HHMMSS_…`). La hora del reinicio está en `~/.klaus-proxy/logs/proxy.log`, en la última línea `🧩 Addons:`. Si no hay ninguna posterior, las reglas funcionan.
+
+**Un proyecto sigue en 🔴 con cobertura del 100 %** si tiene alguna fuga en los últimos 30 días. Deja de estarlo cuando esas capturas superan los 30 días. La retención (#132) las borra a esa edad: si quieres conservar la evidencia, muévelas antes a `~/.klaus-proxy/captures/archive/`.
+
+**Falso positivo conocido (#158):** una regla de `pseudo_word_literals` que aparece **dentro** de otra palabra cuenta como fuga, aunque el proxy hace bien en no tocarla. Por ejemplo, la regla `fabri` en `tailspinfabri`. Mientras no se corrija, una fuga de categoría `org` posterior al reinicio puede ser esto.
 
 ---
 
