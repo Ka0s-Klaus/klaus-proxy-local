@@ -2,7 +2,7 @@
 
 > Cómo está construido el proxy y qué garantiza. Para operarlo, ve al [runbook técnico](./anthropic-audit-proxy.md); para usarlo, al [inicio rápido](./QUICK_START.md).
 
-**Versión:** v0.7.0
+**Versión:** v0.8.0
 
 ---
 

@@ -2,7 +2,7 @@
 
 > Instalar, arrancar el proxy y usar Claude Code a través de él.
 
-**Versión:** v0.7.0 · **Relacionado:** [Guía de uso](./USER_GUIDE.md) · [Runbook técnico](./anthropic-audit-proxy.md) · [Troubleshooting](./TROUBLESHOOTING.md)
+**Versión:** v0.8.0 · **Relacionado:** [Guía de uso](./USER_GUIDE.md) · [Runbook técnico](./anthropic-audit-proxy.md) · [Troubleshooting](./TROUBLESHOOTING.md)
 
 ---
 

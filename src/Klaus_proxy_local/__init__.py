@@ -1,3 +1,3 @@
 """Klaus Proxy Local — HTTP proxy and toolkit for the Anthropic API."""
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"

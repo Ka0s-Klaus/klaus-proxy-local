@@ -6,9 +6,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.7.0-green)](./docs/RELEASE_v0.7.0_NOTES.md)
-[![Tests](https://img.shields.io/badge/tests-746%20passed-brightgreen)](./.github/workflows/ci.yml)
-[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.7.0_NOTES.md)
+[![Version](https://img.shields.io/badge/version-0.8.0-green)](./docs/RELEASE_v0.8.0_NOTES.md)
+[![Tests](https://img.shields.io/badge/tests-830%20passed-brightgreen)](./.github/workflows/ci.yml)
+[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.8.0_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
 
@@ -57,7 +57,7 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.7.0)
+## 🚀 Inicio rápido (v0.8.0)
 
 > ℹ️ El paquete **no está publicado en PyPI**: se instala desde el repositorio con
 > `install.sh` (macOS y Linux, Python ≥ 3.10; en macOS instala Python 3.13 vía Homebrew si falta; en Debian/Ubuntu hace falta `python3-venv`).
@@ -399,6 +399,14 @@ If you enabled auto-startup but want to disable it:
 
 ## 📦 Releases
 
+### v0.8.0 — Fugas y cobertura por proyecto ✅
+- 🕵️ `klaus-leak-report`: qué datos sensibles tiene cada proyecto, cuáles no cubre el proxy, cuáles han salido y su % de cobertura; tarjeta en el dashboard (#146)
+- 🔎 `klaus-scan` detecta nombres de negocio (clientes, dominios, IDs cloud) y su salida ya no revela valores (#140)
+- 🔒 El proxy redacta las claves de Anthropic, OpenAI y Stripe, las contraseñas de conexiones y los Bearer, sin tocar el login (#148); un nombre tras `\b` ya no sale en claro (#142)
+- ✅ **830 tests passing** en Python 3.10–3.13
+
+[📖 Release Notes](./docs/RELEASE_v0.8.0_NOTES.md)
+
 ### v0.7.0 — Retención de capturas y todos tus repos protegidos al arrancar ✅
 - ⚠️ 🧹 **Retención de capturas: 30 días por defecto.** Al primer arranque tras actualizar se borran los pares de más de 30 días (`capture_retention_days`, `0` = sin límite; `captures/archive/` no se toca) (#132)
 - 🔒 `capture_originals: false`: solo se guarda `sent/`, sin datos reales en claro en disco (#132)
@@ -533,7 +541,7 @@ Release notes no conservadas en `docs/`.
 | [🌐 Audit Dashboard](./docs/reports/web/README.md) | Dashboard HTML interactivo de auditoría |
 | [🛠️ Troubleshooting](./docs/TROUBLESHOOTING.md) | Solución de problemas comunes |
 | [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
-| [🚀 Release v0.7.0](./docs/RELEASE_v0.7.0_NOTES.md) | Notas de la última release |
+| [🚀 Release v0.8.0](./docs/RELEASE_v0.8.0_NOTES.md) | Notas de la última release |
 
 ---
 
@@ -687,12 +695,12 @@ Ver sección anterior: [📚 Documentación](#-documentación)
 ## 🧪 Tests
 
 ```bash
-pytest -q          # 746 passed, 3 skipped
+pytest -q          # 830 passed, 3 skipped
                    # Includes: capture, pseudonymize, guard, verify, audit, dashboard, vault
 ```
 
 ### Test Coverage
-- ✅ **746 tests passing** en Python 3.10–3.13 (CI)
+- ✅ **830 tests passing** en Python 3.10–3.13 (CI)
 - ✅ Security tests for vault + pseudonymization
 - ✅ Integration tests for audit workflows
 - ✅ Unit tests for all components

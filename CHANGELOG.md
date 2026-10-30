@@ -9,9 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.8.0] — 2026-10-30
+
 ### Added
 - **`klaus-leak-report`: informe de fugas y cobertura por proyecto** (#146) — Para cada repo de la carpeta de proyectos responde a cuatro preguntas: qué datos sensibles tiene (`klaus-scan`), cuáles no cubre el proxy (pasados por el pseudonimizador con las reglas actuales), qué fugas ha sufrido (en qué capturas, atribuidas por el directorio de trabajo o los remotes) y qué % de cobertura tiene, con colores. Guarda caché por repo y por captura, solo con identificadores; los valores se muestran como `⟨categoría·hash·longitud⟩` salvo con `--reveal`. El informe va a `informes/fugas/`, y el dashboard de auditoría añade la tarjeta «🕵️ Fugas por proyecto» con el resumen.
 - **`klaus-scan` detecta nombres de negocio** (#140) — Busca razones sociales con forma jurídica, titulares de copyright, dominios corporativos de email, URL y `git log` (también el *tenant* de un SaaS), IDs de proyecto cloud, la identidad de paquete en los manifiestos y las claves de incidencias. Cada valor aparece una vez, con sus apariciones. Lo ya protegido en `config.json` solo se cuenta. Activado por defecto (`--no-business`) y umbral por defecto HIGH. Opción nueva `--counts` para obtener solo recuentos.
+
+### Changed
+- **`klaus-scan`: umbral por defecto HIGH** (antes CRITICAL) **y salida sin valores** (#140) — `--json` ya no incluye `value` ni `context`, sino `id` (`⟨categoría·hash·longitud⟩`), y las rutas son relativas. `--reveal` recupera la salida en claro. Si lo usas en un script, revísalo.
 
 ### Security
 - **El proxy redacta más tipos de credencial** (#148) — Claves de Anthropic, OpenAI y Stripe; la contraseña de una cadena de conexión o URL (`postgres://app:«REDACTED:url-password»@db/ventas`, que conserva usuario, host y base de datos); `aws_secret_access_key`, `aws_session_token`, `refresh_token` y tokens `Bearer` en el contenido. Son los tipos que ya detectaba `klaus-scan`; un test comprueba que todo lo que el escáner marca como credencial lo redacta el proxy. En la instalación del autor había 23 contraseñas de `postgres://` en capturas que salieron en claro. **El login no se ve afectado:** las cabeceras `Authorization` y `x-api-key` nunca se reescriben, y los cuerpos de los endpoints de autenticación (`/v1/oauth/…`, `/api/oauth/token`, `/api/oauth/claude_cli/…`, `/api/auth/…`) pasan sin tocar.
