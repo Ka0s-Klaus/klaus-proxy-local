@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`klaus-scan` detecta nombres de negocio** (#140) — Busca razones sociales con forma jurídica, titulares de copyright, dominios corporativos de email, URL y `git log` (también el *tenant* de un SaaS), IDs de proyecto cloud, la identidad de paquete en los manifiestos y las claves de incidencias. Cada valor aparece una vez, con sus apariciones. Lo ya protegido en `config.json` solo se cuenta. Activado por defecto (`--no-business`) y umbral por defecto HIGH. Opción nueva `--counts` para obtener solo recuentos.
+
+### Security
+- **La salida de `klaus-scan` ya no revela los valores** (#140) — Antes mostraba 8 caracteres de cada valor y el contexto en claro, y la revisión, `--json` y «copiar» sin `pbcopy` mostraban el valor completo. Si lo lanzaba Claude Code, todo entraba en el contexto del modelo. Ahora cada valor es un identificador `⟨categoría·hash·longitud⟩`, sin contexto y con rutas relativas enmascaradas; `--reveal` lo muestra en claro. Sin TTY ya no falla con `EOFError`: se salta la revisión.
+
 ### Fixed
 - **`anthropic-pair-verify` contaba como fuga un seudónimo** (#143) — Claude Code solo ve rutas seudonimizadas (`/Users/user_1a2b3c4d/…`). Al citarlas, vuelven en el historial y el patrón de usuarios en rutas las tomaba por un usuario real. Ahora el verificador ignora los valores con forma de seudónimo, con el mismo criterio que el pseudonimizador. En la instalación del autor eran 356 de los 623 pares marcados con fugas.
 

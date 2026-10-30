@@ -103,7 +103,7 @@ No corren dentro de `mitmdump`; trabajan sobre las capturas o sobre tu disco:
 | --- | --- |
 | `src/anthropic_pair_verify.py` | Compara cada `original` con su `sent` y marca los valores reales que hayan salido, por capas (email, IPv4, ruta, identidad, org, `pattern`, `dir`, vault) |
 | `klaus-audit-dashboard` | 5 planes de auditoría, histórico en `informes/` y avisos de prompt injection |
-| `klaus-scan` (`sensitive_data_scanner.py`) | Busca secretos en una carpeta: patrones, contexto (nombres de variable, `.env`) y entropía. Lo aprobado va al vault y a `config.json` (#99) |
+| `klaus-scan` (`sensitive_data_scanner.py`, `business_names.py`) | Busca secretos en una carpeta (patrones, contexto como nombres de variable o `.env`, y entropía) y nombres de negocio: razón social, dominios corporativos, IDs cloud, identidad de paquete (#140). Su salida no revela los valores, salvo con `--reveal`. Lo aprobado va al vault y a `config.json` (#99) |
 | `scripts/prune_vault.py` | Quita del vault valores que los patrones ya ignoran (#92) |
 
 ---
