@@ -603,3 +603,24 @@ def test_generic_dir_names_are_not_word_leaks():
     vault = {"scripts": "dir_12345678", "docs": "dir_87654321"}
     text = "ver scripts y docs"
     assert _verify(text, text, vault=vault, rules=rules) == []
+
+
+# --- seudónimos citados en el historial (#143) ---------------------------------
+
+
+def _user_dir_rules():
+    from anthropic_payload_pseudonymize import _USER_DIR_RE
+
+    return Rules(patterns=[(_USER_DIR_RE, "user")])
+
+
+def test_pseudonym_in_user_dir_is_not_a_leak():
+    """Claude Code cita rutas ya seudonimizadas; no es una fuga (#143)."""
+    text = "ver /Users/user_1a2b3c4d/proyectos/dir_5e6f7a8b/x.md"
+    assert _verify(text, text, rules=_user_dir_rules()) == []
+
+
+def test_real_user_in_user_dir_is_still_a_leak():
+    text = "ver /Users/ana.ruiz/proyectos/x.md"
+    leaks = _verify(text, text, rules=_user_dir_rules())
+    assert [(s.value, s.category) for s in leaks] == [("ana.ruiz", "pattern")]

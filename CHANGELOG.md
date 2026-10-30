@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`anthropic-pair-verify` contaba como fuga un seudónimo** (#143) — Claude Code solo ve rutas seudonimizadas (`/Users/user_1a2b3c4d/…`). Al citarlas, vuelven en el historial y el patrón de usuarios en rutas las tomaba por un usuario real. Ahora el verificador ignora los valores con forma de seudónimo, con el mismo criterio que el pseudonimizador. En la instalación del autor eran 356 de los 623 pares marcados con fugas.
+
 ---
 
 ## [0.7.0] — 2026-10-30
