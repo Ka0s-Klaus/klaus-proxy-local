@@ -141,6 +141,25 @@ Lo mismo con `config.json`: las reglas nuevas (`pseudo_literals`, `pseudo_word_l
 
 ---
 
+## ✅ He aprobado en `klaus-scan` y `config.json` no cambia
+
+- **¿Has aprobado?** Hay que responder `Y` a `Review N finding(s)?` y pulsar `A` en cada hallazgo. Al terminar, el resumen dice `Approved for vault: N`. Sin terminal interactiva (lanzado por Claude Code) no se pregunta nada: usa `--approve-all` o lánzalo tú.
+- **¿Falla con «ANTHROPIC_PSEUDO_SALT environment variable is required»?** Es anterior a la v0.8.0 (#156). Actualiza con `git pull && ./install.sh`.
+- **Para comprobarlo:** la fecha de modificación de `~/.klaus-proxy/config.json` debe ser posterior a la aprobación, y `pseudo_word_literals` y `pseudo_literals` deben tener más entradas.
+- **Después, reinicia `claude-proxy`.** Si lo reiniciaste antes de aprobar, las reglas nuevas aún no se aplican.
+
+---
+
+## 🔴 `klaus-leak-report` sigue en rojo con cobertura del 100 %
+
+Es lo esperado justo después de aprobar reglas. El informe busca tus reglas actuales en las capturas antiguas, así que lo enviado antes de aprobarlas ahora cuenta como fuga. El proyecto sigue en 🔴 hasta que esas capturas superen los 30 días.
+
+- **Para saber si hay fugas ahora:** mira solo las capturas con fugas posteriores al último reinicio de `claude-proxy` (última línea `🧩 Addons:` de `~/.klaus-proxy/logs/proxy.log`). Más detalle en la [guía de uso](./USER_GUIDE.md#cómo-leer-las-fugas-después-de-aprobar-reglas).
+- **Si hay alguna posterior de categoría `org`:** puede ser el falso positivo de una regla que aparece dentro de otra palabra (#158).
+- **Si hay otra posterior:** ver «Un valor sale en claro».
+
+---
+
 ## 🧹 El vault tiene entradas que no son datos
 
 Valores como `…`, `|` o `{user}` que entraron antes de v0.5.2. Con `claude-proxy` **parado**:

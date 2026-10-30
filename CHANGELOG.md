@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- **Flujo aprobar → reiniciar → informe y cómo leer las fugas** (#159) — La guía de uso explica el orden: aprobar en `klaus-scan` → reiniciar `claude-proxy` → `klaus-leak-report`. Hasta el reinicio, lo aprobado sigue saliendo en claro. También explica por qué, tras aprobar reglas, suben a la vez la cobertura y las capturas con fugas: el informe busca las reglas de hoy en las capturas antiguas. Cómo comprobar que no hay fugas tras el último reinicio, cuánto dura el 🔴, qué cuenta para la cobertura y cuánto tarda el recálculo. Problemas frecuentes añade «He aprobado y `config.json` no cambia» y «Sigue en rojo con cobertura del 100 %».
+
 ---
 
 ## [0.8.0] — 2026-10-30
