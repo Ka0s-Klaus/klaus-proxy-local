@@ -289,7 +289,8 @@ def pattern_values(record: dict[str, Any], pattern: re.Pattern) -> set[str]:
 @functools.lru_cache(maxsize=4096)
 def _dir_word_re(value: str) -> re.Pattern:
     """Como ``_word_boundary_re``, pero sobre JSON serializado: un escape
-    justo antes (``\\n``, ``\\t``, ``\\b``…) también es frontera (#93, #142)."""
+    justo antes (``\\n``, ``\\t``, ``\\b``…) también es frontera (#93, #142).
+    Lo usan los nombres de carpeta sueltos y las reglas ``org`` (#158)."""
     return re.compile(
         r"(?:(?<![A-Za-z0-9_])|(?<=\\[A-Za-z]))"
         + re.escape(value)
@@ -325,6 +326,14 @@ def sensitive_spans(
         seen.add(value)
         spans.append(Span(value, category))
 
+    def add_word(value: str) -> None:
+        if len(value) < _MIN_LEAK_LEN or value in seen:
+            return
+        # Visto aunque no case: la capa del vault no debe añadirlo como subcadena.
+        seen.add(value)
+        if _dir_word_re(value).search(text):
+            spans.append(Span(value, "org"))
+
     # 1) Regex de forma reconocible, sobre el texto decodificado.
     matches = layer_matches(record)
     for m in sorted(matches["email"]):
@@ -338,8 +347,10 @@ def sensitive_spans(
         add(prefix, "path")
     for lit in rules.literals:
         add(lit, "identity")
+    # Como el proxy, solo como palabra completa: una regla dentro de otra
+    # palabra (``fabri`` en ``tailspinfabri``) no se sustituye ni es fuga (#158).
     for word in rules.word_literals:
-        add(word, "org")
+        add_word(word)
     # pseudo_patterns (#42): con contexto, como email/IPv4.
     for pattern, prefix in rules.patterns:
         for value in sorted(pattern_values(record, pattern)):
@@ -373,6 +384,9 @@ def sensitive_spans(
             continue
         if pattern_prefixes and pseudo.startswith(pattern_prefixes):
             continue
+        if pseudo.startswith("org_"):
+            add_word(real)
+            continue
         add(real, "vault")
 
     return spans
@@ -396,7 +410,7 @@ def diff_leaks(
             if s.pattern not in by_pattern:
                 by_pattern[s.pattern] = pattern_values(sent_record, s.pattern)
             return s.value in by_pattern[s.pattern]
-        if s.category == "dir":
+        if s.category in ("dir", "org"):
             return bool(_dir_word_re(s.value).search(haystack))
         if s.category in sent_matches:
             return s.value in sent_matches[s.category]

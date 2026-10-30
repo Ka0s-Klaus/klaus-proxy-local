@@ -119,6 +119,33 @@ def test_sensitive_spans_includes_vault_values():
     assert any(s.category == "vault" and s.value == "secreto-largo" for s in spans)
 
 
+def test_org_rule_inside_another_word_is_not_a_leak():
+    """Como el proxy, una regla org solo cuenta como palabra completa (#158)."""
+    rules = Rules(word_literals=["fabri"])
+    text = "ver https://tailspinfabri/docs"
+    rec = _record(_msg_payload(text))
+    assert pv.sensitive_spans(rec, {}, rules) == []
+    # Tampoco por la capa del vault, que antes la añadía como subcadena
+    assert pv.sensitive_spans(rec, {"fabri": "org_1a2b3c4d"}, Rules()) == []
+    span = pv.Span("fabri", "org")
+    assert pv.diff_leaks([span], _record(_msg_payload(text))) == []
+
+
+def test_org_rule_as_word_is_still_a_leak():
+    rules = Rules(word_literals=["fabri"])
+    original = _record(_msg_payload("cliente fabri y tailspinfabri"))
+    spans = pv.sensitive_spans(original, {}, rules)
+    assert [(s.value, s.category) for s in spans] == [("fabri", "org")]
+    # El proxy deja tailspinfabri: no es fuga; si queda «fabri» suelto, sí
+    clean = _record(_msg_payload("cliente org_1a2b3c4d y tailspinfabri"))
+    assert pv.diff_leaks(spans, clean) == []
+    leaked = _record(_msg_payload("cliente fabri y tailspinfabri"))
+    assert pv.diff_leaks(spans, leaked) == spans
+    # Tras un escape escrito en el texto también es frontera (#142)
+    escaped = _record(_msg_payload(r"re.compile(r'\bfabri')"))
+    assert pv.diff_leaks(spans, escaped) == spans
+
+
 # --- diff_leaks ---------------------------------------------------------------
 
 

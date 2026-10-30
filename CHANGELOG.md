@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **El verificador daba como fuga una regla `org` que solo aparecía dentro de otra palabra** (#158) — El proxy sustituye las reglas de `pseudo_word_literals` solo como palabra completa: `fabri` no se toca dentro de `tailspinfabri`, y es lo correcto. El verificador por pares, y con él `klaus-leak-report`, las buscaba como subcadena, así que el proyecto podía seguir en 🔴 sin ninguna fuga real. Ahora aplican la misma frontera de palabra que el proxy, también tras un escape (#142), y también para los valores del vault con seudónimo `org_`. En la instalación del autor, las 3 capturas «con fuga» posteriores al reinicio eran esto, igual que 67 del histórico.
+
 ---
 
 ## [0.8.0] — 2026-10-30
