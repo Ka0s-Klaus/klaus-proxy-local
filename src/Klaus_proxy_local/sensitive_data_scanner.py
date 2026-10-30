@@ -258,6 +258,29 @@ _NETWORK_PATTERNS = {
 # --- Tier 1: PatternDetector Class ---
 
 
+# Conexiones y URL con usuario:contraseña cuya «contraseña» no lo es (#152):
+# plantillas (``${DB_PASS}``, ``{pw}``), valores ya redactados («REDACTED:…»)
+# y marcadores típicos. El proxy tampoco las redacta (#148).
+_CONNECTION_CATEGORIES = {"db-connection", "mongodb-connection", "url-with-credentials"}
+_CONNECTION_PASSWORD_RE = re.compile(r"://[^/\s:@]*:([^@\s]*)@")
+_PLACEHOLDER_PASSWORD_RE = re.compile(
+    r"[${}\[\]<>*«»]|^(?:x+|\.+|pass(?:word)?|passwd|secret|changeme|"
+    r"your[_-]?password|mypassword|example|test|dummy)$",
+    re.IGNORECASE,
+)
+
+
+def is_placeholder_credential(category: str, value: str) -> bool:
+    """True si ``value`` es una conexión cuya contraseña es un marcador."""
+    if category not in _CONNECTION_CATEGORIES:
+        return False
+    m = _CONNECTION_PASSWORD_RE.search(value)
+    if not m:
+        return True  # usuario sin contraseña (``mongodb://app@host``)
+    password = m.group(1)
+    return not password or bool(_PLACEHOLDER_PASSWORD_RE.search(password))
+
+
 class PatternDetector:
     """Base class for pattern-based detection."""
 
@@ -275,6 +298,8 @@ class PatternDetector:
         findings = []
         for pattern_name, (regex, label, description) in self.patterns.items():
             for match in regex.finditer(text):
+                if is_placeholder_credential(label, match.group(0)):
+                    continue
                 finding = SensitiveDataFinding(
                     value=match.group(0),
                     category=label,

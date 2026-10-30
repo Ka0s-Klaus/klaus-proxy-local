@@ -129,3 +129,37 @@ def test_scanner_credentials_are_redacted_by_proxy(tmp_path):
         if finding.category in ("aws-arn", "ipv4", "internal-hostname"):
             continue  # no son credenciales
         assert _redact(finding.value) != finding.value, finding.category
+
+
+# --- klaus-scan: conexiones con contraseña de marcador (#152) ----------------------
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "postgres://user:${DB_PASS}@db.cliente.example:5432/app",
+        "postgres://${DB_USER}:${DB_PASS}@${DB_HOST}/app",
+        "mongodb+srv://app:{pw}@cluster0.cliente.example/db",
+        "postgres://app:«REDACTED:url-password»@db/ventas",
+        "mysql://root:password@localhost/app",
+        "postgresql://app:changeme@db/app",
+        "postgres://app:xxxx@db/app",
+        "postgres://app:<password>@db/app",
+        "mongodb://app@mongo.cliente.example/db",
+    ],
+)
+def test_scanner_ignores_placeholder_connections(tmp_path, line):
+    f = tmp_path / "conf.txt"
+    f.write_text(line + "\n")
+    cats = {"db-connection", "mongodb-connection", "url-with-credentials"}
+    found = [x for x in SensitiveDataScanner().scan_file(f) if x.category in cats]
+    assert found == []
+
+
+def test_scanner_keeps_real_connection_password(tmp_path):
+    f = tmp_path / "conf.txt"
+    f.write_text(f"postgres://app:{PW}@db.cliente.example/ventas\n")
+    found = [
+        x for x in SensitiveDataScanner().scan_file(f) if x.category == "db-connection"
+    ]
+    assert len(found) == 1

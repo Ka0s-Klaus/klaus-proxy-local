@@ -180,7 +180,11 @@ class TestPatternDetector:
 
     def test_detect_mongodb_connection(self):
         detector = PatternDetector(_SCANNER_PATTERNS_TIER1)
-        text = "mongodb+srv://user:password@cluster.mongodb.net/dbname"
+        # Unida en tiempo de ejecución: el fuente no contiene una URI con
+        # credenciales que los escáneres de secretos tomen por real
+        text = "@".join(
+            ["mongodb+srv://user:" + "Mg0" + "Pw7x", "cluster.mongodb.net/db"]
+        )
         findings = detector.detect(text, Path(".env"), 1)
 
         assert len(findings) == 1
