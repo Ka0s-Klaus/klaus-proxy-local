@@ -287,10 +287,12 @@ def pattern_values(record: dict[str, Any], pattern: re.Pattern) -> set[str]:
 
 @functools.lru_cache(maxsize=4096)
 def _dir_word_re(value: str) -> re.Pattern:
-    """Como ``_word_boundary_re``, pero sobre JSON serializado: un ``\\n``,
-    ``\\t`` o ``\\r`` escapado justo antes también es frontera (#93)."""
+    """Como ``_word_boundary_re``, pero sobre JSON serializado: un escape
+    justo antes (``\\n``, ``\\t``, ``\\b``…) también es frontera (#93, #142)."""
     return re.compile(
-        r"(?:(?<![A-Za-z0-9_])|(?<=\\[ntr]))" + re.escape(value) + r"(?![A-Za-z0-9_])"
+        r"(?:(?<![A-Za-z0-9_])|(?<=\\[A-Za-z]))"
+        + re.escape(value)
+        + r"(?![A-Za-z0-9_])"
     )
 
 

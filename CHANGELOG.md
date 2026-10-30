@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Un valor protegido tras una secuencia de escape salía en claro** (#142) — En `re.compile(r"\bcliente-x")`, `\ncliente-x` o `\tcliente-x`, la letra del escape iba pegada al valor y la frontera de palabra de `pseudo_word_literals` no casaba. Ahora un escape (`\` + letra) cuenta como frontera por la izquierda, también en los nombres de carpeta sueltos (#93) y en el verificador por pares. En la instalación del autor, un nombre de organización protegido había salido así en 107 peticiones.
+
 ---
 
 ## [0.7.0] — 2026-10-30
