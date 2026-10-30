@@ -915,8 +915,17 @@ def build_rules() -> Rules:
 @functools.lru_cache(maxsize=4096)
 def _word_boundary_re(literal: str) -> re.Pattern:
     """Compila un literal con fronteras alfanuméricas (más robusto que \\b para
-    tokens con puntos o guiones: ``orgcode3``, ``example.com``)."""
-    return re.compile(r"(?<![A-Za-z0-9_])" + re.escape(literal) + r"(?![A-Za-z0-9_])")
+    tokens con puntos o guiones: ``orgcode3``, ``example.com``).
+
+    Una secuencia de escape escrita en el texto (``\\b``, ``\\n``, ``\\t``…)
+    también es frontera por la izquierda: en ``re.compile(r"\\bcliente-x")`` la
+    ``b`` iba pegada al valor y salía en claro (#142).
+    """
+    return re.compile(
+        r"(?:(?<![A-Za-z0-9_])|(?<=\\[A-Za-z]))"
+        + re.escape(literal)
+        + r"(?![A-Za-z0-9_])"
+    )
 
 
 def redact_secrets(text: str, rules: Rules) -> str:

@@ -171,6 +171,12 @@ def test_escaped_newline_before_decorator_is_not_an_email():
     ]
 
 
+def test_dir_word_after_escape_is_detected():
+    """Un nombre de carpeta tras ``\\b`` en JSON serializado es frontera (#142)."""
+    assert pv._dir_word_re("cliente-x").search(r'"r\\bcliente-x\\b"')
+    assert not pv._dir_word_re("cliente-x").search("xcliente-x")
+
+
 def test_real_email_still_detected_and_leaks():
     email = "dev" + "@" + "corp.example"
     leaks = _verify(f"mail {email}\nfin", f"mail {email}\nfin")
