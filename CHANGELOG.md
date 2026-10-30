@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`klaus-scan` detecta nombres de negocio** (#140) — Busca razones sociales con forma jurídica, titulares de copyright, dominios corporativos de email, URL y `git log` (también el *tenant* de un SaaS), IDs de proyecto cloud, la identidad de paquete en los manifiestos y las claves de incidencias. Cada valor aparece una vez, con sus apariciones. Lo ya protegido en `config.json` solo se cuenta. Activado por defecto (`--no-business`) y umbral por defecto HIGH. Opción nueva `--counts` para obtener solo recuentos.
+
+### Security
+- **La salida de `klaus-scan` ya no revela los valores** (#140) — Antes mostraba 8 caracteres de cada valor y el contexto en claro, y la revisión, `--json` y «copiar» sin `pbcopy` mostraban el valor completo. Si lo lanzaba Claude Code, todo entraba en el contexto del modelo. Ahora cada valor es un identificador `⟨categoría·hash·longitud⟩`, sin contexto y con rutas relativas enmascaradas; `--reveal` lo muestra en claro. Sin TTY ya no falla con `EOFError`: se salta la revisión.
+
 ---
 
 ## [0.7.0] — 2026-10-30

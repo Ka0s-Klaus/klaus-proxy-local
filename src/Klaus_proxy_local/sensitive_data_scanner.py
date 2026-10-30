@@ -21,12 +21,15 @@ from __future__ import annotations
 import json
 import math
 import re
+import sys
 import time
 from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Optional
+
+from Klaus_proxy_local import business_names
 
 # --- Confidence Levels ---
 
@@ -69,6 +72,7 @@ class SensitiveDataFinding:
     context: str  # surrounding line(s) for display
     reason: str  # human-readable explanation
     user_approved: bool = False
+    occurrences: int = 1  # nombres de negocio: apariciones en la carpeta (#140)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -81,6 +85,7 @@ class SensitiveDataFinding:
             "context": self.context,
             "reason": self.reason,
             "user_approved": self.user_approved,
+            "occurrences": self.occurrences,
         }
 
 
@@ -94,6 +99,7 @@ class ScanResult:
     findings: list[SensitiveDataFinding] = field(default_factory=list)
     errors: list[tuple[Path, str]] = field(default_factory=list)
     scan_duration_seconds: float = 0.0
+    already_protected: int = 0  # nombres de negocio ya en config.json (#140)
 
     def summary(self) -> str:
         """Human-readable summary."""
@@ -1096,6 +1102,53 @@ class HeuristicDetector:
         return False
 
 
+# --- Business names (#140) ---
+
+
+def _business_finding(
+    value: str,
+    category: str,
+    confidence: str,
+    file_path: Path,
+    line_number: int,
+    context: str,
+    reason: str,
+) -> SensitiveDataFinding:
+    return SensitiveDataFinding(
+        value=value,
+        category=category,
+        detection_method="business",
+        confidence=Confidence[confidence],
+        file_path=file_path,
+        line_number=line_number,
+        context=context,
+        reason=reason,
+    )
+
+
+def _protected_values() -> set[str]:
+    """Valores de pseudo_word_literals y pseudo_literals de config.json."""
+    try:
+        ps = _import_pseudonymizer()
+        config = json.loads(ps.config_path().read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 - sin config, nada está protegido
+        return set()
+    return {
+        str(v)
+        for key in ("pseudo_word_literals", "pseudo_literals")
+        for v in (config.get(key) or [])
+    }
+
+
+def _import_pseudonymizer():
+    src_path = Path(__file__).resolve().parent.parent
+    if str(src_path) not in sys.path:
+        sys.path.insert(0, str(src_path))
+    import anthropic_payload_pseudonymize
+
+    return anthropic_payload_pseudonymize
+
+
 # --- Main Scanner ---
 
 
@@ -1107,6 +1160,7 @@ class SensitiveDataScanner:
         enable_contextual: bool = False,
         enable_heuristic: bool = False,
         enable_vault_integration: bool = False,
+        enable_business: bool = False,
         custom_patterns: dict[str, tuple[re.Pattern, str, str]] | None = None,
         config_path: Optional[Path] = None,
     ):
@@ -1116,6 +1170,7 @@ class SensitiveDataScanner:
             enable_contextual: Enable Tier 2 (contextual detection) — default True
             enable_heuristic: Enable Tier 3 (entropy-based detection) — default False
             enable_vault_integration: Enable Vault integration (requires pseudonymizer)
+            enable_business: Detect business names (clients, domains, cloud IDs) (#140)
             custom_patterns: Additional patterns to search for (dict or loaded from config)
             config_path: Path to .klaus/config.yml (auto-loads if not provided)
         """
@@ -1137,6 +1192,7 @@ class SensitiveDataScanner:
         # Store configuration
         self.enable_contextual = enable_contextual
         self.enable_heuristic = enable_heuristic
+        self.enable_business = enable_business
 
         # Initialize detectors
         self.pattern_detector = PatternDetector(all_patterns)
@@ -1163,10 +1219,34 @@ class SensitiveDataScanner:
             except Exception:
                 return findings
 
+            if self.enable_business and file_path.name in business_names.MANIFESTS:
+                for value, reason in business_names.detect_manifest(file_path, content):
+                    findings.append(
+                        _business_finding(
+                            value, "package-name", "MEDIUM", file_path, 0, "", reason
+                        )
+                    )
+
             # Scan line by line
             for line_number, line in enumerate(content.split("\n"), 1):
                 if not line.strip():
                     continue
+
+                if self.enable_business:
+                    for value, category, conf, reason in business_names.detect_line(
+                        line
+                    ):
+                        findings.append(
+                            _business_finding(
+                                value,
+                                category,
+                                conf,
+                                file_path,
+                                line_number,
+                                line[:120],
+                                reason,
+                            )
+                        )
 
                 # Tier 1: Pattern detection (always enabled)
                 tier1_findings = self.pattern_detector.detect(
@@ -1223,11 +1303,21 @@ class SensitiveDataScanner:
 
         # Callback for file indexing progress
         def indexing_progress(count: int) -> None:
-            print(f"\r🔍 Indexing files... {count} found", end="", flush=True)
+            print(
+                f"\r🔍 Indexing files... {count} found",
+                end="",
+                flush=True,
+                file=sys.stderr,
+            )
 
         all_files = FileTraversal.walk(root_path, indexing_progress)
         result.total_files_scanned = len(all_files)
-        print(f"\r📁 Found {len(all_files)} files to scan{' ' * 40}", flush=True)
+        # Progreso a stderr: --json y --counts dejan stdout limpio (#140)
+        print(
+            f"\r📁 Found {len(all_files)} files to scan{' ' * 40}",
+            flush=True,
+            file=sys.stderr,
+        )
 
         for idx, file_path in enumerate(all_files):
             if progress_callback:
@@ -1249,5 +1339,70 @@ class SensitiveDataScanner:
             except Exception as e:
                 result.errors.append((file_path, str(e)))
 
+        if self.enable_business:
+            self._aggregate_business(root_path, result)
+
         result.scan_duration_seconds = time.time() - start_time
         return result
+
+    def _aggregate_business(self, root_path: Path, result: ScanResult) -> None:
+        """Una entrada por nombre de negocio; lo ya protegido solo se cuenta (#140)."""
+        from Klaus_proxy_local.scan_repos import find_repos
+
+        repos = [root_path] if (root_path / ".git").exists() else []
+        repos += find_repos(root_path)
+        for repo in repos:
+            for domain in business_names.git_author_domains(repo):
+                result.findings.append(
+                    _business_finding(
+                        domain,
+                        "corporate-domain",
+                        "HIGH",
+                        repo / ".git",
+                        0,
+                        "",
+                        "Dominio de un autor en git log",
+                    )
+                )
+        business = [
+            f
+            for f in result.findings
+            if f.category in business_names.BUSINESS_CATEGORIES
+        ]
+        others = [f for f in result.findings if f not in business]
+        hits = [
+            business_names.RawHit(
+                f.value,
+                f.category,
+                f.confidence.name,
+                f.file_path,
+                f.line_number,
+                f.reason,
+            )
+            for f in business
+        ]
+        context = {
+            (f.value, f.category, f.file_path, f.line_number): f.context
+            for f in business
+        }
+        protected = _protected_values()
+        kept, counts, result.already_protected = business_names.aggregate(
+            hits, lambda v: v in protected
+        )
+        result.findings = others + [
+            SensitiveDataFinding(
+                value=h.value,
+                category=h.category,
+                detection_method="business",
+                confidence=Confidence[h.confidence],
+                file_path=h.path,
+                line_number=h.line,
+                context=context.get((h.value, h.category, h.path, h.line), ""),
+                reason=h.reason,
+                occurrences=counts[(h.value, h.category)],
+            )
+            for h in kept
+        ]
+        result.findings_by_confidence = dict(
+            Counter(f.confidence.name for f in result.findings)
+        )
