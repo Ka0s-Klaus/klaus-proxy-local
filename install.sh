@@ -18,7 +18,7 @@ BREW_PYTHON_VERSION="3.13"
 
 VENV_DIR="${HOME}/.local/share/klaus/venv"
 BIN_DIR="${HOME}/.local/bin"
-ENTRY_POINTS=("claude-proxy" "Klaus-proxy" "klaus-scan" "klaus-setup" "klaus-audit-payloads" "klaus-fix-pseudonymization" "klaus-audit-dashboard")
+ENTRY_POINTS=("claude-proxy" "Klaus-proxy" "klaus-scan" "klaus-setup" "klaus-audit-payloads" "klaus-fix-pseudonymization" "klaus-audit-dashboard" "klaus-prune-captures")
 
 CHECK_ONLY=false
 if [[ "${1:-}" == "--check" ]]; then

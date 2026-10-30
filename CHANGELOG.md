@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Retención de capturas: 30 días por defecto** (#132) — ⚠️ **Al primer arranque tras actualizar se borran los pares `original/` + `sent/` de más de 30 días.** `capture_retention_days` en `config.json` cambia el plazo (`0` = sin límite). No se tocan el vault ni `captures/archive/`. La retención se aplica al arrancar `claude-proxy` o con `klaus-prune-captures [--dry-run] [--days N]`. El dashboard de auditoría muestra la retención activa, la captura más antigua y el último borrado. Motivo: `original/` guarda datos reales en claro y las capturas crecen sin límite (~1,5 MB por petición).
+- **`capture_originals: false`** (#132) — Solo se guarda `sent/`: sin datos reales en claro en disco (salvo el vault) y la mitad de espacio, a cambio de no poder verificar por pares. El dashboard calcula los planes con `sent/` y `anthropic-pair-verify` explica por qué no hay pares.
+
 ### Changed
 - **Documentación de v0.6.0/v0.6.1 completada** (#129) — El README menciona los cinco addons (faltaba `klaus_tls_passthrough`). La guía del dashboard explica las tablas «Hosts capturados» y «Hosts no capturados». El troubleshooting cubre el aviso `config.json ilegible`, la prioridad de `ANTHROPIC_CAPTURE_HOSTS` sobre `hosts` y cómo auditar los conectores MCP con `capture_only_hosts`. El runbook, `AUDIT_ALL_PAYLOADS.md`, `FIX_PSEUDONYMIZATION.md` y la guía de uso explican que las capturas `capture_only` no cuentan como fugas.
 

@@ -59,7 +59,9 @@ Después, **reinicia `claude-proxy`**. También puedes usar `python3 scripts/add
 - Las de `capture_only_hosts` llevan `"capture_only": true`: salieron **sin pseudonimizar** (los dos lados tienen los datos reales y los secretos redactados) y las herramientas de verificación no las cuentan como fugas.
 - **El vault guarda los valores reales en claro** (`{"valor real": "seudónimo"}`), con permisos `0600`. No lo compartas.
 - Los seudónimos se calculan con la SALT de `config.json`: sin ella no se pueden deducir los valores, pero el vault sí los contiene.
-- Nada de esto se versiona ni se sincroniza. Para borrar la evidencia: `rm -rf ~/.klaus-proxy/captures/original ~/.klaus-proxy/captures/sent`.
+- **Retención: 30 días por defecto** (#132). Al arrancar `claude-proxy` se borran los pares `original` + `sent` más antiguos que `capture_retention_days` de `config.json` (`0` = sin límite). No se tocan el vault ni `captures/archive/`: lo que quieras conservar, muévelo allí. Para ver qué se borraría sin borrar: `klaus-prune-captures --dry-run`. El dashboard de auditoría muestra la retención activa, la captura más antigua y el último borrado.
+- **Sin originales:** con `capture_originals: false` solo se guarda `sent/`. Así no quedan datos reales en claro en disco (salvo el vault) y ocupa la mitad, pero **no se puede verificar por pares** (`anthropic_pair_verify.py`).
+- Nada de esto se versiona ni se sincroniza. Para borrar toda la evidencia: `rm -rf ~/.klaus-proxy/captures/original ~/.klaus-proxy/captures/sent`.
 
 ---
 
@@ -72,6 +74,7 @@ Después, **reinicia `claude-proxy`**. También puedes usar `python3 scripts/add
 | `klaus-audit-payloads` | Estadísticas de pseudonimización por payload ([guía](./AUDIT_ALL_PAYLOADS.md)). |
 | `klaus-fix-pseudonymization --show-payloads` | Lista las peticiones que no se pseudonimizaron ([guía](./FIX_PSEUDONYMIZATION.md)). |
 | `python3 scripts/inspect_vault.py --stats` | Qué hay en el vault ([guía](./INSPECT_ANONYMIZATIONS.md)). |
+| `klaus-prune-captures [--dry-run] [--days N]` | Aplica la retención de capturas sin reiniciar el proxy; `--dry-run` muestra qué se borraría. |
 
 Los scripts con `python3 …` se ejecutan desde el clon del repositorio.
 
@@ -103,6 +106,8 @@ Los valores aprobados se añaden al vault y a `config.json`; reinicia `claude-pr
 | `pseudo_literals`, `pseudo_word_literals` | Valores a proteger (ver arriba) |
 | `pseudo_patterns` | Expresiones regulares; `claude-proxy` añade una para tu carpeta de proyectos |
 | `pseudo_pattern_ignore` | Valores que los patrones no deben tocar |
+| `capture_retention_days` | Días que se conservan las capturas; se borran las más antiguas al arrancar `claude-proxy` (por defecto `30`; `0` = sin límite) |
+| `capture_originals` | `false` para no guardar `original/`: sin datos reales en claro, pero sin verificación por pares (por defecto `true`) |
 | `audit_injection_reviewed` | Avisos de prompt injection marcados como revisados en el dashboard |
 
 Las variables de entorno (`ANTHROPIC_PSEUDO_*`, `ANTHROPIC_CAPTURE_*`, `KLAUS_INTERCEPT_ALL`, `KLAUS_LOG_DIR`) están en el [runbook](./anthropic-audit-proxy.md#configuración-por-entorno). Se aplican al proceso de `claude-proxy`, así que hay que exportarlas antes de arrancarlo.

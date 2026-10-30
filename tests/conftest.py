@@ -23,6 +23,18 @@ import pytest  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
+def _isolated_captures_dir(tmp_path_factory, monkeypatch):
+    """Ningún test toca las capturas reales (#132).
+
+    ``claude-proxy`` aplica la retención al arrancar y borraría pares de
+    ``~/.klaus-proxy/captures``. Un test puede volver a fijar la variable.
+    """
+    d = tmp_path_factory.mktemp("isolated-captures")
+    monkeypatch.setenv("ANTHROPIC_CAPTURE_DIR", str(d))
+    return d
+
+
+@pytest.fixture(autouse=True)
 def _isolated_config_json(tmp_path_factory, monkeypatch):
     """Ningún test escribe en el ~/.klaus-proxy/config.json real (#99).
 

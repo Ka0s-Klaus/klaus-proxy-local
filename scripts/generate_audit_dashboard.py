@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from Klaus_proxy_local import audit_reports  # noqa: E402
+from Klaus_proxy_local import audit_reports, capture_retention  # noqa: E402
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -40,17 +40,40 @@ def _load_json(path: Path) -> dict | list | None:
 
 
 def _captures(captures_dir: Path) -> tuple[list[dict], list[dict]]:
+    """Capturas ``original`` y ``sent``.
+
+    Con ``capture_originals: false`` (#132) no hay ``original/``: los planes se
+    calculan con el ``sent`` de esa petición (mismos metadatos, cuerpo ya
+    pseudonimizado), marcado con ``_sent_only``.
+    """
     original, sent = [], []
     for f in sorted((captures_dir / "original").glob("*.json")):
         d = _load_json(f)
         if d:
             d["_file"] = f.name
             original.append(d)
+    have_original = {c["_file"] for c in original}
     for f in sorted((captures_dir / "sent").glob("*.json")):
         d = _load_json(f)
         if d:
             sent.append(d)
+            if f.name not in have_original:
+                original.append({**d, "_file": f.name, "_sent_only": True})
+    original.sort(key=lambda c: c["_file"])
     return original, sent
+
+
+def audit_retention(captures_dir: Path, config_dir: Path, original: list[dict]) -> dict:
+    """Retención activa y último borrado, para el aviso del dashboard (#132)."""
+    config = capture_retention.load_config(config_dir / "config.json")
+    dates = sorted(c.get("captured_at", "") for c in original if c.get("captured_at"))
+    return {
+        "days": capture_retention.retention_days(config),
+        "oldest": dates[0][:19] if dates else None,
+        "last": capture_retention.read_state(captures_dir),
+        "sent_only": sum(1 for c in original if c.get("_sent_only")),
+        "originals_enabled": config.get("capture_originals") is not False,
+    }
 
 
 def _ts_to_date(ts_str: str | None) -> str | None:
@@ -1029,6 +1052,7 @@ HTML_TEMPLATE = """\
       #INJECTION_HTML#
     </div>
   </div>
+  #RETENTION_HTML#
   #UNCAPTURED_HTML#
 </div>
 
@@ -1452,6 +1476,53 @@ credenciales, rótalas.</li>
 </ol></div>"""
 
 
+def _retention_html(security: dict) -> str:
+    """Aviso de la retención de capturas (#132): se ve aunque no se lean las notas."""
+    esc = html.escape
+    r = security.get("retention")
+    if not r:  # informes anteriores a #132
+        return ""
+    days = r.get("days", 0)
+    policy = (
+        f"Se conservan <b>{days} días</b>: al arrancar <code>claude-proxy</code> se "
+        "borran los pares <code>original/</code> + <code>sent/</code> más antiguos."
+        if days
+        else "<b>Sin límite</b> (<code>capture_retention_days: 0</code>): no se borra nada."
+    )
+    items = [policy]
+    if r.get("oldest"):
+        items.append(
+            f"Captura más antigua conservada: <code>{esc(r['oldest'])}</code>."
+        )
+    last = r.get("last") or {}
+    if last.get("removed_pairs"):
+        items.append(
+            f"Último borrado: <b>{last['removed_pairs']:,} pares</b> "
+            f"({esc(capture_retention.human_size(last.get('freed_bytes', 0)))}) el "
+            f"<code>{esc(str(last.get('last_run', '')))}</code>."
+        )
+    if not r.get("originals_enabled", True):
+        items.append(
+            "No se guardan los originales (<code>capture_originals: false</code>): "
+            "no hay datos reales en claro, pero tampoco verificación por pares."
+        )
+    elif r.get("sent_only"):
+        items.append(
+            f"{r['sent_only']:,} capturas sin <code>original/</code>: el informe usa "
+            "su <code>sent/</code>."
+        )
+    items.append(
+        "Para conservar más, sube <code>capture_retention_days</code> en config.json "
+        "o mueve las capturas a <code>captures/archive/</code>. "
+        "<code>klaus-prune-captures --dry-run</code> muestra qué se borraría."
+    )
+    lis = "".join(f"<li>{i}</li>" for i in items)
+    return (
+        "<div class='card mt8'><h3>🧹 Retención de capturas</h3>"
+        f"<ul style='font-size:.85rem;margin:0;padding-left:18px'>{lis}</ul></div>"
+    )
+
+
 def _uncaptured_hosts_html(security: dict) -> str:
     """Tabla de hosts que pasaron por el proxy sin pseudonimizar (#123)."""
     esc = html.escape
@@ -1645,6 +1716,7 @@ def render_html(
         ),
         "INJECTION_HTML": injection_html,
         "UNCAPTURED_HTML": _uncaptured_hosts_html(security),
+        "RETENTION_HTML": _retention_html(security),
         # Pseudonymization
         "PSEUDO_COLOR": _status_color(pseudo.get("status", "no_data")),
         "PSEUDO_EMOJI": _status_emoji(pseudo.get("status", "no_data")),
@@ -1769,6 +1841,7 @@ def main(argv: list[str] | None = None) -> None:
     print("🔐 Auditoría de seguridad...")
     security = audit_security(original, sent, load_reviewed_injections(config_dir))
     security["uncaptured"] = audit_uncaptured_hosts(proxy_log_files())
+    security["retention"] = audit_retention(captures_dir, config_dir, original)
 
     print("📊 Auditoría de pseudonimización...")
     pseudo = audit_pseudonymization(original, config_dir)

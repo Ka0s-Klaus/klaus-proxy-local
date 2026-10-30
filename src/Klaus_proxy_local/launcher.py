@@ -18,7 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from Klaus_proxy_local import __version__
+from Klaus_proxy_local import __version__, capture_retention
 from Klaus_proxy_local.addons_snapshot import ADDON_FILES, snapshot_addons
 from Klaus_proxy_local.certs import (
     ensure_mitmproxy_certs,
@@ -109,6 +109,9 @@ class ProxyLauncher:
         if root:
             print(f"✅ Project names under {root}/ are now pseudonymized\n")
 
+        # Step 1d: Drop captures older than capture_retention_days (#132)
+        self.apply_capture_retention()
+
         # Step 2: Auto-regenerate or ensure certs
         try:
             self.regenerate_certs_if_needed()
@@ -122,6 +125,22 @@ class ProxyLauncher:
             print(f"   Location: {env_file}\n")
         except RuntimeError as e:
             raise RuntimeError(f"❌ Cert setup failed: {e}")
+
+    def apply_capture_retention(self) -> None:
+        """Borra los pares de capturas más antiguos que la retención (#132).
+
+        Un fallo de disco no impide arrancar: la retención es mantenimiento.
+        """
+        config = self.config or {}
+        try:
+            summary = capture_retention.prune_captures(
+                capture_retention.captures_dir(config),
+                capture_retention.retention_days(config),
+            )
+        except OSError as e:
+            print(f"⚠️  Retención de capturas no aplicada: {e}\n")
+            return
+        print(capture_retention.describe(summary) + "\n")
 
     def show_dashboard(self) -> None:
         """Show startup dashboard."""

@@ -396,7 +396,7 @@ El log va primero para registrar la carga de los demás; el passthrough TLS desp
 | `KLAUS_INTERCEPT_ALL` | Descifrar todo el HTTPS, no solo los hosts de la API (equivale a `"intercept_all": true` en `config.json`) (#116) | `0` |
 | `KLAUS_LOG_DIR` | Directorio del log en disco (`proxy.log`, rotado 5 MB × 5) (#55) | `~/.klaus-proxy/logs/` |
 
-Además de las variables, `~/.klaus-proxy/config.json` admite `hosts` (hosts de la API que se descifran y pseudonimizan), `capture_only_hosts` (se descifran y capturan sin pseudonimizar, #125), `intercept_all`, `pseudo_literals`, `pseudo_word_literals`, `pseudo_patterns` y `pseudo_pattern_ignore`, que persisten entre reinicios.
+Además de las variables, `~/.klaus-proxy/config.json` admite `hosts` (hosts de la API que se descifran y pseudonimizan), `capture_retention_days` (retención de capturas, por defecto 30 días, #132), `capture_originals` (`false` = solo `sent/`, #132), `capture_only_hosts` (se descifran y capturan sin pseudonimizar, #125), `intercept_all`, `pseudo_literals`, `pseudo_word_literals`, `pseudo_patterns` y `pseudo_pattern_ignore`, que persisten entre reinicios.
 
 **Limpiar el vault (#92).** Los valores que entraron al vault antes de que los patrones los ignorasen se quitan con:
 

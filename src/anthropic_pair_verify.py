@@ -686,6 +686,13 @@ def main(argv: list[str]) -> int:
             f"{args.sent_dir}.",
             file=sys.stderr,
         )
+        if any(missing == "original" for _, missing in orphans):
+            # Con capture_originals: false solo se guarda sent/ (#132)
+            print(
+                "   Hay capturas sin original/: con `capture_originals: false` en "
+                "config.json no se puede verificar por pares.",
+                file=sys.stderr,
+            )
         return 2
 
     if args.survivors:
