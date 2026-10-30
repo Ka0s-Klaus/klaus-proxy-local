@@ -162,6 +162,25 @@ def test_cache_has_no_values_and_is_reused(env, monkeypatch):
     assert calls == []
 
 
+def test_cache_invalidated_when_code_changes(env, monkeypatch):
+    """Un cambio en el pseudonimizador o el escáner recalcula todo (#150)."""
+    lr.build_report(env["caps"], now=NOW)
+    monkeypatch.setattr(lr, "code_hash", lambda: "otro-codigo")
+    calls = []
+    real_scan = lr.scan_project
+    monkeypatch.setattr(
+        lr, "scan_project", lambda *a, **k: calls.append(a) or real_scan(*a, **k)
+    )
+    lr.build_report(env["caps"], now=NOW)
+    assert len(calls) == 2  # los dos proyectos
+
+
+def test_code_hash_covers_proxy_and_scanner():
+    names = {p.name for p in lr.CODE_FILES}
+    assert {"anthropic_payload_pseudonymize.py", "sensitive_data_scanner.py"} <= names
+    assert all(p.exists() for p in lr.CODE_FILES)
+
+
 def test_status_thresholds():
     assert lr._status(None, 0) == "good"
     assert lr._status(96, 0) == "good"

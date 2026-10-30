@@ -54,6 +54,26 @@ MAX_LEAK_ITEMS = 100
 
 _CWD_RE = re.compile(r"Primary working directory: ([^\n\"]+)")
 
+# Módulos que deciden el resultado: si cambian, la caché no vale (#150)
+_SRC = Path(__file__).resolve().parents[1]
+CODE_FILES = (
+    _SRC / "anthropic_payload_pseudonymize.py",
+    _SRC / "anthropic_pair_verify.py",
+    _SRC / "Klaus_proxy_local" / "sensitive_data_scanner.py",
+    _SRC / "Klaus_proxy_local" / "business_names.py",
+    _SRC / "Klaus_proxy_local" / "leak_report.py",
+)
+
+
+def code_hash() -> str:
+    digest = hashlib.sha256()
+    for path in CODE_FILES:
+        try:
+            digest.update(path.read_bytes())
+        except OSError:
+            digest.update(path.name.encode())
+    return digest.hexdigest()[:16]
+
 
 def cache_path() -> Path:
     return Path.home() / ".klaus-proxy" / "leak-report-cache.json"
@@ -88,6 +108,7 @@ class Coverage:
                     sorted(p.pattern for p, _ in self.rules.patterns),
                     sorted(self.rules.pattern_ignore),
                     len(self.vault_dict),
+                    code_hash(),
                 ]
             ).encode()
         ).hexdigest()[:16]
@@ -149,9 +170,17 @@ def _repo_key(repo: Path, rules_hash: str) -> str:
 # --- Datos sensibles de un proyecto -------------------------------------------
 
 
-def scan_project(repo: Path, coverage: Coverage, reveal: bool = False) -> dict:
+def scan_project(
+    repo: Path, coverage: Coverage, reveal: bool = False, progress=None
+) -> dict:
     """Valores detectados en ``repo``, agrupados y con su cobertura."""
-    result = SensitiveDataScanner(enable_business=True).scan_directory(repo)
+
+    def each_file(current: int, total: int) -> None:
+        # Un repo grande tarda minutos: que se vea que avanza (#150)
+        if progress and current and current % 500 == 0:
+            progress(f"   … {current:,}/{total:,} ficheros")
+
+    result = SensitiveDataScanner(enable_business=True).scan_directory(repo, each_file)
     values = [f.value for f in result.findings]
     grouped: dict[tuple[str, str], dict] = {}
     for f in result.findings:
@@ -224,13 +253,17 @@ def scan_captures(
     coverage: Coverage,
     cache: dict,
     reveal: bool = False,
+    progress=None,
 ) -> dict[str, dict]:
     """Por captura: proyecto, fecha y fugas (categoría + identificador)."""
     import anthropic_pair_verify as pv
 
     out: dict[str, dict] = {}
     cached = cache["captures"]
-    for opath in sorted((captures_dir / "original").glob("*.json")):
+    paths = sorted((captures_dir / "original").glob("*.json"))
+    for i, opath in enumerate(paths, 1):
+        if progress and i % 250 == 0:
+            progress(f"   … {i:,}/{len(paths):,} capturas")
         spath = captures_dir / "sent" / opath.name
         if not spath.exists():
             continue
@@ -327,13 +360,15 @@ def build_report(
         key = _repo_key(repo, coverage.rules_hash)
         entry = cache["repos"].get(p["path"])
         if reveal or entry is None or entry.get("key") != key:
-            entry = {"key": key, **scan_project(repo, coverage, reveal)}
+            entry = {"key": key, **scan_project(repo, coverage, reveal, say)}
             if not reveal:
                 cache["repos"][p["path"]] = entry
         p["scan"] = entry
 
     say("Analizando capturas…")
-    captures = scan_captures(captures_dir, projects, remotes, coverage, cache, reveal)
+    captures = scan_captures(
+        captures_dir, projects, remotes, coverage, cache, reveal, say
+    )
     if use_cache and not reveal:
         save_cache(cache)
 
