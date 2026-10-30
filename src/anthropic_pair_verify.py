@@ -63,6 +63,7 @@ from anthropic_capture_verify import (
 from anthropic_payload_pseudonymize import (
     _EMAIL_RE,
     _IPV4_RE,
+    _PSEUDONYM_RE,
     _SECRET_RES,
     Rules,
     build_rules,
@@ -343,7 +344,12 @@ def sensitive_spans(
     for pattern, prefix in rules.patterns:
         for value in sorted(pattern_values(record, pattern)):
             # Lo que el seudonimizador ignora a propósito no es una fuga (#92).
-            if is_ignorable_pattern_value(value, prefix, rules.pattern_ignore):
+            # Tampoco un seudónimo: Claude Code cita las rutas ya seudonimizadas
+            # (``/Users/user_1a2b3c4d/…``) y vuelven en el historial; mismo
+            # criterio que ``_pattern_sub`` (#143).
+            if _PSEUDONYM_RE.match(value) or is_ignorable_pattern_value(
+                value, prefix, rules.pattern_ignore
+            ):
                 continue
             if len(value) >= _MIN_LEAK_LEN and value not in seen and value in text:
                 seen.add(value)

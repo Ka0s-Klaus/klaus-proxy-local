@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Un valor protegido tras una secuencia de escape salía en claro** (#142) — En `re.compile(r"\bcliente-x")`, `\ncliente-x` o `\tcliente-x`, la letra del escape iba pegada al valor y la frontera de palabra de `pseudo_word_literals` no casaba. Ahora un escape (`\` + letra) cuenta como frontera por la izquierda, también en los nombres de carpeta sueltos (#93) y en el verificador por pares. En la instalación del autor, un nombre de organización protegido había salido así en 107 peticiones.
 - **La salida de `klaus-scan` ya no revela los valores** (#140) — Antes mostraba 8 caracteres de cada valor y el contexto en claro, y la revisión, `--json` y «copiar» sin `pbcopy` mostraban el valor completo. Si lo lanzaba Claude Code, todo entraba en el contexto del modelo. Ahora cada valor es un identificador `⟨categoría·hash·longitud⟩`, sin contexto y con rutas relativas enmascaradas; `--reveal` lo muestra en claro. Sin TTY ya no falla con `EOFError`: se salta la revisión.
 
+### Fixed
+- **`anthropic-pair-verify` contaba como fuga un seudónimo** (#143) — Claude Code solo ve rutas seudonimizadas (`/Users/user_1a2b3c4d/…`). Al citarlas, vuelven en el historial y el patrón de usuarios en rutas las tomaba por un usuario real. Ahora el verificador ignora los valores con forma de seudónimo, con el mismo criterio que el pseudonimizador. En la instalación del autor eran 356 de los 623 pares marcados con fugas.
+
 ---
 
 ## [0.7.0] — 2026-10-30
