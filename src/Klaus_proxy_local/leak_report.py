@@ -42,7 +42,7 @@ from Klaus_proxy_local.scan import safe_id, safe_path
 from Klaus_proxy_local.sensitive_data_scanner import SensitiveDataScanner
 from Klaus_proxy_local.setup import _pseudonymizer
 
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 REPORT_FILE = "leak-report.html"
 REPORT_JSON = "leak-report.json"
 REPORT_PREFIX = "leak-report-"
@@ -255,8 +255,21 @@ def _analyze_capture(opath, spath, projects, remotes, coverage, pv, reveal) -> d
         return {"project": None, "ts": None, "leaks": [], "skipped": "ilegible"}
     ts = str(original.get("captured_at", ""))[:19] or None
     project = attribute(original.get("payload"), projects, remotes)
+    # Conversación o resto del tráfico (telemetría, metadatos): solo las
+    # conversaciones llevan el directorio de trabajo para atribuirlas
+    kind = (
+        "messages"
+        if str(original.get("path") or "").startswith("/v1/messages")
+        else "other"
+    )
     if sent.get("capture_only"):
-        return {"project": project, "ts": ts, "leaks": [], "skipped": "capture_only"}
+        return {
+            "project": project,
+            "ts": ts,
+            "kind": kind,
+            "leaks": [],
+            "skipped": "capture_only",
+        }
     spans = pv.sensitive_spans(original, coverage.vault_dict, coverage.rules)
     leaks = pv.diff_leaks(spans, sent)
     items = []
@@ -265,7 +278,7 @@ def _analyze_capture(opath, spath, projects, remotes, coverage, pv, reveal) -> d
         if reveal:
             item["value"] = s.value
         items.append(item)
-    return {"project": project, "ts": ts, "leaks": items}
+    return {"project": project, "ts": ts, "kind": kind, "leaks": items}
 
 
 # --- Informe -------------------------------------------------------------------
@@ -364,6 +377,7 @@ def _leak_summary(items: list[tuple[str, dict]], recent_cut: str) -> dict:
     cats = Counter(item["category"] for _n, c in with_leaks for item in c["leaks"])
     return {
         "captures_total": len(items),
+        "messages_total": sum(1 for _n, c in items if c.get("kind") == "messages"),
         "captures": len(with_leaks),
         "recent": sum(1 for _n, c in with_leaks if (c.get("ts") or "") >= recent_cut),
         "last": with_leaks[0][1].get("ts") if with_leaks else None,
@@ -453,7 +467,9 @@ def render_html(report: dict) -> str:
         else ""
     )
     unattributed = (
-        f"<p>Capturas sin proyecto atribuible: {un['captures_total']:,}, "
+        f"<p>Capturas sin proyecto atribuible: {un['captures_total']:,} "
+        f"({un.get('messages_total', 0):,} conversaciones <code>/v1/messages</code> "
+        "sin directorio de trabajo; el resto, telemetría y metadatos), "
         f"{un['captures']:,} con fugas"
         f"{' (última ' + esc(un['last']) + ')' if un['last'] else ''}.</p>"
     )

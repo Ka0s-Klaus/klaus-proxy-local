@@ -29,7 +29,13 @@ def _capture(base, name, payload, sent_payload, ts):
     for sub, body in (("original", payload), ("sent", sent_payload)):
         d = base / sub
         d.mkdir(parents=True, exist_ok=True)
-        rec = {"captured_at": ts, "variant": sub, "payload": body, "headers": {}}
+        rec = {
+            "captured_at": ts,
+            "variant": sub,
+            "path": "/v1/messages",
+            "payload": body,
+            "headers": {},
+        }
         (d / name).write_text(json.dumps(rec))
 
 
@@ -115,6 +121,7 @@ def test_report_coverage_and_leaks(env):
     assert uno["coverage_pct"] < 100
     assert any(v["category"] == "business-name" for v in uno["uncovered"])
     assert uno["leaks"]["captures_total"] == 2
+    assert uno["leaks"]["messages_total"] == 2
     assert uno["leaks"]["captures"] == 1 and uno["leaks"]["recent"] == 1
     assert uno["leaks"]["items"][0]["capture"].startswith("20261029_100000")
     assert ("org", lr.safe_id("wingtip", "org")) in [
