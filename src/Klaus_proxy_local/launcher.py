@@ -18,7 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from Klaus_proxy_local import __version__, capture_retention
+from Klaus_proxy_local import __version__, capture_retention, scan_repos
 from Klaus_proxy_local.addons_snapshot import ADDON_FILES, snapshot_addons
 from Klaus_proxy_local.certs import (
     ensure_mitmproxy_certs,
@@ -109,7 +109,10 @@ class ProxyLauncher:
         if root:
             print(f"✅ Project names under {root}/ are now pseudonymized\n")
 
-        # Step 1d: Drop captures older than capture_retention_days (#132)
+        # Step 1d: Protect org/repo of every repo in the projects folder (#134)
+        self.protect_project_repos()
+
+        # Step 1e: Drop captures older than capture_retention_days (#132)
         self.apply_capture_retention()
 
         # Step 2: Auto-regenerate or ensure certs
@@ -125,6 +128,22 @@ class ProxyLauncher:
             print(f"   Location: {env_file}\n")
         except RuntimeError as e:
             raise RuntimeError(f"❌ Cert setup failed: {e}")
+
+    def protect_project_repos(self) -> None:
+        """Protege el org/repo de todos los repos de la carpeta de proyectos (#134).
+
+        Solo muestra recuentos. Un fallo no impide arrancar: el resto de
+        protecciones sigue en pie.
+        """
+        try:
+            lines = scan_repos.scan_and_protect()
+        except Exception as e:  # noqa: BLE001 - exploración best-effort
+            print(f"⚠️  Exploración de repos no aplicada: {type(e).__name__}: {e}\n")
+            return
+        print("\n".join(lines) + "\n")
+        self.protected_tokens = scan_repos.load_config().get(
+            "pseudo_word_literals", self.protected_tokens
+        )
 
     def apply_capture_retention(self) -> None:
         """Borra los pares de capturas más antiguos que la retención (#132).
@@ -157,7 +176,11 @@ class ProxyLauncher:
         print("📋 Captures:              ~/.klaus-proxy/captures/")
         print("📝 Logs:                  ~/.klaus-proxy/logs/proxy.log")
         if self.protected_tokens:
-            print(f"🛡️  Protected org/repo:    {', '.join(self.protected_tokens)}")
+            # Solo el recuento: los nombres son justo lo que se protege (#134)
+            print(
+                f"🛡️  Protected org/repo:    {len(self.protected_tokens)} "
+                "tokens (pseudo_word_literals)"
+            )
         else:
             print(
                 "\033[33m⚠️  Protected org/repo:    NONE — start claude-proxy once "

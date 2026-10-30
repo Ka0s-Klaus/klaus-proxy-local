@@ -48,4 +48,8 @@ def _isolated_config_json(tmp_path_factory, monkeypatch):
     cfg.write_text('{"salt": "x"}', encoding="utf-8")
     monkeypatch.setattr(ps, "config_path", lambda: cfg)
     monkeypatch.setattr(cap, "config_path", lambda: cfg)
+    # klaus-scan-repos escribe config.json al arrancar claude-proxy (#134)
+    from Klaus_proxy_local import scan_repos
+
+    monkeypatch.setattr(scan_repos, "config_file", lambda: cfg)
     return cfg

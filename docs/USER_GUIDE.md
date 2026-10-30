@@ -74,6 +74,7 @@ Después, **reinicia `claude-proxy`**. También puedes usar `python3 scripts/add
 | `klaus-audit-payloads` | Estadísticas de pseudonimización por payload ([guía](./AUDIT_ALL_PAYLOADS.md)). |
 | `klaus-fix-pseudonymization --show-payloads` | Lista las peticiones que no se pseudonimizaron ([guía](./FIX_PSEUDONYMIZATION.md)). |
 | `python3 scripts/inspect_vault.py --stats` | Qué hay en el vault ([guía](./INSPECT_ANONYMIZATIONS.md)). |
+| `klaus-scan-repos [--dry-run]` | Protege el org/repo de todos los repos de la carpeta de proyectos; úsalo tras clonar uno y reinicia `claude-proxy`. Solo muestra recuentos. |
 | `klaus-prune-captures [--dry-run] [--days N]` | Aplica la retención de capturas sin reiniciar el proxy; `--dry-run` muestra qué se borraría. |
 
 Los scripts con `python3 …` se ejecutan desde el clon del repositorio.
@@ -105,6 +106,7 @@ Los valores aprobados se añaden al vault y a `config.json`; reinicia `claude-pr
 | `intercept_all` | `true` para descifrar todo el HTTPS, no solo la API (por defecto `false`) |
 | `pseudo_literals`, `pseudo_word_literals` | Valores a proteger (ver arriba) |
 | `pseudo_patterns` | Expresiones regulares; `claude-proxy` añade una para tu carpeta de proyectos |
+| `projects_dirs` | Carpetas cuyos repos git protege `claude-proxy` al arrancar (hasta 3 niveles). Por defecto, la carpeta padre del repo desde el que arrancas |
 | `pseudo_pattern_ignore` | Valores que los patrones no deben tocar |
 | `capture_retention_days` | Días que se conservan las capturas; se borran las más antiguas al arrancar `claude-proxy` (por defecto `30`; `0` = sin límite) |
 | `capture_originals` | `false` para no guardar `original/`: sin datos reales en claro, pero sin verificación por pares (por defecto `true`) |
