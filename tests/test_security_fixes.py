@@ -33,8 +33,9 @@ def restore_salt_after_test():
 class TestSaltHardening:
     """Security fix #1: Remove default salt, force explicit configuration."""
 
-    def test_missing_salt_raises_runtime_error(self):
-        """_salt() must raise RuntimeError if ANTHROPIC_PSEUDO_SALT is not set."""
+    def test_missing_salt_raises_runtime_error(self, _isolated_config_json):
+        """_salt() must raise RuntimeError without env var nor config salt."""
+        _isolated_config_json.write_text("{}")
         # Remove salt from environment
         old_val = os.environ.pop("ANTHROPIC_PSEUDO_SALT", None)
         try:
@@ -44,6 +45,14 @@ class TestSaltHardening:
             # Restore original value if it existed
             if old_val is not None:
                 os.environ["ANTHROPIC_PSEUDO_SALT"] = old_val
+
+    def test_salt_falls_back_to_config(self, _isolated_config_json, monkeypatch):
+        """Sin la variable, la SALT de config.json: la misma del proxy (#156)."""
+        monkeypatch.delenv("ANTHROPIC_PSEUDO_SALT", raising=False)
+        _isolated_config_json.write_text('{"salt": "salt-de-config"}')
+        assert ps._salt() == "salt-de-config"
+        monkeypatch.setenv("ANTHROPIC_PSEUDO_SALT", "salt-de-entorno")
+        assert ps._salt() == "salt-de-entorno"
 
     def test_salt_with_environment_variable(self):
         """_salt() returns configured salt from environment."""
@@ -58,8 +67,9 @@ class TestSaltHardening:
             else:
                 os.environ.pop("ANTHROPIC_PSEUDO_SALT", None)
 
-    def test_error_message_is_helpful(self):
+    def test_error_message_is_helpful(self, _isolated_config_json):
         """RuntimeError message guides user on how to generate salt."""
+        _isolated_config_json.write_text("{}")
         old_val = os.environ.pop("ANTHROPIC_PSEUDO_SALT", None)
         try:
             with pytest.raises(RuntimeError) as exc_info:

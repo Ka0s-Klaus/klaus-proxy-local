@@ -79,6 +79,7 @@ Por eso puedes pedir a Claude Code que lo ejecute. Además:
 
 ## 🐛 Correcciones
 
+- **`klaus-scan` no protegía lo que aprobabas si `ANTHROPIC_PSEUDO_SALT` no estaba en el entorno** (#156). En una terminal normal, cada aprobación fallaba con «ANTHROPIC_PSEUDO_SALT environment variable is required», y la regla tampoco se añadía a `config.json`. Ahora la SALT se toma de `config.json` (la misma de `claude-proxy`) y la regla se añade antes que el vault. Afecta también a `scripts/add_to_vault.py`.
 - **`anthropic-pair-verify` contaba como fuga un seudónimo** (#143). Claude Code cita las rutas ya pseudonimizadas (`/Users/user_1a2b3c4d/…`) y vuelven en el historial. Ahora el verificador ignora los valores con forma de seudónimo, igual que el pseudonimizador. En la instalación del autor eran 356 de 623 pares marcados.
 
 ## 🔬 Verificación en la instalación del autor
@@ -89,7 +90,7 @@ Por eso puedes pedir a Claude Code que lo ejecute. Además:
 
 ## 🧪 Calidad
 
-- 830 tests passed, 3 skipped (+84 desde v0.7.0). CI en Python 3.10, 3.11, 3.12 y 3.13.
+- 833 tests passed, 3 skipped (+87 desde v0.7.0). CI en Python 3.10, 3.11, 3.12 y 3.13.
 - Las credenciales de los tests se construyen en tiempo de ejecución, para que los escáneres de secretos no las tomen por reales.
 
 ## 📝 Limitaciones conocidas

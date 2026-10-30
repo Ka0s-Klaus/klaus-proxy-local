@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![Version](https://img.shields.io/badge/version-0.8.0-green)](./docs/RELEASE_v0.8.0_NOTES.md)
-[![Tests](https://img.shields.io/badge/tests-830%20passed-brightgreen)](./.github/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-833%20passed-brightgreen)](./.github/workflows/ci.yml)
 [![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.8.0_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
@@ -403,7 +403,7 @@ If you enabled auto-startup but want to disable it:
 - 🕵️ `klaus-leak-report`: qué datos sensibles tiene cada proyecto, cuáles no cubre el proxy, cuáles han salido y su % de cobertura; tarjeta en el dashboard (#146)
 - 🔎 `klaus-scan` detecta nombres de negocio (clientes, dominios, IDs cloud) y su salida ya no revela valores (#140)
 - 🔒 El proxy redacta las claves de Anthropic, OpenAI y Stripe, las contraseñas de conexiones y los Bearer, sin tocar el login (#148); un nombre tras `\b` ya no sale en claro (#142)
-- ✅ **830 tests passing** en Python 3.10–3.13
+- ✅ **833 tests passing** en Python 3.10–3.13
 
 [📖 Release Notes](./docs/RELEASE_v0.8.0_NOTES.md)
 
@@ -695,12 +695,12 @@ Ver sección anterior: [📚 Documentación](#-documentación)
 ## 🧪 Tests
 
 ```bash
-pytest -q          # 830 passed, 3 skipped
+pytest -q          # 833 passed, 3 skipped
                    # Includes: capture, pseudonymize, guard, verify, audit, dashboard, vault
 ```
 
 ### Test Coverage
-- ✅ **830 tests passing** en Python 3.10–3.13 (CI)
+- ✅ **833 tests passing** en Python 3.10–3.13 (CI)
 - ✅ Security tests for vault + pseudonymization
 - ✅ Integration tests for audit workflows
 - ✅ Unit tests for all components
