@@ -74,6 +74,7 @@ Después, **reinicia `claude-proxy`**. También puedes usar `python3 scripts/add
 | `klaus-audit-payloads` | Estadísticas de pseudonimización por payload ([guía](./AUDIT_ALL_PAYLOADS.md)). |
 | `klaus-fix-pseudonymization --show-payloads` | Lista las peticiones que no se pseudonimizaron ([guía](./FIX_PSEUDONYMIZATION.md)). |
 | `python3 scripts/inspect_vault.py --stats` | Qué hay en el vault ([guía](./INSPECT_ANONYMIZATIONS.md)). |
+| `klaus-leak-report [--open] [--reveal]` | Informe de fugas por proyecto: qué datos sensibles tiene cada repo, cuáles no cubre el proxy, qué ha salido en las capturas y el % de cobertura ([ver abajo](#-informe-de-fugas-por-proyecto)). |
 | `klaus-scan-repos [--dry-run]` | Protege el org/repo de todos los repos de la carpeta de proyectos; úsalo tras clonar uno y reinicia `claude-proxy`. Solo muestra recuentos. |
 | `klaus-prune-captures [--dry-run] [--days N]` | Aplica la retención de capturas sin reiniciar el proxy; `--dry-run` muestra qué se borraría. |
 
@@ -111,6 +112,30 @@ Cada valor se lista **una vez**, con sus apariciones y la primera ubicación. Lo
 - **Sin terminal interactiva** (por ejemplo, lanzado por Claude Code) no se pregunta nada: termina con el resumen. Para aprobar, usa `--approve-all` o lánzalo tú.
 
 Los valores aprobados se añaden al vault y a `config.json`: a `pseudo_word_literals` si son un único token y a `pseudo_literals` si no. Reinicia `claude-proxy` para que se apliquen.
+
+---
+
+## 🕵️ Informe de fugas por proyecto
+
+`klaus-leak-report` revisa cada repo git de la carpeta de proyectos (`projects_dirs`) y responde a cuatro preguntas (#146):
+
+| Pregunta | Cómo lo calcula |
+| --- | --- |
+| **¿Qué datos sensibles tiene?** | Lo que detecta `klaus-scan`: secretos y nombres de negocio |
+| **¿Puede sufrir una fuga?** | Pasa cada valor por el pseudonimizador con tus reglas actuales. Si sale igual, ninguna regla lo cubre |
+| **¿La ha sufrido?** | Asigna cada captura a su proyecto según el directorio de trabajo que envía Claude Code (o los remotes de git) y busca valores reales en `sent/`, como el verificador por pares. Indica la fecha y el fichero de cada captura con fugas |
+| **Cobertura** | % de valores CRITICAL y HIGH que el proxy sustituye o redacta. 🟢 ≥ 95 % · 🟡 ≥ 80 % · 🔴 menos, o alguna fuga en los últimos 30 días |
+
+```bash
+klaus-leak-report --open      # genera informes/fugas/leak-report.html y lo abre
+klaus-leak-report --no-cache  # recalcula todo
+```
+
+- **Caché:** la primera ejecución analiza todas las capturas y tarda varios minutos. Después solo analiza lo nuevo. Un repo se vuelve a revisar si cambian su commit o sus ficheros, y todo se recalcula si cambian tus reglas. La caché está en `~/.klaus-proxy/leak-report-cache.json` y solo guarda identificadores.
+- **Valores:** se muestran como `⟨categoría·hash·longitud⟩`, igual que en `klaus-scan`. `--reveal` los muestra en claro; úsalo solo en tu terminal.
+- **Nombres de proyecto:** el informe muestra los nombres de tus proyectos. Es local (`informes/` no se versiona); no lo compartas tal cual.
+- **Dashboard de auditoría:** la tarjeta «🕵️ Fugas por proyecto» resume el último informe y enlaza a él.
+- **Para cubrir un valor:** `klaus-scan <proyecto> --reveal` en tu terminal, apruébalo y reinicia `claude-proxy`.
 
 ---
 

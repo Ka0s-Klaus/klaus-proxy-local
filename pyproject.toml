@@ -56,6 +56,7 @@ klaus-fix-pseudonymization = "Klaus_proxy_local.fix_pseudonymization:main"
 klaus-audit-dashboard = "Klaus_proxy_local.audit_dashboard:main"
 klaus-prune-captures = "Klaus_proxy_local.capture_retention:main"
 klaus-scan-repos = "Klaus_proxy_local.scan_repos:main"
+klaus-leak-report = "Klaus_proxy_local.leak_report:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

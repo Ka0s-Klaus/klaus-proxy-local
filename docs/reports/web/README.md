@@ -105,6 +105,10 @@ Si falta alguno: `klaus-scan-repos` y reinicia `claude-proxy`. Un nombre genéri
 
 Es informativa: no cambia el estado del plan.
 
+### 🕵️ Fugas por proyecto
+
+Resumen del último informe de `klaus-leak-report` (#146), leído de `informes/fugas/leak-report.json`. La tarjeta no recalcula nada. Por proyecto muestra la cobertura (🟢 ≥ 95 %, 🟡 ≥ 80 %, 🔴 menos o alguna fuga en los últimos 30 días), los valores sin cubrir y las capturas con fugas, con un enlace al informe completo. Si aún no hay informe, indica cómo generarlo. Es informativa: no cambia el estado del plan.
+
 ### 🧹 Retención de capturas
 
 El plan de seguridad muestra la retención activa (#132), para que se vea aunque no se lean las notas de la release:
