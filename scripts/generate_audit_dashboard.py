@@ -25,7 +25,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from Klaus_proxy_local import audit_reports, capture_retention  # noqa: E402
+from Klaus_proxy_local import (  # noqa: E402
+    audit_reports,
+    capture_retention,
+    scan_repos,
+)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -73,6 +77,66 @@ def audit_retention(captures_dir: Path, config_dir: Path, original: list[dict]) 
         "last": capture_retention.read_state(captures_dir),
         "sent_only": sum(1 for c in original if c.get("_sent_only")),
         "originals_enabled": config.get("capture_originals") is not False,
+    }
+
+
+def audit_projects(config_dir: Path, captures_dir: Path, original: list[dict]) -> dict:
+    """Repos de la carpeta de proyectos y si su org/repo está protegido (#136).
+
+    Misma lógica que ``klaus-scan-repos`` (#134). La última petición sale de los
+    remotes que Claude Code envía en ``safeguards``: solo en los modos ``auto`` y
+    ``plan`` (#68). Lleva nombres reales: el informe es local.
+    """
+    ps = scan_repos._pseudonymizer()
+    config = scan_repos.load_config(config_dir / "config.json")
+    words = set(config.get("pseudo_word_literals") or [])
+    vault = _load_json(captures_dir / ".pseudonym_vault.json")
+    vault = vault if isinstance(vault, dict) else {}
+    last_seen: dict[str, str] = {}
+    for c in original:
+        if c.get("_sent_only") or not isinstance(c.get("payload"), dict):
+            continue
+        when = str(c.get("captured_at", ""))[:19]
+        for remote in ps._iter_remotes(c["payload"].get("safeguards")):
+            key = "/".join(ps._parse_remote_tokens(remote))
+            if when > last_seen.get(key, ""):
+                last_seen[key] = when
+    dirs = scan_repos.projects_dirs(config)
+    repos = []
+    for r in scan_repos.repo_details(dirs):
+        missing = [
+            t for t in r["tokens"] if t not in words and not ps.is_generic_repo_token(t)
+        ]
+        generic = [
+            t for t in r["tokens"] if t not in words and ps.is_generic_repo_token(t)
+        ]
+        if not r["remotes"]:
+            status = "no_remote"
+        elif missing:
+            status = "missing"
+        elif generic:
+            status = "generic"
+        else:
+            status = "ok"
+        seen = [last_seen[k] for k in r["remotes"] if k in last_seen]
+        repos.append(
+            {
+                "repo": str(r["path"].relative_to(r["root"])),
+                "remotes": r["remotes"],
+                "pseudonyms": [
+                    "/".join(vault.get(t, "—") for t in remote.split("/"))
+                    for remote in r["remotes"]
+                ],
+                "status": status,
+                "missing": len(missing),
+                "generic": generic,
+                "last_request": max(seen) if seen else None,
+            }
+        )
+    return {
+        "dirs": [str(d) for d in dirs],
+        "repos": repos,
+        "protected": sum(1 for r in repos if r["status"] in ("ok", "no_remote")),
     }
 
 
@@ -1052,6 +1116,7 @@ HTML_TEMPLATE = """\
       #INJECTION_HTML#
     </div>
   </div>
+  #PROJECTS_HTML#
   #RETENTION_HTML#
   #UNCAPTURED_HTML#
 </div>
@@ -1523,6 +1588,69 @@ def _retention_html(security: dict) -> str:
     )
 
 
+_PROJECT_STATUS = {
+    "ok": "✅ Protegido",
+    "no_remote": "✅ Sin remote",
+    "generic": "⚠️ Nombre genérico",
+    "missing": "❌ Falta proteger",
+}
+
+
+def _projects_html(security: dict) -> str:
+    """Repos bajo el paraguas del proxy (#136). Muestra nombres reales."""
+    esc = html.escape
+    data = security.get("projects")
+    if not data:  # informes anteriores a #136
+        return ""
+    repos = data.get("repos") or []
+    dirs = ", ".join(f"<code>{esc(d)}</code>" for d in data.get("dirs") or [])
+    pending = len(repos) - data.get("protected", 0)
+    intro = (
+        "<p style='font-size:.8rem;color:var(--text-muted)'>"
+        f"<b>{data.get('protected', 0)} de {len(repos)} repos protegidos</b>"
+        f"{' en ' + dirs if dirs else ''}. Su org/repo se pseudonimiza aunque "
+        "trabajes desde otro repo. <b>Seudónimo</b>: lo que ve Anthropic "
+        "(<code>—</code> si aún no ha salido). <b>Última petición</b>: solo en los "
+        "modos de permisos <code>auto</code> y <code>plan</code>. ⚠️ Esta tarjeta "
+        "muestra los nombres reales: no compartas el HTML tal cual.</p>"
+    )
+    if pending:
+        intro += (
+            "<p style='font-size:.85rem'>Para proteger los que faltan: "
+            "<code>klaus-scan-repos</code> y reinicia <code>claude-proxy</code>. "
+            "Un nombre genérico (<code>docs</code>, <code>api</code>…) se añade a "
+            "mano a <code>pseudo_word_literals</code> si es privado.</p>"
+        )
+    if not dirs:
+        body = (
+            "<p>Sin carpeta de proyectos: arranca <code>claude-proxy</code> desde un "
+            "repo o define <code>projects_dirs</code> en config.json.</p>"
+        )
+    elif not repos:
+        body = "<p>Ningún repo git en la carpeta de proyectos.</p>"
+    else:
+        trs = "".join(
+            f"<tr><td><code>{esc(r['repo'])}</code>"
+            + "".join(f"<br><small>{esc(x)}</small>" for x in r["remotes"])
+            + f"</td><td>{_PROJECT_STATUS.get(r['status'], esc(r['status']))}"
+            + (
+                f"<br><small>genérico: {esc(', '.join(r['generic']))}</small>"
+                if r.get("generic")
+                else ""
+            )
+            + "</td><td>"
+            + "<br>".join(f"<code>{esc(x)}</code>" for x in r["pseudonyms"])
+            + f"</td><td><code>{esc(r.get('last_request') or '—')}</code></td></tr>"
+            for r in repos
+        )
+        body = (
+            "<table class='data-table mt8'><thead><tr><th>Repo</th><th>Estado</th>"
+            "<th>Seudónimo</th><th>Última petición</th></tr>"
+            f"</thead><tbody>{trs}</tbody></table>"
+        )
+    return f"<div class='card mt8'><h3>🛡️ Proyectos protegidos</h3>{intro}{body}</div>"
+
+
 def _uncaptured_hosts_html(security: dict) -> str:
     """Tabla de hosts que pasaron por el proxy sin pseudonimizar (#123)."""
     esc = html.escape
@@ -1717,6 +1845,7 @@ def render_html(
         "INJECTION_HTML": injection_html,
         "UNCAPTURED_HTML": _uncaptured_hosts_html(security),
         "RETENTION_HTML": _retention_html(security),
+        "PROJECTS_HTML": _projects_html(security),
         # Pseudonymization
         "PSEUDO_COLOR": _status_color(pseudo.get("status", "no_data")),
         "PSEUDO_EMOJI": _status_emoji(pseudo.get("status", "no_data")),
@@ -1842,6 +1971,10 @@ def main(argv: list[str] | None = None) -> None:
     security = audit_security(original, sent, load_reviewed_injections(config_dir))
     security["uncaptured"] = audit_uncaptured_hosts(proxy_log_files())
     security["retention"] = audit_retention(captures_dir, config_dir, original)
+    try:
+        security["projects"] = audit_projects(config_dir, captures_dir, original)
+    except Exception as e:  # noqa: BLE001 - la tarjeta no debe tumbar el informe
+        print(f"   ⚠️  Proyectos protegidos no disponibles: {type(e).__name__}: {e}")
 
     print("📊 Auditoría de pseudonimización...")
     pseudo = audit_pseudonymization(original, config_dir)

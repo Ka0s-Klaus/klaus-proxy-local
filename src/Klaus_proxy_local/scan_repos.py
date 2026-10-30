@@ -127,30 +127,59 @@ def _global_identity() -> set[str]:
     return values
 
 
+def repo_details(dirs: list[Path]) -> list[dict]:
+    """Un dict por repo: carpeta, remotes (``org/repo``), tokens e identidad
+    git local distinta de la global. Lo usa también el dashboard (#136)."""
+    ps = _pseudonymizer()
+    global_ident = _global_identity()
+    details: list[dict] = []
+    seen: set[Path] = set()
+    for d in dirs:
+        for repo in find_repos(d):
+            if repo in seen:
+                continue
+            seen.add(repo)
+            remotes: list[str] = []
+            tokens: list[str] = []
+            out = _git(repo, "config", "--get-regexp", r"^remote\..*\.url$")
+            for line in out.splitlines():
+                url = line.partition(" ")[2]
+                toks = ps._parse_remote_tokens(url)
+                if toks and "/".join(toks) not in remotes:
+                    remotes.append("/".join(toks))
+                tokens.extend(t for t in toks if t not in tokens)
+            identities = []
+            for key in ("user.name", "user.email"):
+                value = _git(repo, "config", "--local", "--get", key)
+                if value and value not in global_ident:
+                    identities.append(value)
+            details.append(
+                {
+                    "path": repo,
+                    "root": d,
+                    "remotes": remotes,
+                    "tokens": tokens,
+                    "identities": identities,
+                }
+            )
+    return details
+
+
 def scan(dirs: list[Path]) -> dict:
     """Recorre ``dirs`` y devuelve repos, tokens de org/repo e identidades."""
     ps = _pseudonymizer()
-    repos: list[Path] = []
-    for d in dirs:
-        repos.extend(r for r in find_repos(d) if r not in repos)
-    global_ident = _global_identity()
+    details = repo_details(dirs)
     tokens: list[str] = []
     generic: list[str] = []
     identities: list[str] = []
-    for repo in repos:
-        remotes = _git(repo, "config", "--get-regexp", r"^remote\..*\.url$")
-        for line in remotes.splitlines():
-            url = line.partition(" ")[2]
-            for tok in ps._parse_remote_tokens(url):
-                bucket = generic if ps.is_generic_repo_token(tok) else tokens
-                if tok not in bucket:
-                    bucket.append(tok)
-        for key in ("user.name", "user.email"):
-            value = _git(repo, "config", "--local", "--get", key)
-            if value and value not in global_ident and value not in identities:
-                identities.append(value)
+    for repo in details:
+        for tok in repo["tokens"]:
+            bucket = generic if ps.is_generic_repo_token(tok) else tokens
+            if tok not in bucket:
+                bucket.append(tok)
+        identities.extend(v for v in repo["identities"] if v not in identities)
     return {
-        "repos": len(repos),
+        "repos": len(details),
         "tokens": tokens,
         "generic": generic,
         "identities": identities,
