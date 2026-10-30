@@ -1,7 +1,7 @@
 {
   "id": "klaus-proxy-local",
   "name": "Klaus Proxy Local",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "category": "Auditoría & Privacidad",
   "tags": [
     "proxy",
@@ -15,7 +15,7 @@
   "icon": "🔌",
   "status": "production",
   "language": "Python 3.10+",
-  "tests": "718 passed ✅",
+  "tests": "746 passed ✅",
   "github": "https://github.com/Ka0s-Klaus/ka0s",
   "documentation": "https://docs.ka0s.io/",
   "featuredDocs": [

@@ -71,7 +71,7 @@ Ahora se descifran `api.anthropic.com`, `hosts`, `capture_only_hosts` y el host 
 
 ## 📝 Limitaciones conocidas
 
-- La sección «Hosts no capturados» solo cubre el periodo que conserva `proxy.log` (5 MB × 5 ficheros rotados).
+- La sección «Hosts no capturados» solo cubre el periodo que conserva `proxy.log` (el fichero actual más hasta 5 rotaciones de 5 MB).
 - El aprendizaje de org/repo por petición sigue funcionando solo en los modos de permisos `auto` y `plan` (#68).
 
 **Changelog completo:** [`v0.6.0...v0.6.1`](https://github.com/Ka0s-Klaus/klaus-proxy-local/compare/v0.6.0...v0.6.1) · [CHANGELOG](../CHANGELOG.md)
