@@ -125,8 +125,9 @@ _IPV4_RE = re.compile(
 # secreto, y así el vault no acumula credenciales).
 _PLACEHOLDER = "«REDACTED:{label}»"
 
-# Cada entrada: (regex, label). Los que capturan grupo 2 redactan SOLO el valor,
-# conservando la clave (`password=…`) como contexto legible para el modelo.
+# Cada entrada: (regex, label). Si el regex tiene un grupo ``secret`` se redacta
+# SOLO ese grupo, conservando el resto como contexto legible para el modelo
+# (``postgres://user:«REDACTED»@host/db``). El resto se redacta entero.
 _SECRET_RES: list[tuple[re.Pattern, str]] = [
     (
         re.compile(
@@ -142,6 +143,58 @@ _SECRET_RES: list[tuple[re.Pattern, str]] = [
     (
         re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
         "jwt",
+    ),
+    # Los mismos tipos que detecta klaus-scan (#148). Anthropic antes que OpenAI:
+    # ``sk-ant-…`` también casaría con ``sk-…``.
+    (
+        re.compile(r"(?<![A-Za-z0-9_-])sk-ant-[A-Za-z0-9_\-]{20,}"),
+        "anthropic-api-key",
+    ),
+    (
+        # Con al menos un dígito: un identificador ``sk-algo-largo`` no es clave
+        re.compile(
+            r"(?<![A-Za-z0-9_-])sk-(?:proj-|svcacct-|admin-)?"
+            r"(?=[A-Za-z0-9_\-]*\d)[A-Za-z0-9_\-]{20,}"
+        ),
+        "openai-api-key",
+    ),
+    (
+        re.compile(r"(?<![A-Za-z0-9])(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9]{20,}"),
+        "stripe-api-key",
+    ),
+    (
+        # Conexión o URL con usuario:contraseña: solo la contraseña. Sin
+        # corchetes, llaves ni ``$``: ``esquema://[user[:pass]@]host`` en un
+        # comentario o ``${DB_PASS}`` en una plantilla no son credenciales.
+        re.compile(
+            r"(?<![A-Za-z0-9+.\-])[A-Za-z][A-Za-z0-9+.\-]*://[^/\s:@\"'<>\[\]{}$]+:"
+            r"(?P<secret>[^@/\s\"'<>\[\]{}$]+)(?=@[A-Za-z0-9])"
+        ),
+        "url-password",
+    ),
+    (
+        re.compile(
+            r"aws_secret_access_key[\"']?\s*[:=]\s*[\"']?(?P<secret>[A-Za-z0-9/+]{40})",
+            re.IGNORECASE,
+        ),
+        "aws-secret-key",
+    ),
+    (
+        # El matcher genérico clave=valor está apagado por defecto: estos dos sí
+        # se redactan siempre. Con un dígito y terminando en un delimitador, para
+        # no confundir ``refresh_token = get_refresh_token_from_store()``.
+        re.compile(
+            r"(?:aws_session_token|refresh_token)[\"']?\s*[:=]\s*[\"']?"
+            r"(?P<secret>(?=[A-Za-z0-9._/+=\-]*\d)[A-Za-z0-9._/+=\-]{20,})"
+            r"(?=[\s\"',;)\]}]|$)",
+            re.IGNORECASE,
+        ),
+        "token",
+    ),
+    (
+        # En el contenido; la cabecera Authorization nunca se reescribe
+        re.compile(r"\b[Bb]earer\s+(?P<secret>[A-Za-z0-9._~+/\-]{20,}=*)"),
+        "bearer-token",
     ),
 ]
 
@@ -261,6 +314,20 @@ def capture_only_hosts() -> tuple[str, ...]:
 def is_capture_only_host(host: str) -> bool:
     host = (host or "").lower()
     return any(host == h or host.endswith("." + h) for h in capture_only_hosts())
+
+
+# Endpoints de autenticación (#148): su cuerpo lleva credenciales que Anthropic
+# TIENE que recibir (código OAuth, refresh token, alta de API key). Se dejan
+# pasar sin tocar, como un host de solo captura. La cabecera Authorization /
+# x-api-key nunca se reescribe en ninguna ruta.
+_AUTH_PATH_RE = re.compile(
+    r"^/(?:v1/)?oauth/|^/api/oauth/(?:token|authorize|claude_cli/)|^/api/auth/",
+    re.IGNORECASE,
+)
+
+
+def is_auth_path(path: str) -> bool:
+    return bool(_AUTH_PATH_RE.search((path or "").split("?")[0]))
 
 
 def is_llm_path(path: str) -> bool:
@@ -928,6 +995,13 @@ def _word_boundary_re(literal: str) -> re.Pattern:
     )
 
 
+def _keep_around(m: "re.Match", placeholder: str) -> str:
+    """Sustituye solo el grupo ``secret`` de la coincidencia (#148)."""
+    start, end = m.start("secret") - m.start(0), m.end("secret") - m.start(0)
+    whole = m.group(0)
+    return whole[:start] + placeholder + whole[end:]
+
+
 def redact_secrets(text: str, rules: Rules) -> str:
     """Redacta secretos a un placeholder fijo IRREVERSIBLE (no toca el vault).
 
@@ -936,7 +1010,11 @@ def redact_secrets(text: str, rules: Rules) -> str:
     if not text:
         return text
     for regex, label in rules.secret_regexes:
-        text = regex.sub(_PLACEHOLDER.format(label=label), text)
+        placeholder = _PLACEHOLDER.format(label=label)
+        if "secret" in regex.groupindex:
+            text = regex.sub(lambda m, _p=placeholder: _keep_around(m, _p), text)
+        else:
+            text = regex.sub(placeholder, text)
     if rules.secret_kv:
         # Redacta solo el valor (grupo 2), conserva la clave (grupo 1).
         text = _SECRET_KV_RE.sub(
@@ -1325,6 +1403,13 @@ class AnthropicPseudonymizer:
                 return
             else:
                 return
+        if is_auth_path(req.path) and not is_llm:
+            # Credenciales que Anthropic tiene que recibir: sin tocar (#148)
+            self._log(
+                f"[anthropic-pseudo] auth {req.method} {req.path}: sale sin tocar"
+            )
+            self._mark_capture_only(flow, req)
+            return
         # Fail-closed: si CUALQUIER paso de la seudonimización falla (no se puede
         # leer el cuerpo, reescribirlo, etc.), NO dejamos salir la request — la
         # abortamos localmente. Un cuerpo que no hemos podido seudonimizar nunca
