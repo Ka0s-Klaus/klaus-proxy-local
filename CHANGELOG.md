@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **`klaus-scan` marcaba como credencial una conexión sin contraseña real** (#152) — `postgres://user:${DB_PASS}@host`, `{pw}`, `«REDACTED:url-password»`, `password`, `changeme`, `xxx` o sin contraseña ya no cuentan como `db-connection`, `mongodb-connection` ni `url-with-credentials`. El proxy tampoco las redacta, así que `klaus-leak-report` las daba como sin cubrir: en la instalación del autor, las 11 conexiones «sin cubrir» eran de este tipo.
+- **La caché de `klaus-leak-report` no se invalidaba al actualizar Klaus** (#150) — La clave dependía solo de las reglas de `config.json`. Tras #148, las credenciales que el proxy ya redacta seguían saliendo como «sin cubrir» hasta usar `--no-cache`. Ahora la clave incluye un hash del pseudonimizador, el verificador, el escáner y el propio informe. Además muestra el progreso dentro de un repo grande (cada 500 ficheros) y en las capturas (cada 250), para que no parezca que se ha quedado parado.
 - **`anthropic-pair-verify` contaba como fuga un seudónimo** (#143) — Claude Code solo ve rutas seudonimizadas (`/Users/user_1a2b3c4d/…`). Al citarlas, vuelven en el historial y el patrón de usuarios en rutas las tomaba por un usuario real. Ahora el verificador ignora los valores con forma de seudónimo, con el mismo criterio que el pseudonimizador. En la instalación del autor eran 356 de los 623 pares marcados con fugas.
 
 ---
