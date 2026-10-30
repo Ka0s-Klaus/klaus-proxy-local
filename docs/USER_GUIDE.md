@@ -12,13 +12,15 @@ Cada petición de Claude Code a `api.anthropic.com` pasa por estos pasos antes d
 
 | Qué | Cómo | Ejemplo |
 | --- | --- | --- |
-| **Secretos reconocibles** (claves privadas, claves de AWS y Google, tokens de GitHub y Slack, JWT; `password=…` solo con `ANTHROPIC_PSEUDO_SECRET_KV=1`) | Se **redactan** de forma irreversible | `ghp_…` → `«REDACTED:github-token»` |
+| **Secretos reconocibles** (claves privadas; claves de AWS, Google, Anthropic, OpenAI y Stripe; tokens de GitHub, Slack y Bearer; JWT; `refresh_token` y `aws_session_token`; la contraseña de una cadena de conexión o URL; `password=…` solo con `ANTHROPIC_PSEUDO_SECRET_KV=1`) | Se **redactan** de forma irreversible. En una conexión o URL solo la contraseña: `postgres://app:«REDACTED:url-password»@db/ventas` | `ghp_…` → `«REDACTED:github-token»` |
 | **Rutas** del repo y del home | Seudónimo de ruta | `~/proyectos/mi-repo` → `/proj_1a2b3c4d` |
 | **Usuario** de cualquier `/Users/<u>` o `/home/<u>` | Seudónimo | `ana` → `user_5e6f7a8b` |
 | **Carpetas de proyectos**, también fuera de una ruta | Seudónimo | `cliente-x` → `dir_9c0d1e2f` |
 | **Org/repo** de los remotes de git | Seudónimo con frontera de palabra | `acme/mi-repo` → `org_…/org_…` |
 | **Emails e IPv4** | Seudónimo | `email_d8da9a55` → `email_…` |
 | **Tus valores** (`pseudo_literals`, `pseudo_word_literals`, `pseudo_patterns`) | Seudónimo | un cliente, un código de proyecto… |
+
+**Tu login no se toca:** el proxy solo reescribe el cuerpo de la petición. Las cabeceras `Authorization` y `x-api-key` salen intactas, y los cuerpos de los endpoints de autenticación (`/v1/oauth/…`, `/api/oauth/token`, `/api/oauth/claude_cli/…`, `/api/auth/…`), que llevan credenciales que Anthropic tiene que recibir, pasan sin tocar (#148).
 
 En la respuesta, los seudónimos se **restauran** a los valores reales, así que Claude Code lee y escribe tus rutas de verdad. Los secretos redactados no se restauran.
 

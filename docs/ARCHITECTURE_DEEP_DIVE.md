@@ -63,11 +63,11 @@ Al cargar registra `🔓 Se descifra solo: …`. `"intercept_all": true` en `con
 
 ### 🔐 `anthropic_payload_pseudonymize.py`
 
-**Petición** (hosts de `hosts` en `config.json`, por defecto `api.anthropic.com`; un host desconocido con ruta de LLM también se pseudonimiza, con un aviso, si se descifra: ver `klaus_tls_passthrough`). Los `capture_only_hosts` (#125) no se tocan: la petición sale tal cual y solo se deja a la captura el cuerpo con los secretos redactados. Recorre el JSON y aplica a cada texto, en este orden:
+**Petición** (hosts de `hosts` en `config.json`, por defecto `api.anthropic.com`; un host desconocido con ruta de LLM también se pseudonimiza, con un aviso, si se descifra: ver `klaus_tls_passthrough`). Los cuerpos de los endpoints de autenticación (`is_auth_path`: `/v1/oauth/…`, `/api/oauth/token`, `/api/oauth/claude_cli/…`, `/api/auth/…`) tampoco se tocan (#148): llevan credenciales que Anthropic tiene que recibir. Las cabeceras nunca se reescriben. Los `capture_only_hosts` (#125) no se tocan: la petición sale tal cual y solo se deja a la captura el cuerpo con los secretos redactados. Recorre el JSON y aplica a cada texto, en este orden:
 
 | # | Regla | Resultado | Reversible |
 | --- | --- | --- | --- |
-| 0 | Secretos reconocibles (claves privadas, AWS, Google, GitHub, Slack, JWT); `clave=valor` solo con `ANTHROPIC_PSEUDO_SECRET_KV=1` | `«REDACTED:<tipo>»` | ❌ |
+| 0 | Secretos reconocibles: claves privadas, AWS (access y secret key, session token), Google, GitHub, Slack, JWT, Anthropic, OpenAI, Stripe, Bearer, `refresh_token`, y la contraseña de una cadena de conexión o URL (#148). `clave=valor` genérico solo con `ANTHROPIC_PSEUDO_SECRET_KV=1` | `«REDACTED:<tipo>»`, solo el grupo `secret` si el patrón lo tiene | ❌ |
 | 0b | `pseudo_patterns`: carpeta de proyectos (`dir_…`) y usuario de `/Users/<u>` o `/home/<u>` (`user_…`), ignorando marcadores y nombres genéricos (#92) | grupo 1 → seudónimo | ✅ |
 | 1 | Prefijos de ruta: raíz del repo (`/proj_…`) y home (`/home_…`) | seudónimo de ruta | ✅ |
 | 2 | `pseudo_literals` y usuario/identidad git | `id_…` | ✅ |
