@@ -88,6 +88,23 @@ Debajo de las tarjetas, cada informe muestra en qué se diferencia del inmediata
 | 🧪 Tests | Resultado de `pytest` (⬜ si no hay pytest o no reporta resultados) | 0 fallos y 0 errores | Fallos + errores < 10 % | El resto |
 | 📋 EFDEF | Checklist de compliance (secciones 22 y 23) | ≥ 90 % de checks | ≥ 70 % | < 70 % |
 
+### 🛡️ Proyectos protegidos
+
+Qué repos están bajo el paraguas del proxy (#136). Hay una fila por cada repo git de la carpeta de proyectos (`projects_dirs`, hasta 3 niveles), con la misma lógica que `klaus-scan-repos` (#134):
+
+| Columna | Qué muestra |
+| --- | --- |
+| Repo | Carpeta relativa a la carpeta de proyectos y org/repo de cada remote |
+| Estado | ✅ **Protegido**: todo su org/repo está en `pseudo_word_literals` · ✅ **Sin remote**: solo local; su carpeta la protege `pseudo_patterns` · ⚠️ **Nombre genérico** (`docs`, `api`…): no se protege solo · ❌ **Falta proteger** |
+| Seudónimo | Lo que ve Anthropic, según el vault; `—` si ese nombre aún no ha salido nunca |
+| Última petición | La última captura cuyos remotes de git incluyen ese repo. Claude Code solo los envía en los modos `auto` y `plan` (#68) |
+
+Si falta alguno: `klaus-scan-repos` y reinicia `claude-proxy`. Un nombre genérico privado se añade a mano a `pseudo_word_literals`.
+
+> ⚠️ **Esta tarjeta muestra los nombres reales de tus repos.** El informe es local (`informes/` no se versiona); no compartas el HTML tal cual.
+
+Es informativa: no cambia el estado del plan.
+
 ### 🧹 Retención de capturas
 
 El plan de seguridad muestra la retención activa (#132), para que se vea aunque no se lean las notas de la release:

@@ -138,3 +138,78 @@ def test_launcher_scan_failure_does_not_stop(monkeypatch, capsys):
     monkeypatch.setattr(sr, "scan_and_protect", boom)
     ProxyLauncher().protect_project_repos()
     assert "Exploración de repos no aplicada" in capsys.readouterr().out
+
+
+# --- tarjeta «Proyectos protegidos» del dashboard (#136) ----------------------
+
+
+@pytest.fixture
+def dashboard():
+    import importlib.util
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    spec = importlib.util.spec_from_file_location(
+        "generate_audit_dashboard_projects",
+        root / "scripts" / "generate_audit_dashboard.py",
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_dashboard_projects_card(dashboard, projects, tmp_path):
+    _repo(projects / "local-sin-remote")
+    cfg_dir = tmp_path / "cfg"
+    caps = cfg_dir / "captures"
+    caps.mkdir(parents=True)
+    (cfg_dir / "config.json").write_text(
+        json.dumps(
+            {
+                "projects_dirs": [str(projects)],
+                "pseudo_word_literals": ["cliente-x", "repo-nuevo", "acme"],
+            }
+        )
+    )
+    (caps / ".pseudonym_vault.json").write_text(
+        json.dumps({"cliente-x": "org_aaaa", "repo-nuevo": "org_bbbb"})
+    )
+    remote = {"host": "github.com", "remote": "cliente-x/repo-nuevo"}
+    original = [
+        {
+            "captured_at": f"2026-10-30T10:0{i}:00.5",
+            "payload": {"safeguards": [{"git_state": {"visibility": [remote]}}]},
+        }
+        for i in (1, 3)
+    ]
+    # Una captura solo de sent/ lleva seudónimos: no cuenta
+    original.append({"captured_at": "2026-10-30T11:00:00", "_sent_only": True})
+
+    data = dashboard.audit_projects(cfg_dir, caps, original)
+    by = {r["repo"]: r for r in data["repos"]}
+    assert set(by) == {"uno", "cliente-x/dos", "a/b/tres", "local-sin-remote"}
+    assert by["uno"]["status"] == "ok"
+    assert by["uno"]["pseudonyms"] == ["org_aaaa/org_bbbb"]
+    assert by["uno"]["last_request"] == "2026-10-30T10:03:00"
+    assert by["cliente-x/dos"]["status"] == "missing"
+    assert by["cliente-x/dos"]["missing"] == 3
+    assert by["cliente-x/dos"]["last_request"] is None
+    assert by["a/b/tres"]["status"] == "generic"
+    assert by["a/b/tres"]["generic"] == ["docs"]
+    assert by["local-sin-remote"]["status"] == "no_remote"
+    assert data["protected"] == 2
+
+    html = dashboard._projects_html({"projects": data})
+    assert "2 de 4 repos protegidos" in html
+    assert "❌ Falta proteger" in html and "⚠️ Nombre genérico" in html
+    assert "org_aaaa/org_bbbb" in html
+    assert "klaus-scan-repos" in html
+    assert "no compartas el HTML" in html
+
+
+def test_dashboard_projects_card_edge_cases(dashboard):
+    assert dashboard._projects_html({}) == ""
+    empty = {"dirs": [], "repos": [], "protected": 0}
+    assert "Sin carpeta de proyectos" in dashboard._projects_html({"projects": empty})
+    html = dashboard._projects_html({"projects": {**empty, "dirs": ["/p"]}})
+    assert "Ningún repo git" in html
