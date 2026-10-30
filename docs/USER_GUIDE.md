@@ -81,16 +81,36 @@ Los scripts con `python3 …` se ejecutan desde el clon del repositorio.
 
 ---
 
-## 🔎 Buscar secretos en un proyecto
+## 🔎 Buscar secretos y nombres de negocio en un proyecto
 
-`klaus-scan` revisa **una carpeta de tu disco** (no el tráfico) en busca de claves, credenciales y datos sensibles:
+`klaus-scan` revisa **una carpeta de tu disco**, no el tráfico. Busca claves, credenciales y **nombres de negocio**: los valores que el proxy solo pseudonimiza si tienen una regla (#140).
 
 ```bash
-klaus-scan ~/proyectos/mi-repo --min-confidence HIGH
-klaus-scan ~/proyectos/mi-repo --approve-all   # añade los CRITICAL a las reglas del proxy
+klaus-scan ~/proyectos/mi-repo                       # umbral HIGH por defecto
+klaus-scan ~/proyectos/mi-repo --min-confidence MEDIUM
+klaus-scan ~/proyectos/mi-repo --counts              # solo recuentos por categoría
+klaus-scan ~/proyectos/mi-repo --approve-all         # añade lo detectado a las reglas del proxy
 ```
 
-Los valores aprobados se añaden al vault y a `config.json`; reinicia `claude-proxy` para que se apliquen.
+**Nombres de negocio que detecta** (`--no-business` para desactivarlo):
+
+| Categoría | Qué busca | Confianza |
+| --- | --- | --- |
+| `business-name` | Razón social con forma jurídica (`Cliente X S.L.`, `… GmbH`, `… Inc.`) y titular de copyright | HIGH |
+| `corporate-domain` | Dominios de email no públicos, también los de los autores en `git log` | HIGH |
+| `corporate-domain` | Dominios de URL no públicos y el *tenant* de un SaaS (`cliente-x.atlassian.net`) | MEDIUM |
+| `cloud-project` | ID de proyecto GCP, cuenta AWS, suscripción Azure | HIGH |
+| `package-name` | Scope de npm, vendor de composer, `groupId` de Maven, módulo Go y autores de los manifiestos | MEDIUM |
+| `issue-key` | Clave de proyecto de los IDs de incidencia (`PRJ-123`), a partir de 3 apariciones | LOW |
+
+Cada valor se lista **una vez**, con sus apariciones y la primera ubicación. Lo que ya está en `pseudo_word_literals` o `pseudo_literals` no se lista: solo se cuenta. Los dominios públicos (GitHub, PyPI, Gmail…) y los marcadores de posición (`example.*`, `your-project`) se ignoran.
+
+**La salida no revela los valores.** Cada hallazgo se muestra como `⟨categoría·a1b2c3d4·13c⟩`: un hash con tu SALT más la longitud. El mismo valor da siempre el mismo identificador, así que puedes cruzar hallazgos sin ver ningún carácter. No se muestra contexto, las rutas son relativas a la carpeta escaneada y se enmascara cualquier carpeta que comparta una palabra con un valor detectado. `--json` sigue las mismas reglas. Así puedes pedirle a Claude Code que lo ejecute.
+
+- **`--reveal`** muestra valores y contexto en claro. Úsalo solo en tu terminal: lo que se imprime en una sesión de Claude Code llega al modelo.
+- **Sin terminal interactiva** (por ejemplo, lanzado por Claude Code) no se pregunta nada: termina con el resumen. Para aprobar, usa `--approve-all` o lánzalo tú.
+
+Los valores aprobados se añaden al vault y a `config.json`: a `pseudo_word_literals` si son un único token y a `pseudo_literals` si no. Reinicia `claude-proxy` para que se apliquen.
 
 ---
 
