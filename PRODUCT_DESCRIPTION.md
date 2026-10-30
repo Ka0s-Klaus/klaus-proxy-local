@@ -36,7 +36,7 @@ Todo funciona con **fail-closed**: si el pseudonimizador no ha procesado una pet
 - ✅ **Auditable**: evidencia de captura original vs. enviada
 - ✅ **Sin errores de certificado en el resto de herramientas**: solo se descifra el tráfico de la API; pip, git o brew pasan en túnel con su certificado real y quedan registrados
 - ✅ **Sin configuración inicial**: `install.sh` genera certificados, SALT y configuración; al arrancar dentro de un repo protege su org/repo y la carpeta de proyectos
-- ✅ **Probado**: 746 tests en CI (Python 3.10–3.13), verificador de fugas por pares y audit dashboard
+- ✅ **Probado**: 833 tests en CI (Python 3.10–3.13), verificador de fugas por pares y audit dashboard
 
 ### Casos de uso
 
