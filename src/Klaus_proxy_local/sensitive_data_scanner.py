@@ -1129,7 +1129,9 @@ def _business_finding(
 def _protected_values() -> set[str]:
     """Valores de pseudo_word_literals y pseudo_literals de config.json."""
     try:
-        ps = _import_pseudonymizer()
+        from Klaus_proxy_local.setup import _pseudonymizer
+
+        ps = _pseudonymizer()
         config = json.loads(ps.config_path().read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001 - sin config, nada está protegido
         return set()
@@ -1138,15 +1140,6 @@ def _protected_values() -> set[str]:
         for key in ("pseudo_word_literals", "pseudo_literals")
         for v in (config.get(key) or [])
     }
-
-
-def _import_pseudonymizer():
-    src_path = Path(__file__).resolve().parent.parent
-    if str(src_path) not in sys.path:
-        sys.path.insert(0, str(src_path))
-    import anthropic_payload_pseudonymize
-
-    return anthropic_payload_pseudonymize
 
 
 # --- Main Scanner ---

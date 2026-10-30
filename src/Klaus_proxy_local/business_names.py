@@ -258,7 +258,7 @@ _COPYRIGHT_RE = re.compile(
     re.IGNORECASE,
 )
 _COPYRIGHT_STOP = re.compile(
-    r"\s*(?:all rights reserved|todos los derechos|licen[cs]ed|<|-->|\*/|\(|\[|;|$)",
+    r"\s*(?:all rights reserved|todos los derechos|licen[cs]ed|<|--!?>|\*/|\(|\[|;|$)",
     re.IGNORECASE,
 )
 _COPYRIGHT_GENERIC = re.compile(

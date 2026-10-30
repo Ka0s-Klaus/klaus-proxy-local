@@ -164,7 +164,8 @@ def _salt() -> str:
         if isinstance(config, dict) and config.get("salt"):
             return str(config["salt"])
     except (OSError, ValueError):
-        pass
+        # Sin config.json legible: SALT aleatoria, estable solo en esta ejecución
+        return _RUN_SALT
     return _RUN_SALT
 
 
