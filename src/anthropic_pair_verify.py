@@ -331,7 +331,8 @@ def sensitive_spans(
             return
         # Visto aunque no case: la capa del vault no debe añadirlo como subcadena.
         seen.add(value)
-        if _dir_word_re(value).search(text):
+        # ``in`` antes que la regex: sin prefijo literal, recorre todo el texto.
+        if value in text and _dir_word_re(value).search(text):
             spans.append(Span(value, "org"))
 
     # 1) Regex de forma reconocible, sobre el texto decodificado.
@@ -411,7 +412,7 @@ def diff_leaks(
                 by_pattern[s.pattern] = pattern_values(sent_record, s.pattern)
             return s.value in by_pattern[s.pattern]
         if s.category in ("dir", "org"):
-            return bool(_dir_word_re(s.value).search(haystack))
+            return s.value in haystack and bool(_dir_word_re(s.value).search(haystack))
         if s.category in sent_matches:
             return s.value in sent_matches[s.category]
         return s.value in haystack
