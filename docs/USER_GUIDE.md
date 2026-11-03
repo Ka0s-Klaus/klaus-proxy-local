@@ -76,7 +76,7 @@ Después, **reinicia `claude-proxy`**. También puedes usar `python3 scripts/add
 | `klaus-audit-payloads` | Estadísticas de pseudonimización por payload ([guía](./AUDIT_ALL_PAYLOADS.md)). |
 | `klaus-fix-pseudonymization --show-payloads` | Lista las peticiones que no se pseudonimizaron ([guía](./FIX_PSEUDONYMIZATION.md)). |
 | `python3 scripts/inspect_vault.py --stats` | Qué hay en el vault ([guía](./INSPECT_ANONYMIZATIONS.md)). |
-| `klaus-leak-report [--open] [--reveal]` | Informe de fugas por proyecto: qué datos sensibles tiene cada repo, cuáles no cubre el proxy, qué ha salido en las capturas y el % de cobertura ([ver abajo](#-informe-de-fugas-por-proyecto)). |
+| `klaus-leak-report [--open] [--reveal] [--drill]` | Informe de fugas por proyecto: qué datos sensibles tiene cada repo, cuáles no cubre el proxy, qué ha salido en las capturas y el % de cobertura ([ver abajo](#-informe-de-fugas-por-proyecto)). |
 | `klaus-scan-repos [--dry-run]` | Protege el org/repo de todos los repos de la carpeta de proyectos; úsalo tras clonar uno y reinicia `claude-proxy`. Solo muestra recuentos. |
 | `klaus-prune-captures [--dry-run] [--days N]` | Aplica la retención de capturas sin reiniciar el proxy; `--dry-run` muestra qué se borraría. |
 
@@ -138,7 +138,10 @@ Los valores aprobados se añaden al vault y a `config.json`: a `pseudo_word_lite
 ```bash
 klaus-leak-report --open      # genera informes/fugas/leak-report.html y lo abre
 klaus-leak-report --no-cache  # recalcula todo
+klaus-leak-report --drill     # simulacro: ¿el detector ve una fuga falsa? (#171)
 ```
+
+> 🧯 **¿Te puedes fiar de un «0 fugas»?** `--drill` siembra fugas falsas en un directorio temporal y comprueba que el detector las ve y que el proxy las habría sustituido. No toca tus capturas. Ver [Simulacro de fugas](./guides/LEAK_DRILL.md).
 
 - **Caché:** la primera ejecución analiza todas las capturas y tarda varios minutos. Después solo analiza lo nuevo. Un repo se vuelve a revisar si cambian su commit o sus ficheros. Todo se recalcula si cambian tus reglas o el código de Klaus. La caché está en `~/.klaus-proxy/leak-report-cache.json` y solo guarda identificadores.
 - **Tiempos:** en la instalación del autor, la primera ejecución tardó unos 9 minutos. Tras aprobar cientos de reglas de golpe tardó 20, porque hubo que recalcularlo todo. Con la caché al día tarda unos segundos.

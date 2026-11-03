@@ -237,3 +237,62 @@ def test_dashboard_card_without_report(dashboard, tmp_path):
 
 def test_projects_dirs_used(env):
     assert scan_repos.projects_dirs(scan_repos.load_config()) == [env["projects"]]
+
+
+# --- simulacro (#171) ----------------------------------------------------------------
+
+
+def test_drill_passes_on_healthy_install(env):
+    checks = lr.run_drill(now=NOW)
+    assert checks and all(ok for ok, _ in checks), [t for ok, t in checks if not ok]
+    labels = " ".join(label for _ok, label in checks)
+    for layer in ("palabra protegida", "email", "ruta del home"):
+        assert f"fuga simulada: {layer}" in labels
+
+
+def test_drill_fails_when_detector_is_blind(env, monkeypatch):
+    """Un detector roto que nunca ve fugas es justo lo que busca el simulacro."""
+    import anthropic_pair_verify as pv
+
+    monkeypatch.setattr(pv, "diff_leaks", lambda spans, sent, haystack=None: [])
+    checks = lr.run_drill(now=NOW)
+    failed = [label for ok, label in checks if not ok]
+    assert any("fuga simulada" in label for label in failed)
+    assert any("crítico" in label for label in failed)
+
+
+def test_drill_fails_when_proxy_stops_covering(env, monkeypatch):
+    import anthropic_payload_pseudonymize as ps
+
+    monkeypatch.setattr(ps, "pseudonymize_body", lambda raw, vault, rules: raw)
+    failed = [label for ok, label in lr.run_drill(now=NOW) if not ok]
+    assert failed == [
+        "🛡️ La captura de control, seudonimizada por el proxy, sale limpia"
+    ]
+
+
+def test_drill_cli_touches_nothing_and_shows_no_values(env, capsys, monkeypatch):
+    seen = []
+    real = lr._drill_canaries
+    monkeypatch.setattr(
+        lr, "_drill_canaries", lambda cov: seen.extend(real(cov)) or seen
+    )
+    before = sorted(p.name for p in env["caps"].rglob("*"))
+    with pytest.raises(SystemExit) as exc:
+        lr.main(["--drill"])
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert "Simulacro" in out and "❌" not in out
+    for _layer, _cat, value in seen:
+        assert value not in out
+    assert sorted(p.name for p in env["caps"].rglob("*")) == before
+    assert not (env["tmp"] / "cache.json").exists()
+    assert not (lr.default_reports_dir() / "drill_leak.json").exists()
+
+
+def test_drill_cli_exit_code_on_failure(env, monkeypatch, capsys):
+    monkeypatch.setattr(lr, "run_drill", lambda: [(False, "roto")])
+    with pytest.raises(SystemExit) as exc:
+        lr.main(["--drill"])
+    assert exc.value.code == 1
+    assert "❌ roto" in capsys.readouterr().out
