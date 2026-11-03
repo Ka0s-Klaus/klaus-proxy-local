@@ -1,18 +1,11 @@
-name: Publish to PyPI
+name: Build distribution
 
+# Solo construye y comprueba el paquete; no se publica en PyPI (#165).
+# Los jobs de publicación están en el historial de git si algún día se activan.
 on:
   release:
     types: [published]
   workflow_dispatch:
-    inputs:
-      pypi_environment:
-        description: 'PyPI environment (testpypi or pypi)'
-        required: true
-        default: 'testpypi'
-        type: choice
-        options:
-          - testpypi
-          - pypi
 
 permissions:
   contents: read
@@ -23,7 +16,7 @@ jobs:
     name: Build distribution
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -42,53 +35,7 @@ jobs:
         run: twine check dist/*
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
-
-  publish-testpypi:
-    needs: build
-    runs-on: ubuntu-latest
-    name: Publish to TestPyPI
-    environment:
-      name: testpypi
-      url: https://test.pypi.org/project/Klaus-proxy-local
-    permissions:
-      id-token: write
-
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.pypi_environment == 'testpypi'
-
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: dist
-          path: dist/
-
-      - name: Publish to TestPyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-
-  publish-pypi:
-    needs: build
-    runs-on: ubuntu-latest
-    name: Publish to PyPI
-    environment:
-      name: pypi
-      url: https://pypi.org/project/Klaus-proxy-local
-    permissions:
-      id-token: write
-
-    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.pypi_environment == 'pypi')
-
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: dist
-          path: dist/
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
