@@ -17,5 +17,6 @@ Para el estado actual, ve al [README](../../README.md), a la [guía de inicio r�
 | [PRUEBA_FUGA_Y_REMEDIACION.md](./PRUEBA_FUGA_Y_REMEDIACION.md) | Prueba de una fuga y su remedio | Registro de una prueba puntual |
 | [PR_TEMPLATE.md](./PR_TEMPLATE.md) | Plantilla de PR | Duplicaba la vigente, [`.github/PULL_REQUEST_TEMPLATE.md`](../../.github/PULL_REQUEST_TEMPLATE.md) |
 | [DOCUMENTATION_STYLE.md](./DOCUMENTATION_STYLE.md) | Guía de estilo de la documentación | Cita documentos que nunca existieron |
+| [README_v0.3_SECCIONES.md](./README_v0.3_SECCIONES.md) | Certificados SSL/TLS «(v0.3.0+)» y «What's New in v0.3.1 / v0.3.2», antes en el README | El README describe la versión actual; el marcador del bloque de shell ya no es el de `klaus-setup` (#177) |
 
 Las notas de cada release (`docs/RELEASE_v*_NOTES.md`) y el [CHANGELOG](../../CHANGELOG.md) también son históricos por naturaleza, pero se quedan en su sitio: cada una describe su versión.

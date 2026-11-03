@@ -36,10 +36,12 @@ El proxy es `mitmdump` (mitmproxy) con **cinco addons**, lanzado por `claude-pro
 
 1. **Configuración** (`setup.py`): crea `~/.klaus-proxy/config.json` con una SALT aleatoria si no existe, y exporta la SALT al entorno de `mitmdump`.
 2. **Org/repo y carpeta de proyectos**: si se arranca dentro de un repo, guarda su org/repo en `pseudo_word_literals` (#61) y añade un `pseudo_patterns` para la carpeta que lo contiene (#42).
-3. **Certificados** (`certs.py`): genera la CA de mitmproxy si falta, y escribe `ca-bundle.pem` (CAs del sistema + CA del proxy) y `klaus-env.sh`.
-4. **Snapshot de addons** (`addons_snapshot.py`, #71): copia los cinco addons a `~/.klaus-proxy/addons/<hash>/` (ficheros `0400`). mitmproxy recarga los scripts cuando cambian en disco; ejecutarlos desde el clon permitía que un `git checkout` cambiase o rompiese el pseudonimizador en marcha.
-5. **Panel de arranque**: commit de los addons, org/repo protegidos y `pseudo_patterns` activos.
-6. **`mitmdump`** con los addons en este orden y `--listen-host` en loopback (#47). Ctrl+C o SIGTERM lo paran limpiamente (#51).
+3. **Todos los repos de la carpeta de proyectos** (`scan_repos.py`, #134): recorre `projects_dirs` (por defecto, la carpeta padre del repo de arranque; hasta 3 niveles) y añade el org/repo de cada remote a `pseudo_word_literals`. Es lo mismo que hace `klaus-scan-repos` a mano. Un fallo aquí no impide arrancar.
+4. **Retención de capturas** (`capture_retention.py`, #132): **borra los pares de capturas de más de `capture_retention_days` días** (30 por defecto; `0` = sin límite). Para conservar evidencia, muévela antes a `captures/archive/`, que no se toca. Un fallo de disco no impide arrancar.
+5. **Certificados** (`certs.py`): genera la CA de mitmproxy si falta, y escribe `ca-bundle.pem` (CAs del sistema + CA del proxy) y `klaus-env.sh`.
+6. **Snapshot de addons** (`addons_snapshot.py`, #71): copia los cinco addons a `~/.klaus-proxy/addons/<hash>/` (ficheros `0400`). mitmproxy recarga los scripts cuando cambian en disco; ejecutarlos desde el clon permitía que un `git checkout` cambiase o rompiese el pseudonimizador en marcha.
+7. **Panel de arranque**: commit de los addons, org/repo protegidos y `pseudo_patterns` activos.
+8. **`mitmdump`** con los addons en este orden y `--listen-host` en loopback (#47). Ctrl+C o SIGTERM lo paran limpiamente (#51).
 
 ---
 
@@ -87,6 +89,8 @@ Al cargar registra `🔓 Se descifra solo: …`. `"intercept_all": true` en `con
 
 Guarda cada petición a un host auditado como un par con el mismo nombre: `captures/original/` (antes de pseudonimizar; las cabeceras de autenticación, redactadas) y `captures/sent/` (lo que salió). Ficheros `0600`.
 
+Con `"capture_originals": false` en `config.json` (#132) solo guarda `sent/`: no quedan datos reales en claro en disco, pero sin `original/` no hay verificación por pares ni `klaus-leak-report` de esas capturas.
+
 ### 🚧 `klaus_pseudo_guard.py` (#71)
 
 Último. Si una petición no lleva la marca del pseudonimizador (no está cargado o falló al recargarse), responde **502** y la petición no sale. Es lo que hace el proxy *fail-closed*. Además, si el pseudonimizador no consigue reescribir un cuerpo, aborta la petición en lugar de dejarla salir con el original.
@@ -104,6 +108,9 @@ No corren dentro de `mitmdump`; trabajan sobre las capturas o sobre tu disco:
 | `src/anthropic_pair_verify.py` | Compara cada `original` con su `sent` y marca los valores reales que hayan salido, por capas (email, IPv4, ruta, identidad, org, `pattern`, `dir`, vault) |
 | `klaus-audit-dashboard` | 5 planes de auditoría, histórico en `informes/` y avisos de prompt injection |
 | `klaus-scan` (`sensitive_data_scanner.py`, `business_names.py`) | Busca secretos en una carpeta (patrones, contexto como nombres de variable o `.env`, y entropía) y nombres de negocio: razón social, dominios corporativos, IDs cloud, identidad de paquete (#140). Su salida no revela los valores, salvo con `--reveal`. Lo aprobado va al vault y a `config.json` (#99) |
+| `klaus-leak-report` (`leak_report.py`) | Por proyecto: qué datos sensibles tiene (como `klaus-scan`), cuáles no cubre ninguna regla, cuáles han salido en las capturas y el % de cobertura (#146). `--drill` siembra fugas falsas en un directorio temporal y comprueba que se detectan (#171) |
+| `klaus-scan-repos` (`scan_repos.py`) | Añade a `pseudo_word_literals` el org/repo de todos los repos de `projects_dirs` (#134); `claude-proxy` lo hace al arrancar |
+| `klaus-prune-captures` (`capture_retention.py`) | Borra las capturas de más de `capture_retention_days` días (#132); `claude-proxy` lo hace al arrancar |
 | `scripts/prune_vault.py` | Quita del vault valores que los patrones ya ignoran (#92) |
 
 ---

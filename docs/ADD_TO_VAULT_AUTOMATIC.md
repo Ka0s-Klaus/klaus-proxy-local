@@ -2,6 +2,8 @@
 
 Este documento te muestra cómo **escanear una carpeta automáticamente y añadir todos los datos sensibles al vault sin intervención manual**.
 
+> 💡 **Desde la v0.8, la herramienta recomendada es `klaus-scan`** ([guía de uso](./USER_GUIDE.md#-buscar-secretos-y-nombres-de-negocio-en-un-proyecto)): además de secretos detecta **nombres de negocio** (clientes, dominios corporativos, IDs cloud, #140), que `add_to_vault.py` no busca. Tampoco muestra los valores y te deja aprobar uno a uno. `add_to_vault.py` sigue sirviendo para añadir secretos en bloque sin preguntas.
+
 ## ⚡ Quick Start (2 comandos)
 
 ```bash
@@ -492,5 +494,5 @@ python3 scripts/add_to_vault.py /carpeta/a/auditar \
 ---
 
 **Documento:** ADD_TO_VAULT_AUTOMATIC.md  
-**Versión:** 0.3.0  
-**Última actualización:** Septiembre 3, 2026
+**Versión:** 0.3.0 · **Revisado en:** v0.9.0 (#177)  
+**Última actualización:** Noviembre 3, 2026

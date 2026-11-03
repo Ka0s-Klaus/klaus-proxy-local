@@ -2,10 +2,7 @@
 
 **Objetivo:** Revisar todos los payloads capturados en `captures/original/` y `captures/sent/` para identificar valores sensibles que deberían estar pseudonimizados pero no están en el vault.
 
-**Estado Actual:**
-- 📁 **18,043 payloads** capturados (original/ + sent/)
-- 🔐 **259 valores** en vault (.pseudonym_vault.json)
-- ✅ **465 tests** pasando
+> ℹ️ **Revisado en v0.9.0.** Para la vista por proyecto (qué no cubre el proxy, qué ha salido y el % de cobertura), el punto de partida es [`klaus-leak-report`](./USER_GUIDE.md#-informe-de-fugas-por-proyecto). Esta guía cubre el análisis detallado de las capturas.
 
 ---
 
@@ -268,8 +265,9 @@ Acción: confirmar con python3 src/anthropic_pair_verify.py (sin muestreo)
 
 Acción:
 1. Identifica qué valores se filtraron
-2. Añádelos manualmente al vault
-3. Re-ejecuta audit para verificar
+2. Añádelos a las reglas de config.json (pseudo_word_literals /
+   pseudo_literals) y reinicia claude-proxy: el vault solo no protege
+3. Re-ejecuta el audit (o klaus-leak-report) para verificar
 4. Investiga por qué se filtraron (revisar regex patterns)
 ```
 

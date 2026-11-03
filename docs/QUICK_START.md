@@ -74,18 +74,22 @@ claude
 **Atajos:**
 
 - **`claude-with-proxy`** (instalado por `install.sh`): hace el `source` y el `export` por ti, y se niega a lanzar `claude` si el proxy no está escuchando.
-- **`klaus-setup`**: añade a tu shell un bloque que, en cada terminal nueva, carga `klaus-env.sh`, arranca `claude-proxy` en segundo plano si no está en marcha y exporta `HTTPS_PROXY`. Así basta con `claude`. **Todo** el HTTPS de la terminal pasa por el proxy (pip, git…) y queda registrado, pero solo se descifra la API del LLM: el resto va en túnel con su certificado real, sin errores de certificado. `klaus-off` / `klaus-on` quitan o restauran el proxy en una terminal. Detalle en el [README](../README.md#setup-options).
+- **`klaus-setup`**: añade a tu shell un bloque que, en cada terminal nueva, carga `klaus-env.sh`, arranca `claude-proxy` en segundo plano si no está en marcha y exporta `HTTPS_PROXY`. Así basta con `claude`. **Todo** el HTTPS de la terminal pasa por el proxy (pip, git…) y queda registrado, pero solo se descifra la API del LLM: el resto va en túnel con su certificado real, sin errores de certificado. `klaus-off` / `klaus-on` quitan o restauran el proxy en una terminal. Detalle en el [README](../README.md#opciones-de-configuración).
 
 ---
 
 ## 4️⃣ Comprobar qué ha salido
 
 ```bash
+klaus-leak-report --open                  # por proyecto: qué no cubre el proxy, qué ha salido, % de cobertura
+klaus-leak-report --drill                 # simulacro: ¿el detector ve una fuga falsa?
+klaus-scan ~/proyectos/mi-repo            # detecta secretos y nombres de negocio; apruebas los que proteger
+klaus-audit-dashboard --open              # dashboard con 5 planes de auditoría
 # Desde el clon del repositorio
 python3 src/anthropic_pair_verify.py      # ¿algún valor real en lo enviado?
-klaus-audit-dashboard --open              # dashboard con 5 planes de auditoría
 ```
 
+- `klaus-leak-report` es el punto de partida: si un proyecto sale 🟡 o 🔴, aprueba sus valores con `klaus-scan`, **reinicia `claude-proxy`** y vuelve a medir ([guía](./USER_GUIDE.md#-informe-de-fugas-por-proyecto)).
 - `anthropic_pair_verify.py` compara cada `original` con su `sent` y marca lo que haya salido en claro.
 - El [audit dashboard](./reports/web/README.md) guarda cada informe en `informes/` y muestra los cambios respecto al anterior.
 
