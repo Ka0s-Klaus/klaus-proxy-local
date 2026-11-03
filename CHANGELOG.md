@@ -9,8 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.9.0] — 2026-11-03
+
 ### Added
 - **Simulacro de fugas: `klaus-leak-report --drill`** (#171) — Un «0 fugas» puede significar que el proxy lo cubre todo o que el detector se ha roto. El simulacro crea un directorio temporal, carga tus reglas reales y siembra valores canario en tres capas: palabra protegida, email y ruta del home. Genera un par con la fuga simulada (`sent` = `original`) y otro de control seudonimizado por el proxy real, y comprueba que el detector ve la fuga en cada capa, que el control sale limpio, que se atribuye al proyecto y que el informe lo marcaría 🔴. Sale con `1` si algo falla. No toca capturas, vault, caché ni `informes/`, y no muestra valores. Guía: [docs/guides/LEAK_DRILL.md](docs/guides/LEAK_DRILL.md).
+
+### Fixed
+- **El paquete anunciaba Python 3.9** (#175) — `pyproject.toml` incluía el classifier `Python :: 3.9` y `ruff`/`black` apuntaban a `py39`, aunque `requires-python` es `>=3.10` y el CI prueba de la 3.10 a la 3.13. Ahora todo dice 3.10. No cambia el formato ni el lint del código.
 
 ---
 
