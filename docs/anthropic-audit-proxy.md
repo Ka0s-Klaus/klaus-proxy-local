@@ -306,7 +306,7 @@ descubrir qué identificadores añadir a `ANTHROPIC_PSEUDO_WORD_LITERALS`
 | `--survivors` | Modo descubrimiento (tabla de slugs candidatos) | off |
 | `--min-count N` | En `--survivors`, umbral mínimo de pares por slug | `1` |
 
-> 🧪 Tests en [`tests/test_anthropic_pair_verify.py`](../tests/test_anthropic_pair_verify.py) (26):
+> 🧪 Tests en [`tests/test_anthropic_pair_verify.py`](../tests/test_anthropic_pair_verify.py) (49):
 > emparejado y huérfanos, cada categoría HARD/SECRET con y sin fuga, `_MIN_LEAK_LEN`,
 > `message_text` (excluye system/tools/cabeceras), `collect_survivors`, códigos de
 > salida y la regresión del hallazgo (slug de otro proyecto no seudonimizado).

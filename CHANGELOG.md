@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Documentation
+- **La documentación refleja la v0.9.0** (#177) — Revisión contra el código de comandos, opciones, rutas, enlaces, variables y módulos. El inicio rápido (README y `QUICK_START.md`) incluye el flujo actual: `klaus-scan` → reiniciar → `klaus-leak-report` (`--drill`). La arquitectura añade dos pasos que `claude-proxy` hace al arrancar: proteger todos los repos de la carpeta de proyectos (#134) y **borrar las capturas de más de 30 días** (#132). También añade `capture_originals` y las herramientas `klaus-leak-report`, `klaus-scan-repos` y `klaus-prune-captures`. Se corrigen una variable inexistente (`ANTHROPIC_DEBUG`), un `rm -rf` de capturas que ignoraba la retención, un consejo de «añadir al vault» que no protege nada y los recuentos de tests. Las guías del vault indican que `klaus-scan` es la herramienta recomendada, porque además detecta nombres de negocio. Las secciones de la época v0.3 del README pasan al archivo histórico.
+
 ---
 
 ## [0.9.0] — 2026-11-03

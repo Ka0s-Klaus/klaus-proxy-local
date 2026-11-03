@@ -365,5 +365,5 @@ echo "Capturas enviadas: $(ls ~/.klaus-proxy/captures/sent/ | wc -l)"
 ---
 
 **Documento:** INSPECT_ANONYMIZATIONS.md  
-**Versión:** 0.3.0  
-**Última actualización:** Septiembre 3, 2026
+**Versión:** 0.3.0 · **Revisado en:** v0.9.0 (#177)  
+**Última actualización:** Noviembre 3, 2026

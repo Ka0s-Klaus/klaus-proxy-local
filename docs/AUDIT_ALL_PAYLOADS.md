@@ -315,22 +315,21 @@ A: Common reasons:
 **Q: What if pseudonymization is 0%?**
 
 A: Check:
-1. Is `ANTHROPIC_PSEUDO_ENABLE=1` set?
-2. Are pseudonymization patterns defined?
-3. Run proxy with verbose logging: `ANTHROPIC_DEBUG=1 claude-proxy`
+1. Pseudonymization is on by default: was `claude-proxy` started with `ANTHROPIC_PSEUDO_ENABLE=0`?
+2. Do your rules cover the values? `klaus-leak-report` shows, per project, what no rule covers.
+3. Read the proxy log, which records startup, warnings and one line per request: `tail -f ~/.klaus-proxy/logs/proxy.log`.
 
 ---
 
 **Q: Can I delete captures after auditing?**
 
-A: Yes, they're archived in `~/.klaus-proxy/captures/`:
+A: You don't need to: `claude-proxy` already deletes, at every start, the captures older than `capture_retention_days` (30 by default; `0` = no limit) (#132). To do it by hand:
 ```bash
-# Safe to delete after audit
-rm -rf ~/.klaus-proxy/captures/sent/*.json
-rm -rf ~/.klaus-proxy/captures/original/*.json
-
-# But keep audit reports if needed for compliance
+klaus-prune-captures --dry-run   # what would be deleted
+klaus-prune-captures             # delete
 ```
+
+⚠️ Captures are the evidence of what was sent. Move the ones you want to keep (e.g. pairs with leaks) to `~/.klaus-proxy/captures/archive/` first: retention never touches it.
 
 ---
 

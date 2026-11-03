@@ -32,11 +32,12 @@ Todo funciona con **fail-closed**: si el pseudonimizador no ha procesado una pet
 - ✅ **Determinista**: el mismo email siempre → el mismo seudónimo (gracias a SALT y hashing)
 - ✅ **Reversible**: bidireccional real ↔ pseudónimo (vault persistente)
 - ✅ **Transparent**: Claude sigue viéndose igual; los tool calls funcionan sin cambios
-- ✅ **Detección de secretos en tu disco**: `klaus-scan` busca credenciales en un proyecto por patrones, contexto y entropía, y las añade a las reglas del proxy
+- ✅ **Detección de secretos en tu disco**: `klaus-scan` busca en un proyecto credenciales (por patrones, contexto y entropía) y nombres de negocio (clientes, dominios corporativos, IDs cloud), sin mostrar los valores, y añade a las reglas del proxy los que apruebes
 - ✅ **Auditable**: evidencia de captura original vs. enviada
 - ✅ **Sin errores de certificado en el resto de herramientas**: solo se descifra el tráfico de la API; pip, git o brew pasan en túnel con su certificado real y quedan registrados
 - ✅ **Sin configuración inicial**: `install.sh` genera certificados, SALT y configuración; al arrancar dentro de un repo protege su org/repo y la carpeta de proyectos
-- ✅ **Probado**: 833 tests en CI (Python 3.10–3.13), verificador de fugas por pares y audit dashboard
+- ✅ **Fugas medidas, no supuestas**: `klaus-leak-report` dice por proyecto qué datos sensibles no cubre el proxy, cuáles han salido y el % de cobertura; `--drill` comprueba con fugas simuladas que el detector funciona
+- ✅ **Probado**: 841 tests en CI (Python 3.10–3.13), verificador de fugas por pares y audit dashboard
 
 ### Casos de uso
 
