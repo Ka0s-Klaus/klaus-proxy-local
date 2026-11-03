@@ -159,7 +159,7 @@ Para saber si el proxy protege **ahora**, mira las capturas con fugas posteriore
 
 **Un proyecto sigue en 🔴 con cobertura del 100 %** si tiene alguna fuga en los últimos 30 días. Deja de estarlo cuando esas capturas superan los 30 días. La retención (#132) las borra a esa edad: si quieres conservar la evidencia, muévelas antes a `~/.klaus-proxy/captures/archive/`.
 
-**Falso positivo conocido (#158):** una regla de `pseudo_word_literals` que aparece **dentro** de otra palabra cuenta como fuga, aunque el proxy hace bien en no tocarla. Por ejemplo, la regla `fabri` en `tailspinfabri`. Mientras no se corrija, una fuga de categoría `org` posterior al reinicio puede ser esto.
+**Reglas de una sola palabra:** igual que el proxy, el informe solo cuenta una regla de `pseudo_word_literals` como fuga cuando aparece como palabra completa. La regla `fabri` dentro de `tailspinfabri` no se sustituye ni es fuga (#158).
 
 ---
 
