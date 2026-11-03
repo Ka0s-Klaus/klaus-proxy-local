@@ -155,8 +155,7 @@ Lo mismo con `config.json`: las reglas nuevas (`pseudo_literals`, `pseudo_word_l
 Es lo esperado justo después de aprobar reglas. El informe busca tus reglas actuales en las capturas antiguas, así que lo enviado antes de aprobarlas ahora cuenta como fuga. El proyecto sigue en 🔴 hasta que esas capturas superen los 30 días.
 
 - **Para saber si hay fugas ahora:** mira solo las capturas con fugas posteriores al último reinicio de `claude-proxy` (última línea `🧩 Addons:` de `~/.klaus-proxy/logs/proxy.log`). Más detalle en la [guía de uso](./USER_GUIDE.md#cómo-leer-las-fugas-después-de-aprobar-reglas).
-- **Si hay alguna posterior de categoría `org`:** puede ser el falso positivo de una regla que aparece dentro de otra palabra (#158).
-- **Si hay otra posterior:** ver «Un valor sale en claro».
+- **Si hay alguna posterior:** ver «Un valor sale en claro».
 
 ---
 
