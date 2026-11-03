@@ -549,6 +549,7 @@ Release notes no conservadas en `docs/`.
 | [🌐 Audit Dashboard](./docs/reports/web/README.md) | Dashboard HTML interactivo de auditoría |
 | [🛠️ Troubleshooting](./docs/TROUBLESHOOTING.md) | Solución de problemas comunes |
 | [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
+| [🧯 Simulacro de fugas](./docs/guides/LEAK_DRILL.md) | `klaus-leak-report --drill`: ¿el detector ve una fuga? |
 | [🚀 Release v0.8.1](./docs/RELEASE_v0.8.1_NOTES.md) | Notas de la última release |
 
 ---

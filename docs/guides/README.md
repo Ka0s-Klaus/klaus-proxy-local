@@ -24,6 +24,7 @@ Todo lo que necesitas para **usar, operar y solucionar problemas** de Klaus Prox
 | [📊 Audit Captures Guide](../AUDIT_CAPTURES_GUIDE.md) | Análisis multi-modo completo de capturas |
 | [📈 Generate Reports Guide](../GENERATE_REPORTS_GUIDE.md) | Generación automática de informes |
 | [🔍 Audit All Payloads](../AUDIT_ALL_PAYLOADS.md) | Auditoría masiva de todos los payloads |
+| [🧯 Simulacro de fugas](./LEAK_DRILL.md) | `klaus-leak-report --drill`: comprobar que un «0 fugas» es fiable |
 
 ---
 

@@ -19,6 +19,7 @@ Uso:
     klaus-leak-report                 # informe en informes/fugas/
     klaus-leak-report --open          # y abrirlo en el navegador
     klaus-leak-report --reveal        # valores en claro (solo en tu terminal)
+    klaus-leak-report --drill         # simulacro: ¿el detector ve una fuga? (#171)
 """
 from __future__ import annotations
 
@@ -28,8 +29,10 @@ import html
 import json
 import os
 import re
+import secrets
 import subprocess
 import sys
+import tempfile
 import webbrowser
 from collections import Counter
 from datetime import datetime, timedelta
@@ -632,6 +635,142 @@ def load_latest(reports_dir: Path) -> dict | None:
     return data if isinstance(data, dict) and "projects" in data else None
 
 
+# --- Simulacro (#171) ------------------------------------------------------------
+
+DRILL_PROJECT = "/klaus-drill/proyecto"
+
+
+def _drill_canaries(coverage: Coverage) -> list[tuple[str, str, str]]:
+    """Valores canario, uno por capa de detección: (capa, categoría, valor).
+
+    La palabra y el email son inventados; la ruta usa la regla real del home
+    del proxy, que es lo que más importa proteger. La palabra se añade solo a
+    las reglas en memoria de este simulacro.
+    """
+    tag = secrets.token_hex(4)
+    word = f"klausdrill{tag}"
+    coverage.rules.add_word_literals([word])
+    canaries = [
+        ("palabra protegida", "org", word),
+        ("email", "email", f"drill.{tag}@klaus-drill.invalid"),
+    ]
+    prefixes = [p for p, _label in coverage.rules.path_prefixes]
+    if prefixes:
+        home = str(Path.home())
+        prefix = home if home in prefixes else prefixes[0]
+        canaries.append(("ruta del home", "path", prefix))
+    return canaries
+
+
+def _drill_payload(canaries: list[tuple[str, str, str]]) -> dict:
+    word, email = canaries[0][2], canaries[1][2]
+    text = f"Revisa el informe de {word} y escribe a {email}."
+    if len(canaries) > 2:
+        text += f" Está en {canaries[2][2]}/klaus-drill/notas.md"
+    return {
+        "system": [
+            {"type": "text", "text": f"Primary working directory: {DRILL_PROJECT}\n"}
+        ],
+        "messages": [{"role": "user", "content": text}],
+    }
+
+
+def _drill_write(base: Path, name: str, original: dict, sent: dict, ts: str) -> None:
+    for sub, body in (("original", original), ("sent", sent)):
+        d = base / sub
+        d.mkdir(parents=True, exist_ok=True)
+        record = {"captured_at": ts, "path": "/v1/messages", "payload": body}
+        write_private(d / name, json.dumps(record, ensure_ascii=False))
+
+
+def run_drill(now: datetime | None = None) -> list[tuple[bool, str]]:
+    """Simulacro: siembra fugas falsas y comprueba que el informe las ve.
+
+    Todo ocurre en un directorio temporal: no toca las capturas reales, la
+    caché ni ``informes/``. Devuelve (ok, descripción) por comprobación, sin
+    valores en claro.
+    """
+    now = now or datetime.now()
+    ts = now.isoformat(timespec="seconds")
+    checks: list[tuple[bool, str]] = []
+    with tempfile.TemporaryDirectory(prefix="klaus-drill-") as tmp:
+        base = Path(tmp)
+        coverage = Coverage(base)
+        canaries = _drill_canaries(coverage)
+        original = _drill_payload(canaries)
+        ps = coverage.ps
+        protected = json.loads(
+            ps.pseudonymize_body(
+                json.dumps(original, ensure_ascii=False), coverage.vault, coverage.rules
+            )
+        )
+        _drill_write(base, "drill_leak.json", original, original, ts)
+        _drill_write(base, "drill_control.json", original, protected, ts)
+
+        projects = [{"path": DRILL_PROJECT}]
+        cache = {"version": CACHE_VERSION, "repos": {}, "captures": {}}
+        result = scan_captures(base, projects, {}, coverage, cache)
+        leak = result.get("drill_leak.json", {})
+        control = result.get("drill_control.json", {})
+
+        found = {(i["category"], i["id"]) for i in leak.get("leaks", [])}
+        for layer, category, value in canaries:
+            checks.append(
+                (
+                    (category, safe_id(value, category)) in found,
+                    f"🔥 El detector ve la fuga simulada: {layer}",
+                )
+            )
+            checks.append(
+                (
+                    coverage.covers(value),
+                    f"🛡️ El proxy sustituye el canario: {layer}",
+                )
+            )
+        checks.append(
+            (
+                not control.get("leaks") and not control.get("skipped"),
+                "🛡️ La captura de control, seudonimizada por el proxy, sale limpia",
+            )
+        )
+        checks.append(
+            (
+                leak.get("project") == DRILL_PROJECT,
+                "📁 La captura se atribuye a su proyecto por el directorio de trabajo",
+            )
+        )
+        scan = {"values": [], "already_protected": 0}
+        recent_cut = (now - timedelta(days=RECENT_DAYS)).isoformat(timespec="seconds")
+        # Solo la fuga simulada: cada comprobación falla por una sola causa
+        summary = _project_summary(
+            {"name": "simulacro", "scan": scan},
+            [("drill_leak.json", leak)],
+            recent_cut,
+        )
+        checks.append(
+            (
+                summary["status"] == "critical" and summary["leaks"]["recent"] == 1,
+                "🔴 El informe marcaría el proyecto como crítico",
+            )
+        )
+    return checks
+
+
+def _print_drill(checks: list[tuple[bool, str]]) -> bool:
+    print("🧯 Simulacro de fugas (directorio temporal, sin tocar tus capturas)")
+    for ok, label in checks:
+        print(f"  {'✅' if ok else '❌'} {label}")
+    passed = all(ok for ok, _ in checks)
+    if passed:
+        print("✅ El detector y el proxy responden como deben.")
+    else:
+        print(
+            "❌ El simulacro ha fallado: un «0 fugas» del informe no es fiable "
+            "hasta corregirlo."
+        )
+    return passed
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="klaus-leak-report",
@@ -658,7 +797,18 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument("--no-cache", action="store_true", help="Recalcula todo")
     parser.add_argument("--open", action="store_true", help="Abre el informe")
+    parser.add_argument(
+        "--drill",
+        action="store_true",
+        help=(
+            "Simulacro: siembra fugas falsas en un directorio temporal y "
+            "comprueba que se detectan (no toca tus capturas)"
+        ),
+    )
     args = parser.parse_args(argv)
+
+    if args.drill:
+        sys.exit(0 if _print_drill(run_drill()) else 1)
 
     from Klaus_proxy_local import capture_retention
 
