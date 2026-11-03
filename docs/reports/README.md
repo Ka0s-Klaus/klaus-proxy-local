@@ -24,6 +24,14 @@ Otros informes locales:
 
 ---
 
+## 🧪 Spikes y pruebas de concepto
+
+| Informe | Descripción |
+|---|---|
+| [🧪 Spike fase 0 de la versión servidor (macOS)](./SPIKE_131_FASE0_MACOS.md) | R1/R2/R3 de #131: suscripción de claude.ai por un gateway propio, cabecera por usuario, latencia (#172) |
+
+---
+
 ## 🚀 Notas de releases
 
 | Versión | Documento |

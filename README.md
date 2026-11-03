@@ -550,6 +550,7 @@ Release notes no conservadas en `docs/`.
 | [🛠️ Troubleshooting](./docs/TROUBLESHOOTING.md) | Solución de problemas comunes |
 | [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
 | [🚀 Release v0.8.1](./docs/RELEASE_v0.8.1_NOTES.md) | Notas de la última release |
+| [🧪 Spike versión servidor](./docs/reports/SPIKE_131_FASE0_MACOS.md) | Fase 0 de #131 en macOS: la suscripción funciona vía gateway |
 
 ---
 
