@@ -532,7 +532,9 @@ def main(argv: list[str] | None = None) -> NoReturn:
         if new_findings:
             conf_counts = {}
             for f in new_findings:
-                conf_counts[f.confidence.name] = conf_counts.get(f.confidence.name, 0) + 1
+                conf_counts[f.confidence.name] = (
+                    conf_counts.get(f.confidence.name, 0) + 1
+                )
             counts_str = ", ".join(f"{n} {c}" for c, n in sorted(conf_counts.items()))
             print(
                 f"\nⓘ No interactive terminal — {len(new_findings)} finding(s) pending review ({counts_str})."
