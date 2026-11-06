@@ -183,8 +183,29 @@ Para saber si el proxy protege **ahora**, mira las capturas con fugas posteriore
 | `capture_retention_days` | Días que se conservan las capturas; se borran las más antiguas al arrancar `claude-proxy` (por defecto `30`; `0` = sin límite) |
 | `capture_originals` | `false` para no guardar `original/`: sin datos reales en claro, pero sin verificación por pares (por defecto `true`) |
 | `audit_injection_reviewed` | Avisos de prompt injection marcados como revisados en el dashboard |
+| `sentinel_enabled` | Centinela de fugas: avisa de datos nuevos sin regla tras cada petición (por defecto `true`). Ver [Centinela](#-centinela-de-fugas) |
+| `sentinel_min_confidence` | Confianza mínima que avisa: `MEDIUM` (por defecto, todo salvo LOW), `HIGH` o `CRITICAL` |
+| `sentinel_notify` | `true` para una notificación del sistema por sesión (solo macOS). Por defecto `true` |
 
 Las variables de entorno (`ANTHROPIC_PSEUDO_*`, `ANTHROPIC_CAPTURE_*`, `KLAUS_INTERCEPT_ALL`, `KLAUS_LOG_DIR`) están en el [runbook](./anthropic-audit-proxy.md#configuración-por-entorno). Se aplican al proceso de `claude-proxy`, así que hay que exportarlas antes de arrancarlo.
+
+---
+
+## 🔔 Centinela de fugas
+
+Un dato **nuevo**, sin regla, sale en claro en la petición en la que aparece, y se reenvía en todas las siguientes de la sesión. El centinela (#187) lo detecta **después del envío** y avisa, para que lo revises cuanto antes.
+
+- **Qué analiza:** el último mensaje de cada petición (turno del usuario y `tool_result`), con los mismos detectores que `klaus-scan`.
+- **Qué avisa:** valores que el proxy **no** sustituiría con sus reglas actuales, con confianza igual o superior a `sentinel_min_confidence`.
+- **Cómo avisa:** una notificación por sesión (directorio de trabajo + día), con el recuento. Un mismo valor avisa una vez por sesión.
+- **Dónde queda el registro:** `~/.klaus-proxy/alerts.jsonl`, una línea JSON por aviso. **Nunca guarda el valor**, solo `⟨categoría·hash·longitud⟩`.
+- **Coste:** se ejecuta en segundo plano. Medido en #185: p95 ≈ 2 ms por petición.
+
+> ⚠️ **No es una barrera.** Cuando avisa, el dato ya ha salido en esa petición. Por eso importa tanto la recarga en caliente: cuando apruebas una regla, se aplica en la **siguiente** petición, sin reiniciar `claude-proxy`.
+
+**Límites:** no ve datos sin forma reconocible, como un nombre de proyecto dentro de una frase. Ver [ADR-002](./decisions/ADR-002-centinela-klaus-alerts.md) y #179.
+
+**Para revisar un aviso** (hasta que exista `klaus-alerts`, #189): abre `~/.klaus-proxy/alerts.jsonl`, o ejecuta `klaus-scan <proyecto> --reveal` en tu terminal, apruébalo y el proxy lo aplicará desde la siguiente petición.
 
 ---
 

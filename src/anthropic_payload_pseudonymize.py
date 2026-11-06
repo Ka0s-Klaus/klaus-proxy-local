@@ -1362,6 +1362,37 @@ def fail_closed_body(exc: Exception) -> bytes:
 # --- Hooks de mitmproxy ------------------------------------------------------
 
 
+def _state_fingerprint() -> tuple:
+    """Huella de config.json y del vault: cambia si alguien los edita (#187, A)."""
+    out = []
+    for path in (config_path(), vault_path()):
+        try:
+            st = path.stat()
+            out.append((st.st_mtime_ns, st.st_size))
+        except OSError:
+            out.append(None)
+    return tuple(out)
+
+
+def _read_config() -> dict:
+    try:
+        data = json.loads(config_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _load_vault_strict() -> "Vault | None":
+    """Vault de disco; None si existe pero no se puede leer (se conserva el actual)."""
+    path = vault_path()
+    if not path.exists():
+        return Vault()
+    try:
+        return Vault.from_dict(json.loads(path.read_text(encoding="utf-8")))
+    except (ValueError, OSError):
+        return None
+
+
 class AnthropicPseudonymizer:
     """Addon de mitmproxy: seudonimiza la request y revierte la response.
 
@@ -1375,16 +1406,113 @@ class AnthropicPseudonymizer:
         self._vault = vault
         self._rules = rules
         self._generic_warned: set[str] = set()
+        # Con vault/rules inyectados (tests) no se recarga nada del disco
+        self._injected = vault is not None or rules is not None
+        self._fp: tuple | None = None
+        # Tokens que el propio proxy aprendió en caliente: sobreviven a una recarga
+        self._runtime_added: set[str] = set()
+        self._sentinel: Any = None
+        self._sentinel_state = "pendiente"
+
+    def _refresh_if_changed(self) -> None:
+        """Recarga reglas y vault si config.json o el vault cambian en disco (A, #187).
+
+        Así una regla aprobada con klaus-scan se aplica en la siguiente petición,
+        sin reiniciar claude-proxy. Si la recarga falla, se sigue con lo anterior.
+        """
+        if self._injected:
+            return
+        fp = _state_fingerprint()
+        if self._fp is None:
+            self._fp = fp
+            return
+        if fp == self._fp:
+            return
+        self._fp = fp
+        try:
+            rules = build_rules()
+            if self._runtime_added:
+                rules.add_word_literals(sorted(self._runtime_added))
+        except Exception as exc:  # noqa: BLE001 - seguir con las reglas anteriores
+            self._log(
+                f"[anthropic-pseudo] WARN recarga de reglas fallida, sigo con las "
+                f"anteriores: {type(exc).__name__}: {exc}",
+                level="warn",
+            )
+            return
+        self._rules = rules
+        vault = _load_vault_strict()
+        if vault is not None:
+            self._vault = vault
+        self._log("[anthropic-pseudo] 🔄 reglas recargadas desde disco", level="ok")
 
     def _get_vault(self) -> Vault:
+        self._refresh_if_changed()
         if self._vault is None:
             self._vault = Vault.load()
         return self._vault
 
     def _get_rules(self) -> Rules:
+        self._refresh_if_changed()
         if self._rules is None:
             self._rules = build_rules()
         return self._rules
+
+    def _get_sentinel(self) -> Any:
+        """Centinela (#187, B). Si no se puede arrancar, el proxy sigue sin él."""
+        if self._sentinel_state == "pendiente":
+            self._sentinel_state = "desactivado"
+            cfg = _read_config()
+            if cfg.get("sentinel_enabled", True) and enabled():
+                try:
+                    from Klaus_proxy_local.sentinel import (
+                        AlertSink,
+                        Sentinel,
+                        alerts_path,
+                    )
+
+                    self._sentinel = Sentinel(
+                        sink=AlertSink(alerts_path()),
+                        min_confidence=str(
+                            cfg.get("sentinel_min_confidence", "MEDIUM")
+                        ).upper(),
+                        notify=bool(cfg.get("sentinel_notify", True)),
+                    )
+                    self._sentinel_state = "activo"
+                    self._log("[anthropic-pseudo] 🔔 centinela de fugas activo")
+                except Exception as exc:  # noqa: BLE001
+                    self._log(
+                        f"[anthropic-pseudo] WARN centinela no disponible: "
+                        f"{type(exc).__name__}: {exc}",
+                        level="warn",
+                    )
+        return self._sentinel
+
+    def _observe_sentinel(self, text: str, vault: Vault, rules: Rules) -> None:
+        """Envía el último mensaje al centinela. Nunca lanza excepciones."""
+        try:
+            sentinel = self._get_sentinel()
+            if sentinel is None:
+                return
+            payload = json.loads(text)
+            if not isinstance(payload, dict):
+                return
+            from Klaus_proxy_local.sentinel import last_message_text, session_of
+
+            # Copia del vault: el hilo de fondo no comparte estado mutable
+            snapshot = Vault.from_dict(vault.to_dict())
+
+            def covers(value: str) -> bool:
+                return pseudonymize_text(value, snapshot, rules) != value
+
+            sentinel.observe(last_message_text(payload), session_of(payload), covers)
+        except (
+            Exception
+        ) as exc:  # noqa: BLE001 - el centinela no puede tumbar la petición
+            self._log(
+                f"[anthropic-pseudo] WARN centinela: {type(exc).__name__}: {exc}",
+                level="warn",
+            )
 
     def _log(self, msg: str, level: str | None = None) -> None:
         out = colorize(msg, level) if level else msg
@@ -1458,6 +1586,7 @@ class AnthropicPseudonymizer:
                 [t for t in tokens if not is_generic_repo_token(t)]
             )
             if added:
+                self._runtime_added.update(added)
                 self._log(
                     f"[anthropic-pseudo] 🛡️ org/repo nuevo protegido: "
                     f"{', '.join(added)}",
@@ -1504,6 +1633,8 @@ class AnthropicPseudonymizer:
         rules = self._get_rules()
         self.learn_repo_tokens(text, rules)
         before = len(vault.pseudo_to_real)
+        # Centinela (#187): ve el cuerpo ORIGINAL, antes de reescribirlo
+        self._observe_sentinel(text, vault, rules)
         # `original`: datos reales con SOLO los secretos Tier-1 redactados (nunca
         # se persiste una credencial). `new`: cuerpo totalmente seudonimizado que
         # sale del equipo. Se deja el original en flow.metadata para que el addon
