@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/reporte, seguridad/fugas]
+---
+
 # 🔴 Prueba de Fuga y Remediación — Klaus Proxy Local
 
 **Fecha:** 2026-09-19  

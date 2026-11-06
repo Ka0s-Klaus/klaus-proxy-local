@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/referencia]
+---
+
 # 🗄️ Archivo histórico
 
 Documentos que describen el proyecto **tal como era en un momento pasado**. Se conservan por trazabilidad, pero **no reflejan la funcionalidad actual**: pueden citar comandos, opciones, rutas o recuentos de tests que ya no existen.

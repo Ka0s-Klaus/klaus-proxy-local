@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/referencia]
+---
+
 # PR: Fix Python 3 Compatibility in Klaus Interactive Menu
 
 ## Title

@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia]
+---
+
 # 📚 Guía de Estilo de Documentación
 
 Este documento define el estándar de formato para toda la documentación del proyecto **Klaus-proxy-local** a partir de septiembre 2026.

@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/instalacion, proxy/configuracion]
+---
+
 # 🚀 Inicio rápido — Klaus Proxy Local
 
 > Instalar, arrancar el proxy y usar Claude Code a través de él.

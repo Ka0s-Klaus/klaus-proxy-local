@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, operacion/troubleshooting, proxy/pseudonimizacion]
+---
+
 # 🔧 Diagnosticar la pseudonimización
 
 > Qué hacer si sospechas que algo ha salido sin pseudonimizar. Hay dos preguntas distintas y una herramienta para cada una.

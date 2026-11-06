@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/referencia, proxy/arquitectura, proxy/auditoria]
+---
+
 # 🔍 Auditoría de payload enviado a Anthropic
 
 ## 🤔 ¿Qué hago? ¿Cómo lo hago? ¿Y para qué lo hago?

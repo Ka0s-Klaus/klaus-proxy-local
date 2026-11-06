@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/decision, seguridad/fugas, proxy/centinela]
+---
+
 # 🧭 ADR-002: Centinela de fugas y revisión en tiempo real con `klaus-alerts`
 
 > **Issues:** [#188 — este ADR](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/188) · [#184 — la feature](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/184) · [#185 — el spike](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/185) · [#187 — backend (A y B)](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/187) · [#189 — interfaz](https://github.com/Ka0s-Klaus/klaus-proxy-local/issues/189)
@@ -146,7 +150,7 @@ flowchart LR
 
 ## 🔗 Relación con otras decisiones
 
-- **ADR-001:** `config.json` como fuente de verdad de los literales. El centinela y `klaus-alerts` escriben ahí.
+- **[[ADR-001-persist-pseudo-literals-config|ADR-001]]:** `config.json` como fuente de verdad de los literales. El centinela y `klaus-alerts` escriben ahí.
 - **#179:** modelo de amenazas. Este ADR cubre la amenaza 3 (secretos y datos nuevos en el contexto) y la prioridad 1 (control de salida), en la parte de detección.
 - **#185:** spike que valida el coste y el ruido.
 - **#187:** implementación del backend.

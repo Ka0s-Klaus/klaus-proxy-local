@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/auditoria, seguridad/fugas]
+---
+
 # 🔍 Auditoría de Payloads: Guía Completa
 
 **Objetivo:** Revisar todos los payloads capturados en `captures/original/` y `captures/sent/` para identificar valores sensibles que deberían estar pseudonimizados pero no están en el vault.

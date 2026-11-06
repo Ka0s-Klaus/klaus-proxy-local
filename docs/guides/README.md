@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia]
+---
+
 # 📖 Guías
 
 ## 📋 Contexto

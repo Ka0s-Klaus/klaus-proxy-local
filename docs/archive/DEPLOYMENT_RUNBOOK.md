@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/instalacion]
+---
+
 # 🚀 Klaus Proxy Local - Deployment Runbook
 
 ## Pre-Deployment Checklist

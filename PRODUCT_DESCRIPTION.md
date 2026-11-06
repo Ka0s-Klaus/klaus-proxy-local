@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/referencia]
+---
+
 # Klaus Proxy Local — Tu control de privacidad
 
 ## ¿Trabajas con Claude Code en entornos corporativos o sensibles?

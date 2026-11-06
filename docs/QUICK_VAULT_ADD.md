@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/pseudonimizacion]
+---
+
 # ⚡ Añadir al Vault — Quick Reference
 
 ## TL;DR

@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/instalacion]
+---
+
 # Klaus Menu — Interactive CLI for Audit & Scan
 
 ## Overview

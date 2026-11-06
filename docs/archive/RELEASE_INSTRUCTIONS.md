@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/release]
+---
+
 # 🚀 Release v0.3.0 — Creation Instructions
 
 **Klaus Proxy Local v0.3.0 is ready for release.**
@@ -11,7 +15,7 @@
 - ✅ Documentation complete (6 guides, 50+ pages)
 - ✅ Commits pushed to main
 - ✅ Version bumped to 0.3.0 (pyproject.toml)
-- ✅ Release notes prepared (RELEASE_v0.3.0_NOTES.md)
+- ✅ Release notes prepared ([[RELEASE_v0.3.0_NOTES|RELEASE_v0.3.0_NOTES.md]])
 
 ---
 

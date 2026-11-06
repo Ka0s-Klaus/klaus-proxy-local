@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/reporte]
+---
+
 # Klaus Menu Interactive Fix — Complete Documentation 📚
 
 **Date:** 2026-09-19  
@@ -155,7 +159,7 @@ All updates made to 3 locations (main + distribution copies):
 - [x] All in origin/main (verified via API)
 
 ### Documentation
-- [x] PR_TEMPLATE.md — Full PR description with test instructions
+- [x] [[PR_TEMPLATE|PR_TEMPLATE.md]] — Full PR description with test instructions
 - [x] KLAUS_MENU_PYTHON3_FIX.md — Technical memory with issue timeline
 - [x] MEMORY.md — Index updated with link
 - [x] This document — Complete overview

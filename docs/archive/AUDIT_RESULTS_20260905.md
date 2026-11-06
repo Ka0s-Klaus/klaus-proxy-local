@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/reporte, proxy/auditoria]
+---
+
 # 📊 Auditoría de Captures — Resultados 2026-09-05
 
 **Fecha:** Septiembre 5, 2026  
@@ -199,8 +203,8 @@ python audit_captures.py --find-leaks --patterns
 | Archivo | Propósito |
 |---------|-----------|
 | **audit_captures.py** | Script de análisis |
-| **AUDIT_CAPTURES_GUIDE.md** | Guía detallada |
-| **AUDIT_QUICK_START.md** | Inicio rápido |
+| **[[AUDIT_CAPTURES_GUIDE|AUDIT_CAPTURES_GUIDE.md]]** | Guía detallada |
+| **[[AUDIT_QUICK_START|AUDIT_QUICK_START.md]]** | Inicio rápido |
 | **scripts/add_to_vault.py** | Añadir valores al vault |
 | **captures/.pseudonym_vault.json** | Vault actual (259 entries) |
 

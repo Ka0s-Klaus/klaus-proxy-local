@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia]
+---
+
 # 🤝 Guía de Contribución — Klaus Proxy Local
 
 Gracias por tu interés en contribuir a `Klaus Proxy Local`. Este documento describe el proceso para participar en el proyecto de forma ordenada y efectiva.

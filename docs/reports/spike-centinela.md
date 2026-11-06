@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/reporte, seguridad/fugas, proxy/centinela]
+---
+
 # 🧪 Spike: centinela de fugas (coste y ruido)
 
 > Issue: #185 · Decide: #184 · Estado: ✅ **medido y revisado**. Queda por decidir cómo agrupar los avisos (ver 🧭).

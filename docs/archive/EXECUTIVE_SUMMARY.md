@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/referencia]
+---
+
 # Klaus Proxy Local v0.3.0 — Resumen Ejecutivo Final
 
 **Proyecto:** Proxy de auditoría HTTPS para Anthropic API  
@@ -161,14 +165,14 @@ python scripts/add_to_vault.py /path/to/proyecto --dry-run
 |-----|-----------|
 | **README.md** | Punto de entrada principal |
 | **QUICK_START.md** | 5 minutos para empezar |
-| **QUICK_VAULT_ADD.md** | Referencia rápida vault |
-| **USER_GUIDE.md** | Guía completa y ejemplos |
-| **ARCHITECTURE_DEEP_DIVE.md** | Cómo funciona internamente |
-| **ADD_TO_VAULT_AUTOMATIC.md** | Automatización completa |
-| **INSPECT_ANONYMIZATIONS.md** | Auditar vault |
-| **TROUBLESHOOTING.md** | Resolver problemas |
-| **DEPLOYMENT_RUNBOOK.md** | Desplegar en producción |
-| **SECURITY.md** | Consideraciones seguridad |
+| **[[QUICK_VAULT_ADD|QUICK_VAULT_ADD.md]]** | Referencia rápida vault |
+| **[[USER_GUIDE|USER_GUIDE.md]]** | Guía completa y ejemplos |
+| **[[ARCHITECTURE_DEEP_DIVE|ARCHITECTURE_DEEP_DIVE.md]]** | Cómo funciona internamente |
+| **[[ADD_TO_VAULT_AUTOMATIC|ADD_TO_VAULT_AUTOMATIC.md]]** | Automatización completa |
+| **[[INSPECT_ANONYMIZATIONS|INSPECT_ANONYMIZATIONS.md]]** | Auditar vault |
+| **[[TROUBLESHOOTING|TROUBLESHOOTING.md]]** | Resolver problemas |
+| **[[DEPLOYMENT_RUNBOOK|DEPLOYMENT_RUNBOOK.md]]** | Desplegar en producción |
+| **[[SECURITY|SECURITY.md]]** | Consideraciones seguridad |
 | **EXECUTIVE_SUMMARY.md** | Este documento |
 
 ---

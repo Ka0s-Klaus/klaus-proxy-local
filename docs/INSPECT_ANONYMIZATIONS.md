@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/pseudonimizacion]
+---
+
 # 🔍 Cómo Inspeccionar Anonimizaciones en Klaus Proxy Local
 
 Este documento te muestra exactamente dónde están guardadas las anonimizaciones y cómo consultarlas.
@@ -302,7 +306,7 @@ chmod 600 ~/vault_backup.json
 
 ---
 
-## 📞 TROUBLESHOOTING
+## 📞 [[TROUBLESHOOTING]]
 
 ### No encuentro el vault
 

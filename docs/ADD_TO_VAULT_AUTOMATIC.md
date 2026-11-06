@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/pseudonimizacion]
+---
+
 # 🤖 Añadir Automáticamente al Vault desde una Carpeta
 
 Este documento te muestra cómo **escanear una carpeta automáticamente y añadir todos los datos sensibles al vault sin intervención manual**.
