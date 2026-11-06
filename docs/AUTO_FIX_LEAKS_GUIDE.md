@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, seguridad/fugas, proxy/pseudonimizacion]
+---
+
 # 🔧 Auto-Fix Detectadas Fugas — Guía Completa
 
 **Detecta fugas en las capturas y añade los valores al vault y a las reglas del proxy (`config.json`).** Después hay que reiniciar `claude-proxy` para que se apliquen; las peticiones ya enviadas no cambian.

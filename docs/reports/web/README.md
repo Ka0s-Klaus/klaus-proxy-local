@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/auditoria]
+---
+
 # 🌐 Audit Dashboard
 
 Dashboard HTML de auditoría de Klaus Proxy Local. Ejecuta 5 planes de auditoría sobre las capturas de `~/.klaus-proxy/captures/`, **guarda cada resultado como un informe nuevo en `informes/`** y permite abrir cualquier informe anterior y ver qué ha cambiado respecto al previo.

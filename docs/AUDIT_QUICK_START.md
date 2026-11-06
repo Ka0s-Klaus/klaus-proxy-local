@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/auditoria]
+---
+
 # ⚡ Auditoría Rápida de Captures (5 minutos)
 
 **Tienes 18,043 payloads capturados. ¿Hay valores sensibles sin pseudonimizar?**
@@ -98,7 +102,7 @@ En los tres casos, **reinicia `claude-proxy`**: las reglas de `config.json` se c
 ## 📁 Archivos
 
 - **audit_captures.py** — Script análisis (este directorio)
-- **AUDIT_CAPTURES_GUIDE.md** — Guía completa y detallada
+- **[[AUDIT_CAPTURES_GUIDE|AUDIT_CAPTURES_GUIDE.md]]** — Guía completa y detallada
 - **scripts/add_to_vault.py** — Herramienta para añadir valores
 
 ¿Necesitas ayuda con algo específico? Pregunta aquí o consulta AUDIT_CAPTURES_GUIDE.md

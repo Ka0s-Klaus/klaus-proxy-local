@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, seguridad/auditoria]
+---
+
 # 🔒 Política de Seguridad — Klaus Proxy Local
 
 ## 🤔 ¿Qué hago? ¿Cómo lo hago? ¿Y para qué lo hago?

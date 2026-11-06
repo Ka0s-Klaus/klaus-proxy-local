@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/release, tipo/referencia]
+---
+
 # Changelog
 
 All notable changes to Klaus Proxy Local are documented in this file.

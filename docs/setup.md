@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/instalacion]
+---
+
 # ⚙️ Entorno de desarrollo — Klaus Proxy Local
 
 > Para **usar** el proxy, sigue el [inicio rápido](./QUICK_START.md) (`install.sh`). Esta guía es para **desarrollar**: clonar, instalar las dependencias de desarrollo, ejecutar los tests y el lint, y probar cambios en el proxy.

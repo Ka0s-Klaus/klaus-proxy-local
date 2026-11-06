@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/instalacion]
+---
+
 # 🔌 Klaus Proxy Local
 
 > **Proxy local de auditoría, pseudonimización y detección automática de fugas** — intercepta,

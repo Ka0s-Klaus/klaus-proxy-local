@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/release]
+---
+
 # Klaus Proxy Local v0.3.1 Release Notes
 
 **Release Date:** 2026-09-19  

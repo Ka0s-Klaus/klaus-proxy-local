@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia]
+---
+
 # 🎮 Klaus Monitor — htop-style TUI Guide
 
 ⚠️ **DEPRECATED — Removed in v0.3.3**

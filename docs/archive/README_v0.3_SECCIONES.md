@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/referencia]
+---
+
 # 🗄️ Secciones del README de la época v0.3
 
 > ⚠️ **Archivado en #177.** Estas secciones estaban en el `README.md` hasta la v0.9.0. Describen el proyecto como era en la v0.3: el marcador del bloque de shell («🔐 Klaus Proxy Local — Auto-startup») ya no es el que usa `klaus-setup`, y las novedades son de septiembre de 2026. Lo vigente está en el [README](../../README.md#-terminales-y-certificados).

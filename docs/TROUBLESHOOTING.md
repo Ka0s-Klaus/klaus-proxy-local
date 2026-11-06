@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, operacion/troubleshooting, proxy/instalacion]
+---
+
 # 🛠️ Solución de problemas
 
 > Antes de nada, mira el log: `~/.klaus-proxy/logs/proxy.log` (una línea por petición, sin colores, rotado 5 MB × 5). La salida de la terminal de `claude-proxy` es la misma, con colores.

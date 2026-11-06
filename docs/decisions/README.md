@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/decision]
+---
+
 # 🧭 Decisiones (ADRs)
 
 ## 📋 Contexto

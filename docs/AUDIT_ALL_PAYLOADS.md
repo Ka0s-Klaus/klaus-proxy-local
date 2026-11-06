@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/auditoria]
+---
+
 # 🔍 Complete Payload Audit Guide
 
 Automatic audit of all captured payloads (original vs sent) with comprehensive analysis and reporting.

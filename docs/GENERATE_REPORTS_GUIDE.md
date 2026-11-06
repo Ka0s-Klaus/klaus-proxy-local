@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/auditoria]
+---
+
 # 📊 Guía: Generar Reportes de Auditoría Automáticamente
 
 **Sistema automático para auditar payloads y generar reportes profesionales.**

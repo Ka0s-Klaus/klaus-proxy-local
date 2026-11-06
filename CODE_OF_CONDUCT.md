@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/referencia]
+---
+
 # 📜 Código de Conducta — Contributor Covenant v2.1
 
 ## 🤝 Nuestro compromiso

@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/reporte]
+---
+
 # Fix Summary: Auto-SALT Generation + Test Suite ✅
 
 **Date:** 2026-09-04  

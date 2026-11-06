@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/release]
+---
+
 # 🚀 Klaus Proxy Local v0.3.0 Release Notes
 
 **Complete audit and automatic leak fixing system for Anthropic API payloads.**
@@ -82,12 +86,12 @@ python full_audit_with_fixes.py --auto  # Full workflow
 
 | Guide | Purpose |
 |-------|---------|
-| **AUDIT_QUICK_START.md** | 5-minute quick reference |
-| **AUDIT_CAPTURES_GUIDE.md** | Detailed analysis guide (20+ pages) |
-| **GENERATE_REPORTS_GUIDE.md** | Report automation workflows |
-| **AUTO_FIX_LEAKS_GUIDE.md** | Automatic leak fixing system |
-| **FIX_SUMMARY.md** | Test fixes & SALT generation details |
-| **AUDIT_RESULTS_20260905.md** | Initial audit findings |
+| **[[AUDIT_QUICK_START|AUDIT_QUICK_START.md]]** | 5-minute quick reference |
+| **[[AUDIT_CAPTURES_GUIDE|AUDIT_CAPTURES_GUIDE.md]]** | Detailed analysis guide (20+ pages) |
+| **[[GENERATE_REPORTS_GUIDE|GENERATE_REPORTS_GUIDE.md]]** | Report automation workflows |
+| **[[AUTO_FIX_LEAKS_GUIDE|AUTO_FIX_LEAKS_GUIDE.md]]** | Automatic leak fixing system |
+| **[[FIX_SUMMARY|FIX_SUMMARY.md]]** | Test fixes & SALT generation details |
+| **[[AUDIT_RESULTS_20260905|AUDIT_RESULTS_20260905.md]]** | Initial audit findings |
 
 ---
 
