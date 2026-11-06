@@ -756,6 +756,13 @@ def add_pattern_to_config(
     return bool(added), patterns
 
 
+def add_to_config_list(
+    key: str, values: list, path: Path | None = None
+) -> tuple[list, list]:
+    """API pública de ``_add_to_config_list`` (la usa ``klaus-alerts``, #189)."""
+    return _add_to_config_list(key, values, path)
+
+
 def _add_to_config_list(key: str, values: list, path: Path | None) -> tuple[list, list]:
     """Añade ``values`` (sin duplicar) a la lista ``key`` de config.json.
 
@@ -1382,6 +1389,18 @@ def _read_config() -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def _silenced_categories() -> list[str]:
+    """Categorías que el centinela no avisa (``klaus-alerts`` ``c``, #189).
+
+    Se lee en cada análisis: silenciar no necesita reiniciar el proxy.
+    """
+    return [
+        v
+        for v in _read_config().get("sentinel_silenced_categories") or []
+        if isinstance(v, str)
+    ]
+
+
 def _load_vault_strict() -> "Vault | None":
     """Vault de disco; None si existe pero no se puede leer (se conserva el actual)."""
     path = vault_path()
@@ -1477,6 +1496,7 @@ class AnthropicPseudonymizer:
                             cfg.get("sentinel_min_confidence", "MEDIUM")
                         ).upper(),
                         notify=bool(cfg.get("sentinel_notify", True)),
+                        silenced=_silenced_categories,
                     )
                     self._sentinel_state = "activo"
                     self._log("[anthropic-pseudo] 🔔 centinela de fugas activo")

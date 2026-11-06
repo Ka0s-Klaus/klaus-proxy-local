@@ -143,12 +143,14 @@ class Sentinel:
         notify: bool = True,
         notifier: Callable[[str, str], Any] | None = None,
         scanner: SensitiveDataScanner | None = None,
+        silenced: Callable[[], Iterable[str]] | None = None,
     ) -> None:
         if min_confidence not in RANK:
             min_confidence = DEFAULT_MIN_CONFIDENCE
         self._sink = sink
         self._floor = RANK[min_confidence]
         self._notify = notify
+        self._silenced = silenced or (lambda: ())
         self._notifier = notifier or notify_macos
         self._scanner = scanner or SensitiveDataScanner(enable_business=False)
         self._queue: queue.Queue = queue.Queue(maxsize=256)
@@ -179,8 +181,14 @@ class Sentinel:
     ) -> list[dict]:
         """Analiza un texto de forma síncrona y devuelve los avisos nuevos."""
         out: list[dict] = []
+        try:
+            silenced = set(self._silenced())
+        except Exception:  # noqa: BLE001 - una config ilegible no silencia nada
+            silenced = set()
         for f in detect(text, self._scanner):
             if RANK.get(f.confidence, 0) < self._floor:
+                continue
+            if f.category in silenced:
                 continue
             if covers(f.value):
                 continue
