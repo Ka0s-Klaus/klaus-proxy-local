@@ -287,19 +287,20 @@ def interactive_review(
     vault_integration=None,
     root: Path | None = None,
     reveal: bool = False,
-) -> int:
+) -> tuple[int, int]:
     """Interactive review of findings above threshold.
 
-    Returns: count of findings approved for vault
+    Returns: (approved_count, already_in_vault_count)
     """
     root = root or Path(".")
     above_threshold = [f for f in result.findings if f.confidence <= min_confidence]
     values = [f.value for f in result.findings]
 
     if not above_threshold:
-        return 0
+        return 0, 0
 
     approved_count = 0
+    already_in_vault_count = 0
     approve_all_remaining = False
 
     for idx, finding in enumerate(above_threshold, 1):
@@ -327,6 +328,7 @@ def interactive_review(
             existing = vault_integration.check_already_in_vault(finding.value)
             if existing:
                 print(f"  ⓘ Already in vault: {existing}")
+                already_in_vault_count += 1
                 continue
 
         # Get user input
@@ -391,9 +393,9 @@ def interactive_review(
             print("  📋 Approving all remaining findings...")
         elif response == "Q":
             print("\n⊘ Review cancelled")
-            return approved_count
+            return approved_count, already_in_vault_count
 
-    return approved_count
+    return approved_count, already_in_vault_count
 
 
 def _get_prefix_for_category(category: str) -> str:
@@ -496,20 +498,50 @@ def main(argv: list[str] | None = None) -> NoReturn:
 
     # Interactive review (unless --approve-all)
     approved_count = 0
+    already_in_vault_count = 0
     if args["approve_all"]:
         for finding in above_threshold:
+            if vault_integration:
+                existing = vault_integration.check_already_in_vault(finding.value)
+                if existing:
+                    already_in_vault_count += 1
+                    continue
             finding.user_approved = True
             approved_count += 1
             if vault_integration:
                 try:
                     prefix = _get_prefix_for_category(finding.category)
                     vault_integration.add_finding_to_vault(finding, prefix)
-                except Exception:
-                    pass
-        print(f"\n✓ Auto-approved {approved_count} findings (added to vault)")
+                except Exception as e:
+                    print(f"  ⚠️  Vault error for finding: {e}")
+                    approved_count -= 1
+        new_count = approved_count
+        print(f"\n✓ Auto-approved {new_count} new finding(s) (added to vault)")
+        if already_in_vault_count:
+            print(f"  ⓘ {already_in_vault_count} finding(s) were already in vault")
     elif above_threshold and not sys.stdin.isatty():
         # Sin terminal (p.ej. lanzado por Claude Code) no se puede preguntar (#140)
-        print("\nⓘ No interactive terminal: review skipped (use --approve-all)")
+        new_findings = above_threshold
+        if vault_integration:
+            new_findings = [
+                f
+                for f in above_threshold
+                if not vault_integration.check_already_in_vault(f.value)
+            ]
+            already_in_vault_count = len(above_threshold) - len(new_findings)
+        if new_findings:
+            conf_counts = {}
+            for f in new_findings:
+                conf_counts[f.confidence.name] = conf_counts.get(f.confidence.name, 0) + 1
+            counts_str = ", ".join(f"{n} {c}" for c, n in sorted(conf_counts.items()))
+            print(
+                f"\nⓘ No interactive terminal — {len(new_findings)} finding(s) pending review ({counts_str})."
+                f"\n  Use --approve-all to add them to vault automatically."
+            )
+        else:
+            print(
+                f"\nⓘ No interactive terminal — all {already_in_vault_count} finding(s) already in vault."
+            )
     elif above_threshold:
         review = (
             input(f"\n\nReview {len(above_threshold)} finding(s)? [Y/N]: ")
@@ -517,13 +549,15 @@ def main(argv: list[str] | None = None) -> NoReturn:
             .upper()
         )
         if review == "Y":
-            approved_count = interactive_review(
+            approved_count, already_in_vault_count = interactive_review(
                 result, min_confidence, vault_integration, path, args["reveal"]
             )
 
     print("\n\n✨ Scan complete")
     print(f"  Files scanned: {result.total_files_scanned}")
     print(f"  Findings: {len(result.findings)}")
+    if already_in_vault_count:
+        print(f"  Already in vault: {already_in_vault_count}")
     print(f"  Approved for vault: {approved_count}")
     if approved_count:
         print("  Restart claude-proxy to apply the new rules in config.json.")

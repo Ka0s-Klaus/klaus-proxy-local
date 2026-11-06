@@ -199,7 +199,7 @@ def test_default_output_reveals_nothing(project, capsys, monkeypatch):
     monkeypatch.setattr("sys.stdin.isatty", lambda: False)
     out, _err = _run([str(project), "--min-confidence", "LOW"], capsys)
     assert "Findings to Review" in out
-    assert "review skipped" in out  # sin TTY no se pregunta (EOFError)
+    assert "No interactive terminal" in out  # sin TTY no se pregunta
     body = out.split("Scanning:", 1)[1].split("\n", 1)[1]
     for s in SECRETS:
         assert s.lower() not in body.lower(), s
