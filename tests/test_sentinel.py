@@ -61,6 +61,21 @@ def test_last_message_text_includes_tool_result_and_ignores_older_turns():
     assert "acme-internal" not in text
 
 
+def test_last_message_text_skips_trailing_system_blocks():
+    # Claude Code envía el turno del usuario y luego un bloque "system" (#189)
+    payload = {
+        "messages": [
+            {"role": "user", "content": "contacto: zetafin-prueba.es"},
+            {"role": "assistant", "content": "ok"},
+            {"role": "user", "content": "siguiente turno"},
+            {"role": "system", "content": "<total_tokens>1 tokens left</total_tokens>"},
+        ]
+    }
+    text = sn.last_message_text(payload)
+    assert text == "siguiente turno"
+    assert "total_tokens" not in text
+
+
 def test_last_message_text_empty_without_messages():
     assert sn.last_message_text({}) == ""
     assert sn.last_message_text({"messages": []}) == ""

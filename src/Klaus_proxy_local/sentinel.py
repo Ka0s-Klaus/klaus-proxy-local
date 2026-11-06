@@ -76,11 +76,20 @@ def _text_blocks(content: Any) -> Iterable[str]:
 
 
 def last_message_text(payload: Any) -> str:
-    """Texto del último mensaje de una petición ya parseada."""
+    """Texto del último turno del usuario de una petición ya parseada.
+
+    Claude Code añade bloques ``system`` (recordatorios, contador de tokens)
+    después del turno del usuario, así que no basta con mirar ``messages[-1]``:
+    se toma el último mensaje con ``role == "user"``, que es el turno nuevo o el
+    ``tool_result`` (#187 corregido en #189).
+    """
     msgs = payload.get("messages") if isinstance(payload, dict) else None
-    if not msgs or not isinstance(msgs[-1], dict):
+    if not msgs:
         return ""
-    return "\n".join(_text_blocks(msgs[-1].get("content")))
+    for msg in reversed(msgs):
+        if isinstance(msg, dict) and msg.get("role") == "user":
+            return "\n".join(_text_blocks(msg.get("content")))
+    return ""
 
 
 def detect(text: str, scanner: SensitiveDataScanner) -> list[Finding]:
