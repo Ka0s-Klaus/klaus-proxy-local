@@ -172,6 +172,16 @@ Con el proxy en marcha no sirve: guarda su copia en memoria del vault y volverí
 
 ---
 
+## 🚫 Una petición a un gateway de proyecto da 403
+
+**Qué pasa:** el proxy ha visto un `ANTHROPIC_BASE_URL` en `.claude/settings.json` (o `settings.local.json`) de un repo de `projects_dirs`, y ese host no está aprobado. Responde `403` y lo avisa en el log (`⛔ Bloqueados hosts de LLM…`). Nada sale hacia ese host.
+
+**Qué hacer:**
+1. Si el gateway es tuyo y lo quieres usar: añádelo a `hosts` en `~/.klaus-proxy/config.json`. Se aplica en menos de 60 s, sin reiniciar.
+2. Si no lo reconoces: no lo apruebes, revisa el `settings.json` del repo.
+
+**Límite:** solo se comprueban los repos de `projects_dirs`. Un repo fuera de esa carpeta no queda cubierto por este control.
+
 ## 🧪 Tests
 
 - No hace falta exportar `ANTHROPIC_PSEUDO_SALT`: `tests/conftest.py` genera una SALT de prueba y aísla `config.json`.

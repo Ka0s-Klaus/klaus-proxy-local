@@ -174,6 +174,7 @@ Para saber si el proxy protege **ahora**, mira las capturas con fugas posteriore
 | --- | --- |
 | `salt` | SALT de los seudónimos. No la cambies: los seudónimos dejarían de coincidir con el vault |
 | `hosts` | Hosts de la API que se descifran y pseudonimizan (por defecto `api.anthropic.com`). Un gateway LLM propio tiene que estar aquí o en `ANTHROPIC_BASE_URL` |
+| (proyecto) | Un `ANTHROPIC_BASE_URL` que solo aparece en `.claude/settings*.json` de un repo de `projects_dirs` se **bloquea** (403) hasta que lo añadas a `hosts`. Ver [TROUBLESHOOTING](TROUBLESHOOTING.md) |
 | `capture_only_hosts` | Hosts que se **auditan sin pseudonimizar**: se descifran y se capturan, pero la petición sale tal cual. Para tráfico que dejaría de funcionar con seudónimos, como los conectores MCP de claude.ai (`mcp-proxy.anthropic.com`). Sus capturas llevan `"capture_only": true` y no cuentan como fugas |
 | `intercept_all` | `true` para descifrar todo el HTTPS, no solo la API (por defecto `false`) |
 | `pseudo_literals`, `pseudo_word_literals` | Valores a proteger (ver arriba) |

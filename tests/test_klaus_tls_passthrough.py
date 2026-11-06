@@ -134,3 +134,134 @@ class TestClientHello:
         data = clienthello("pypi.org")
         a.tls_clienthello(data)
         assert data.ignore_connection is False
+
+
+def make_project(root, name, settings=None, filename="settings.json"):
+    repo = root / name
+    (repo / ".git").mkdir(parents=True)
+    if settings is not None:
+        write_json(repo / ".claude" / filename, settings)
+    return repo
+
+
+_REAL_PROJECT_REPOS = tp._project_repos
+
+
+@pytest.fixture(autouse=True)
+def no_real_projects(monkeypatch):
+    """Por defecto no se escanea ningún proyecto (nunca el disco real)."""
+    monkeypatch.setattr(tp, "_project_repos", lambda: [])
+
+
+@pytest.fixture
+def projects(home, monkeypatch):
+    """Carpeta de proyectos temporal registrada en config.json."""
+    from Klaus_proxy_local import scan_repos
+
+    cfg = home / ".klaus-proxy" / "config.json"
+    monkeypatch.setattr(scan_repos, "config_file", lambda: cfg)
+    monkeypatch.setattr(tp, "_project_repos", _REAL_PROJECT_REPOS)
+    root = home / "projects"
+    write_json(cfg, {"projects_dirs": [str(root)]})
+    return root
+
+
+class TestProjectBaseUrl:
+    def test_reads_settings_and_settings_local(self, tmp_path):
+        a = make_project(
+            tmp_path,
+            "a",
+            {"env": {"ANTHROPIC_BASE_URL": "https://gw-a.example:8443/v1"}},
+        )
+        b = make_project(
+            tmp_path,
+            "b",
+            {"env": {"ANTHROPIC_BASE_URL": "https://GW-B.example"}},
+            filename="settings.local.json",
+        )
+        assert tp.project_base_url_hosts([a, b]) == {"gw-a.example", "gw-b.example"}
+
+    def test_ignores_broken_or_irrelevant_settings(self, tmp_path):
+        bad = make_project(tmp_path, "bad")
+        (bad / ".claude").mkdir()
+        (bad / ".claude" / "settings.json").write_text("{no json", encoding="utf-8")
+        other = make_project(tmp_path, "other", {"env": {"FOO": "1"}})
+        assert tp.project_base_url_hosts([bad, other]) == frozenset()
+
+    def test_blocked_unless_approved(self):
+        approved = ("api.anthropic.com", "gw-ok.example")
+        found = frozenset({"gw-ok.example", "gw-x.example", "api.anthropic.com"})
+        assert tp.blocked_hosts(found, approved) == {"gw-x.example"}
+
+
+class TestProjectGatewayBlocking:
+    def test_project_host_without_approval_is_not_tunnelled(self, projects):
+        make_project(
+            projects, "app", {"env": {"ANTHROPIC_BASE_URL": "https://gw-x.example"}}
+        )
+        a = tp.KlausTlsPassthrough()
+        a.load(None)
+        assert a.blocked == {"gw-x.example"}
+        data = clienthello("gw-x.example")
+        a.tls_clienthello(data)
+        # Se intercepta (no túnel) para que request() responda 403 sin reenviar
+        assert data.ignore_connection is False
+
+    def test_approved_project_host_works_as_audited(self, projects):
+        make_project(
+            projects, "app", {"env": {"ANTHROPIC_BASE_URL": "https://gw-ok.example"}}
+        )
+        write_json(
+            projects.parent / ".klaus-proxy" / "config.json",
+            {"projects_dirs": [str(projects)], "hosts": ["gw-ok.example"]},
+        )
+        a = tp.KlausTlsPassthrough()
+        a.load(None)
+        assert a.blocked == frozenset()
+        data = clienthello("gw-ok.example")
+        a.tls_clienthello(data)
+        assert data.ignore_connection is False
+
+    def test_request_gets_403_for_blocked_host(self, projects):
+        pytest.importorskip("mitmproxy")
+        make_project(
+            projects, "app", {"env": {"ANTHROPIC_BASE_URL": "https://gw-x.example"}}
+        )
+        a = tp.KlausTlsPassthrough()
+        a.load(None)
+        flow = SimpleNamespace(
+            request=SimpleNamespace(pretty_host="gw-x.example"), response=None
+        )
+        a.request(flow)
+        assert flow.response is not None
+        assert flow.response.status_code == 403
+
+    def test_request_to_other_host_is_untouched(self, projects):
+        pytest.importorskip("mitmproxy")
+        a = tp.KlausTlsPassthrough()
+        a.load(None)
+        flow = SimpleNamespace(
+            request=SimpleNamespace(pretty_host="pypi.org"), response=None
+        )
+        a.request(flow)
+        assert flow.response is None
+
+    def test_refresh_picks_up_new_project(self, projects):
+        a = tp.KlausTlsPassthrough()
+        a.load(None)
+        assert a.blocked == frozenset()
+        make_project(
+            projects, "late", {"env": {"ANTHROPIC_BASE_URL": "https://gw-late.example"}}
+        )
+        a._refresh_projects()
+        assert a.blocked == {"gw-late.example"}
+
+    def test_warns_once_per_host(self, projects, caplog):
+        make_project(
+            projects, "app", {"env": {"ANTHROPIC_BASE_URL": "https://gw-x.example"}}
+        )
+        a = tp.KlausTlsPassthrough()
+        with caplog.at_level(logging.WARNING, logger="klaus.flow"):
+            a.load(None)
+            a._refresh_projects()
+        assert caplog.text.count("gw-x.example") == 1
