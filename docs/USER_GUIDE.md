@@ -143,7 +143,7 @@ klaus-leak-report --drill     # simulacro: ¿el detector ve una fuga falsa? (#17
 
 > 🧯 **¿Te puedes fiar de un «0 fugas»?** `--drill` siembra fugas falsas en un directorio temporal y comprueba que el detector las ve y que el proxy las habría sustituido. No toca tus capturas. Ver [Simulacro de fugas](./guides/LEAK_DRILL.md).
 
-- **Caché:** la primera ejecución analiza todas las capturas y tarda varios minutos. Después solo analiza lo nuevo. Un repo se vuelve a revisar si cambian su commit o sus ficheros. Todo se recalcula si cambian tus reglas o el código de Klaus. La caché está en `~/.klaus-proxy/leak-report-cache.json` y solo guarda identificadores.
+- **Caché:** la primera ejecución analiza todas las capturas y tarda varios minutos. Después solo analiza lo nuevo. Un repo se vuelve a revisar si cambian su commit o sus ficheros. Todo se recalcula si cambian tus reglas o el código de Klaus. Las capturas se reasignan si añades o quitas un proyecto de la carpeta de proyectos: las de un proyecto quitado pasan a «sin proyecto atribuible» y sus fugas se siguen contando (#180). La caché está en `~/.klaus-proxy/leak-report-cache.json` y solo guarda identificadores.
 - **Tiempos:** en la instalación del autor, la primera ejecución tardó unos 9 minutos. Tras aprobar cientos de reglas de golpe tardó 20, porque hubo que recalcularlo todo. Con la caché al día tarda unos segundos.
 - **Qué cuenta para la cobertura:** solo los valores CRITICAL y HIGH. Los dominios de confianza MEDIUM, los nombres de paquete y las claves de incidencia (LOW) aparecen como sin cubrir, pero no bajan el %.
 - **Valores:** se muestran como `⟨categoría·hash·longitud⟩`, igual que en `klaus-scan`. `--reveal` los muestra en claro; úsalo solo en tu terminal.
