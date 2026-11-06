@@ -9,6 +9,8 @@ Generates mitmproxy certificate on first run:
 
 This removes the manual mitmproxy cert setup burden.
 """
+from __future__ import annotations
+
 import shutil
 import ssl
 import subprocess

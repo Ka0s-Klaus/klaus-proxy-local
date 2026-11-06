@@ -8,6 +8,8 @@ Generates configuration on first run:
 
 This removes the manual salt configuration burden from FASE 0.
 """
+from __future__ import annotations
+
 import json
 import os
 import secrets

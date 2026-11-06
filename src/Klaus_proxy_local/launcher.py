@@ -355,14 +355,34 @@ class ProxyLauncher:
                 except Exception:
                     pass
 
+    def run_startup_scan(self) -> None:
+        """Escanea todos los repos y protege los hallazgos nuevos antes de arrancar.
+
+        Un fallo del escaneo no impide arrancar el proxy: se registra una
+        advertencia y se continúa con el resto del arranque.
+        """
+        try:
+            from Klaus_proxy_local.startup_scan import print_header, print_summary, scan_all
+
+            print_header()
+            result = scan_all()
+            if result["skipped"]:
+                print(f"\nⓘ {result['message']}\n")
+            else:
+                print_summary(result)
+                print()
+        except Exception as e:
+            print(f"⚠️  Escaneo de inicio no completado: {type(e).__name__}: {e}\n")
+
     def run(self) -> None:
         """Run the proxy (entry point).
 
         Orchestrates:
         1. Ensure prerequisites (config + certs)
-        2. Show dashboard
-        3. Launch mitmdump
-        4. Keep running until Ctrl+C
+        2. Startup vault scan (all repos, MEDIUM+)
+        3. Show dashboard
+        4. Launch mitmdump
+        5. Keep running until Ctrl+C
         """
         # Before mitmdump starts, so an early SIGTERM can't orphan it.
         # SIGINT already raises KeyboardInterrupt.
@@ -372,7 +392,10 @@ class ProxyLauncher:
             # Phase 1: Setup
             self.ensure_prerequisites()
 
-            # Phase 2: Show status
+            # Phase 2: Startup vault scan
+            self.run_startup_scan()
+
+            # Phase 3: Show status
             self.show_dashboard()
 
             # Phase 3: Launch proxy
