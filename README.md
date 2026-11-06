@@ -6,9 +6,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.9.0-green)](./docs/RELEASE_v0.9.0_NOTES.md)
-[![Tests](https://img.shields.io/badge/tests-841%20passed-brightgreen)](./.github/workflows/ci.yml)
-[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.9.0_NOTES.md)
+[![Version](https://img.shields.io/badge/version-0.10.0-green)](./docs/RELEASE_v0.10.0_NOTES.md)
+[![Tests](https://img.shields.io/badge/tests-883%20passed-brightgreen)](./.github/workflows/ci.yml)
+[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.10.0_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
 
@@ -57,7 +57,7 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.9.0)
+## 🚀 Inicio rápido (v0.10.0)
 
 > ℹ️ El paquete **no está publicado en PyPI**: se instala desde el repositorio con
 > `install.sh` (macOS y Linux, Python ≥ 3.10; en macOS instala Python 3.13 vía Homebrew si falta; en Debian/Ubuntu hace falta `python3-venv`).
@@ -159,6 +159,14 @@ Lo que conviene saber de `klaus-setup`:
 ---
 
 ## 📦 Releases
+
+### v0.10.0 — Hosts de proyecto bloqueados y klaus-alerts ✅
+- 🔐 Un host de LLM definido solo en la configuración de un proyecto se bloquea hasta que lo apruebes en `config.json` (#193)
+- 🖥️ `klaus-alerts`: interfaz para revisar los avisos del centinela (#189)
+- 🛡️ Centinela de fugas y recarga en caliente de reglas (#187)
+- ✅ **883 tests passing** en Python 3.10–3.13
+
+[📖 Release Notes](./docs/RELEASE_v0.10.0_NOTES.md)
 
 ### v0.9.0 — Simulacro de fugas ✅
 - 🧯 `klaus-leak-report --drill`: siembra fugas falsas en un directorio temporal y comprueba que el detector las ve y que el proxy las sustituye, para que un «0 fugas» sea fiable (#171)
@@ -318,7 +326,7 @@ Release notes no conservadas en `docs/`.
 | [🛠️ Troubleshooting](./docs/TROUBLESHOOTING.md) | Solución de problemas comunes |
 | [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
 | [🧯 Simulacro de fugas](./docs/guides/LEAK_DRILL.md) | `klaus-leak-report --drill`: ¿el detector ve una fuga? |
-| [🚀 Release v0.9.0](./docs/RELEASE_v0.9.0_NOTES.md) | Notas de la última release |
+| [🚀 Release v0.10.0](./docs/RELEASE_v0.10.0_NOTES.md) | Notas de la última release |
 
 ---
 
