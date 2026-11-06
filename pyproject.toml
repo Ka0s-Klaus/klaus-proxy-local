@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "Klaus-proxy-local"
-version = "0.8.1"
+version = "0.9.0"
 description = "HTTP proxy and toolkit for the Anthropic API"
 readme = "README.md"
-requires-python = ">=3.10"
-license = { text = "MIT" }
+requires-python = ">=3.9"
+license = "MIT"
 keywords = ["anthropic", "claude", "proxy", "llm"]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -17,7 +17,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
@@ -57,6 +56,7 @@ klaus-audit-dashboard = "Klaus_proxy_local.audit_dashboard:main"
 klaus-prune-captures = "Klaus_proxy_local.capture_retention:main"
 klaus-scan-repos = "Klaus_proxy_local.scan_repos:main"
 klaus-leak-report = "Klaus_proxy_local.leak_report:main"
+klaus-startup-scan = "Klaus_proxy_local.startup_scan:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
