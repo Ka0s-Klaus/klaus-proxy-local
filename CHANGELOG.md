@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **`main` vuelve a estar en verde** (#182) — Tras la v0.9.1, el CI fallaba en lint (imports en `launcher.py` y formato black en `scan.py` y `startup_scan.py`) y en los dos tests de versión, que seguían esperando `0.9.0`. Ahora esos tests comparan `__version__` con `pyproject.toml` y no hay que tocarlos en cada release. `requires-python` vuelve a `>=3.10` (#175). `requirements-dev.txt` instala desde `pyproject.toml` en lugar de un `requirements.txt` que ya no existe.
 - **`klaus-leak-report` perdía capturas al quitar un proyecto** (#180) — La caché guardaba a qué proyecto pertenecía cada captura, pero no se invalidaba al cambiar la lista de proyectos. Si se quitaba un proyecto de la carpeta, sus capturas seguían asignadas a una ruta que ya no existía y desaparecían del informe, fugas incluidas, sin aparecer siquiera en «sin proyecto atribuible». Al añadir un proyecto, tampoco recibía las capturas que le correspondían. Ahora la clave de caché incluye una huella de los proyectos y sus remotes. La primera ejecución tras actualizar recalcula todas las capturas.
 
 ### Documentation
