@@ -175,6 +175,48 @@ def test_cache_invalidated_when_code_changes(env, monkeypatch):
     assert len(calls) == 2  # los dos proyectos
 
 
+def test_cache_reattributes_when_project_removed(env):
+    """Quitar un proyecto no hace desaparecer sus capturas del informe (#180)."""
+    import shutil
+
+    first = lr.build_report(env["caps"], now=NOW)
+    assert first["unattributed"]["captures_total"] == 0
+    shutil.rmtree(env["uno"])
+    report = lr.build_report(env["caps"], now=NOW)
+    assert [p["name"] for p in report["projects"]] == ["dos"]
+    # Las dos capturas de uno pasan a «sin proyecto» y su fuga se sigue contando
+    assert report["unattributed"]["captures_total"] == 2
+    assert report["unattributed"]["captures"] == 1
+
+
+def test_cache_reattributes_when_project_added(env):
+    """Un proyecto nuevo recibe las capturas que antes no tenían dueño (#180)."""
+    tres = env["projects"] / "tres"
+    _capture(
+        env["caps"],
+        "20261028_080000_anthropic_payload.json",
+        _payload(tres, "nada"),
+        _payload(tres, "nada"),
+        "2026-10-28T08:00:00",
+    )
+    first = lr.build_report(env["caps"], now=NOW)
+    assert first["unattributed"]["captures_total"] == 1
+    _repo(tres, "dev2@example.com:wingtip/tres.git")
+    report = lr.build_report(env["caps"], now=NOW)
+    by = {p["name"]: p for p in report["projects"]}
+    assert by["tres"]["leaks"]["captures_total"] == 1
+    assert report["unattributed"]["captures_total"] == 0
+
+
+def test_projects_hash_ignores_order():
+    a = [{"path": "/p/a"}, {"path": "/p/b"}]
+    r = {"o/a": "/p/a", "o/b": "/p/b"}
+    assert lr.projects_hash(a, r) == lr.projects_hash(
+        a[::-1], dict(reversed(r.items()))
+    )
+    assert lr.projects_hash(a, r) != lr.projects_hash(a[:1], r)
+
+
 def test_code_hash_covers_proxy_and_scanner():
     names = {p.name for p in lr.CODE_FILES}
     assert {"anthropic_payload_pseudonymize.py", "sensitive_data_scanner.py"} <= names

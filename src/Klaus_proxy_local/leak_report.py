@@ -249,6 +249,14 @@ def attribute(
     return None
 
 
+def projects_hash(projects: list[dict], remotes: dict[str, str]) -> str:
+    """Huella de la lista de proyectos y sus remotes, independiente del orden."""
+    data = json.dumps(
+        [sorted(p["path"] for p in projects), sorted(remotes.items())]
+    ).encode()
+    return hashlib.sha256(data).hexdigest()[:16]
+
+
 def scan_captures(
     captures_dir: Path,
     projects: list[dict],
@@ -263,6 +271,9 @@ def scan_captures(
 
     out: dict[str, dict] = {}
     cached = cache["captures"]
+    # La atribución depende de qué proyectos hay: si se quita o añade uno,
+    # las capturas se reasignan (#180)
+    projects_key = projects_hash(projects, remotes)
     paths = sorted((captures_dir / "original").glob("*.json"))
     for i, opath in enumerate(paths, 1):
         if progress and i % 250 == 0:
@@ -270,7 +281,10 @@ def scan_captures(
         spath = captures_dir / "sent" / opath.name
         if not spath.exists():
             continue
-        key = f"{opath.stat().st_size}:{spath.stat().st_size}:{coverage.rules_hash}"
+        key = (
+            f"{opath.stat().st_size}:{spath.stat().st_size}"
+            f":{coverage.rules_hash}:{projects_key}"
+        )
         entry = cached.get(opath.name)
         if entry is None or entry.get("key") != key or reveal:
             entry = _analyze_capture(
