@@ -56,6 +56,7 @@ klaus-prune-captures = "Klaus_proxy_local.capture_retention:main"
 klaus-scan-repos = "Klaus_proxy_local.scan_repos:main"
 klaus-leak-report = "Klaus_proxy_local.leak_report:main"
 klaus-startup-scan = "Klaus_proxy_local.startup_scan:main"
+klaus-alerts = "Klaus_proxy_local.alerts_tui:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

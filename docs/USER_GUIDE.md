@@ -186,6 +186,7 @@ Para saber si el proxy protege **ahora**, mira las capturas con fugas posteriore
 | `sentinel_enabled` | Centinela de fugas: avisa de datos nuevos sin regla tras cada petición (por defecto `true`). Ver [Centinela](#-centinela-de-fugas) |
 | `sentinel_min_confidence` | Confianza mínima que avisa: `MEDIUM` (por defecto, todo salvo LOW), `HIGH` o `CRITICAL` |
 | `sentinel_notify` | `true` para una notificación del sistema por sesión (solo macOS). Por defecto `true` |
+| `sentinel_silenced_categories` | Categorías que el centinela no avisa. Lista vacía por defecto. Se gestiona desde `klaus-alerts` (`c`); se lee en cada análisis, sin reiniciar |
 
 Las variables de entorno (`ANTHROPIC_PSEUDO_*`, `ANTHROPIC_CAPTURE_*`, `KLAUS_INTERCEPT_ALL`, `KLAUS_LOG_DIR`) están en el [runbook](./anthropic-audit-proxy.md#configuración-por-entorno). Se aplican al proceso de `claude-proxy`, así que hay que exportarlas antes de arrancarlo.
 
@@ -205,7 +206,41 @@ Un dato **nuevo**, sin regla, sale en claro en la petición en la que aparece, y
 
 **Límites:** no ve datos sin forma reconocible, como un nombre de proyecto dentro de una frase. Ver [ADR-002](./decisions/ADR-002-centinela-klaus-alerts.md) y #179.
 
-**Para revisar un aviso** (hasta que exista `klaus-alerts`, #189): abre `~/.klaus-proxy/alerts.jsonl`, o ejecuta `klaus-scan <proyecto> --reveal` en tu terminal, apruébalo y el proxy lo aplicará desde la siguiente petición.
+**Para revisar un aviso:** ejecuta `klaus-alerts` en su **propia terminal**. Ver la sección «klaus-alerts» más abajo.
+
+---
+
+## 🖥️ klaus-alerts (revisión de avisos)
+
+`klaus-alerts` muestra en tiempo real los avisos del centinela (#189). Es un comando aparte: si lo cierras o falla, el proxy sigue funcionando igual.
+
+```bash
+klaus-alerts
+```
+
+**Pantallas**
+
+1. **Sesiones:** los avisos pendientes agrupados por sesión (carpeta de trabajo y día), con el recuento. Enter abre la sesión.
+2. **Valores de la sesión:** cada valor aparece con su identificador enmascarado `⟨categoría·hash·longitud⟩`.
+
+**Teclas**
+
+| Tecla | Acción | Qué pasa |
+|---|---|---|
+| `a` | Aprobar | Pide confirmación. Añade el valor al vault y a `config.json`. Se aplica en la siguiente petición |
+| `f` | Falso positivo | Lo añade a `pseudo_pattern_ignore` de `config.json` |
+| `s` | Ignorar en la sesión | Oculta los avisos de esa sesión en esta interfaz |
+| `v` | Ver contexto | Muestra la línea donde aparece el valor **solo en pantalla**. No se guarda |
+| `c` | Silenciar categoría | Pide confirmación. Añade la categoría a `sentinel_silenced_categories` |
+| `Esc` / `q` | Volver / salir | |
+
+**Cómo se recupera el valor.** El registro `alerts.jsonl` nunca guarda el valor. Para `a`, `f` y `v`, `klaus-alerts` lo busca en la captura local de la misma sesión y del mismo minuto (±2 min) y lo confirma por el identificador. Si la captura ya no existe (por ejemplo, la retención la ha borrado), la acción no se aplica y lo indica.
+
+**Límites**
+
+- `s` solo oculta en la interfaz. Si el mismo valor vuelve a salir en esa sesión, el centinela **sigue notificando**. Ver [ADR-002](./decisions/ADR-002-centinela-klaus-alerts.md).
+- Cada acción deja una línea en `alerts.jsonl` (sin valores), así que el estado se mantiene al reiniciar la interfaz.
+- Requiere una terminal interactiva. Funciona en macOS y Linux.
 
 ---
 
