@@ -24,6 +24,14 @@ Otros informes locales:
 
 ---
 
+## 🧪 Spikes
+
+| Spike | Descripción |
+|---|---|
+| [🛰️ Centinela de fugas](./spike-centinela.md) | Coste y ruido de un centinela que avisa de datos nuevos tras cada petición (#185) |
+
+---
+
 ## 🚀 Notas de releases
 
 | Versión | Documento |
