@@ -268,3 +268,43 @@ def test_main_refuses_without_terminal(monkeypatch, capsys):
     monkeypatch.setattr(at.sys.stdin, "isatty", lambda: False, raising=False)
     assert at.main([]) == 2
     assert "terminal interactiva" in capsys.readouterr().err
+
+
+# --- Confirmación: no debe fallar con el sondeo de la interfaz (#189) -------
+
+
+class _FakeScreen:
+    def __init__(self, keys):
+        self.keys = list(keys)
+        self.timeouts = []
+
+    def getmaxyx(self):
+        return (24, 80)
+
+    def erase(self):
+        pass
+
+    def addnstr(self, *args):
+        pass
+
+    def refresh(self):
+        pass
+
+    def timeout(self, ms):
+        self.timeouts.append(ms)
+
+    def getch(self):
+        return self.keys.pop(0) if self.keys else -1
+
+    def getkey(self):  # como curses: lanza error si no hay tecla en el plazo
+        raise AssertionError("getkey no debe usarse en _confirm")
+
+
+@pytest.mark.parametrize(
+    "key, expected", [(ord("s"), True), (ord("N"), False), (ord("x"), False)]
+)
+def test_confirm_reads_one_key_without_polling_timeout(tmp_path, key, expected):
+    scr = _FakeScreen([key])
+    app = at._App(scr, at.AlertFeed(tmp_path / "a.jsonl"), scanner=None)
+    assert app._confirm("¿Aprobar?") is expected
+    assert scr.timeouts[0] == -1 and scr.timeouts[-1] == at.POLL_MS

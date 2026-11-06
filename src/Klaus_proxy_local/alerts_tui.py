@@ -349,9 +349,15 @@ class _App:
             pass
 
     def _confirm(self, question: str) -> bool:
+        """Espera la respuesta sin el sondeo de 0,5 s (getkey falla con timeout)."""
         self.msg = f"{question} [s/N]"
         self._draw()
-        return self.scr.getkey().lower() in ("s", "y")
+        self.scr.timeout(-1)
+        try:
+            key = self.scr.getch()
+        finally:
+            self.scr.timeout(POLL_MS)
+        return key in (ord("s"), ord("S"), ord("y"), ord("Y"))
 
     def _current_alert(self) -> dict | None:
         if self.open is None or not self.open.alerts:
