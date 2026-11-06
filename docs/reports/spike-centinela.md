@@ -1,6 +1,6 @@
 # 🧪 Spike: centinela de fugas (coste y ruido)
 
-> Issue: #185 · Decide: #184 · Estado: ⏳ **medición hecha; falta la revisión manual de la muestra**
+> Issue: #185 · Decide: #184 · Estado: ✅ **medido y revisado**. Queda por decidir cómo agrupar los avisos (ver 🧭).
 
 ## 📋 Contexto
 
@@ -19,7 +19,7 @@ Para cada petición de `/v1/messages` de la ventana:
 - Usa los detectores de `klaus-scan`: patrones de secretos y `business_names.detect_line`.
 - Descarta los valores que el proxy ya cubriría con sus reglas actuales (`lr.Coverage`).
 - Cuenta un **aviso** por valor distinto y **sesión**. Una sesión es el mismo directorio de trabajo y el mismo día; es una aproximación, porque las capturas no tienen un identificador de sesión.
-- Filtra por confianza. Por defecto **HIGH**, el umbral de `klaus-scan`.
+- Filtra por confianza. **Umbral: MEDIUM** (todo salvo LOW), decidido por el autor.
 
 ```mermaid
 flowchart LR
@@ -27,77 +27,80 @@ flowchart LR
     B --> C[🧩 Detectores klaus-scan]
     C --> D{¿Cubierto por<br/>las reglas?}
     D -->|sí| E[✅ Sin aviso]
-    D -->|no| F{¿Confianza ≥ HIGH?}
-    F -->|no| G[📉 Solo se cuenta]
+    D -->|no| F{¿Confianza ≥ MEDIUM?}
+    F -->|no, LOW| G[📉 Solo se cuenta]
     F -->|sí| H[🔔 Aviso por sesión]
 ```
 
 ## 📊 Resultados
 
-Ventana de 30 días, sobre las capturas del autor (1 243 peticiones):
+### Coste (igual con cualquier umbral)
 
 | Medida | Valor |
 |---|---|
-| Tiempo por petición, detección | p50 **0,12 ms** · p95 **1,97 ms** |
+| Tiempo por petición, detección | p50 **0,12 ms** · p95 **≈ 2 ms** |
 | Tiempo por petición, cobertura | p50 0,00 ms · p95 0,17 ms |
-| Tiempo total por petición | p50 **0,12 ms** · p95 **2,06 ms** |
-| Peticiones con algún valor detectado | 89 |
-| Valores sin cubrir, todas las confianzas | 97 |
-| **Valores sin cubrir, desde HIGH** | **9** |
-| Sesiones con aviso | 2 (mediana 1,5 avisos; máximo 2) |
+| Tiempo total por petición | p50 **0,12 ms** · p95 **≈ 2,1 ms** |
 
-Por categoría (desde HIGH): `cloud-project` 8, `corporate-domain` 1.
+### Ruido, ventana de 30 días (≈ 1 250 peticiones)
 
-Con 7 días: 1 103 peticiones, 5 avisos HIGH, 1 sesión con aviso.
+| Umbral | Avisos sin cubrir | Sesiones con aviso | Mediana por sesión | Máximo en una sesión |
+|---|---|---|---|---|
+| **MEDIUM** (decidido) | **82** | 3 | 2 | **45** |
+| HIGH | 9 | 2 | 1,5 | 2 |
+| Todas (incluye LOW) | 97 | — | — | — |
 
-**Lectura de la comparativa de umbrales (30 días):** sin filtro de confianza hay 97 valores sin cubrir; desde HIGH quedan 9. Casi todo el ruido de MEDIUM y LOW (`corporate-domain`, `issue-key`) desaparece con el umbral por defecto.
+Por categoría con MEDIUM: `corporate-domain` 74 · `cloud-project` 8.
+
+Con 7 días y umbral HIGH: 5 avisos, 1 sesión.
+
+### Revisión manual de los 9 avisos HIGH
+
+El autor revisó los 9 avisos HIGH en su terminal, con `--reveal`:
+
+| Resultado | Cantidad |
+|---|---|
+| **V**, dato sensible real | **9** |
+| **F**, falso positivo | **0** |
+
+Son 2 valores distintos: un identificador de proyecto de 6 caracteres (`cloud-project`, 8 avisos) y un dominio corporativo (1 aviso). La muestra es pequeña, así que la tasa de falsos positivos de 0 % es solo orientativa.
+
+### ⏳ Sin revisar: los 73 avisos MEDIUM restantes
+
+Los avisos MEDIUM que se añaden al umbral **no se han revisado**. Son sobre todo `corporate-domain` (74 en total, de los que 1 ya estaba en HIGH). El valor más repetido aparece en 19 peticiones. Antes de dar el ruido por aceptable, hay que revisar una muestra de estos avisos con `--reveal` en la terminal del autor.
 
 ## 🧠 Interpretación
 
-- **Coste: no es un problema.** Un p95 de 2 ms por petición queda muy por debajo de cualquier latencia perceptible. El análisis puede correr en segundo plano sin preocupación.
-- **Ruido: bajo con HIGH, pero la muestra es pequeña.** Hay 9 avisos en 30 días, de solo 2 valores distintos. Con tan pocos casos no se puede dar una tasa de falsos positivos fiable. Solo se sabe que, en estos datos, el umbral HIGH no produce una avalancha.
-- **Sobre todo, el dato útil es lo que el proxy ya cubre:** 1 243 peticiones y solo 9 avisos HIGH sin cubrir. Las reglas actuales ya cubren casi todo lo que estos detectores ven.
+- **Coste: no es un problema.** Un p95 de ≈ 2 ms por petición queda muy por debajo de cualquier latencia perceptible. El análisis puede correr en segundo plano sin preocupación.
+- **Los avisos HIGH reales son pocos y son datos sensibles.** En 30 días hubo 9, todos confirmados como sensibles por el autor. Eso valida el detector en esta muestra.
+- **MEDIUM añade ruido potencial, sobre todo en una sesión.** Pasa de 9 a 82 avisos sin cubrir, y una sesión llega a 45 valores distintos. Si el centinela avisa uno a uno, esa sesión sería ruido puro. Por eso la forma de notificar pesa tanto como el umbral.
+- **Lo que el proxy ya cubre es la mayoría.** De 1 252 peticiones, solo 89 tienen algún valor detectado que no está cubierto, y la mayoría ya lo estaba.
 
 ## ⚠️ Límites del spike
 
 - **No mide lo que ningún detector ve**: nombres de proyecto dentro de una frase, nombres propios sin forma jurídica. Eso sigue siendo un riesgo residual (ver #179, prioridad 7).
-- **Solo mira el último mensaje.** Si un dato aparece en un turno anterior y no se detectó entonces, no vuelve a avisar. Por diseño, el centinela analiza lo nuevo de cada petición; un dato ya presente en una petición anterior se habría avisado allí.
+- **Solo mira el último mensaje de cada petición.** Un dato que apareció en una petición anterior ya se habría avisado entonces, si lo hubiera detectado.
 - **Business names parcial:** el spike usa `detect_line`, que cubre titulares de copyright y algunas categorías de nombres de negocio. No ejecuta el modo `enable_business` completo del escáner. Un centinela real debería usar el mismo conjunto que `klaus-scan`.
 - **Emails e IPs** no están en la medición: se gestionan en `pv.layer_matches`, que no entra en este script.
 - **Sesión aproximada:** cwd + día.
+- **La ventana se desplaza:** las cifras pueden variar ligeramente entre ejecuciones (1 243 y 1 252 peticiones en dos medidas de 30 días).
 
-## ✋ Revisión manual pendiente (falsos positivos)
+## 🧭 Recomendación
 
-Los 9 avisos HIGH hay que clasificarlos a mano. **Solo tú puedes hacerlo**, porque para ver los valores hay que usar `--reveal`, y eso no se debe ejecutar desde Claude Code: lo que se imprime llega al modelo.
-
-En tu terminal:
-
-```bash
-python3 scripts/spike_centinela.py --days 30 --reveal --sample 9
-```
-
-Para cada línea, marca `V` (dato sensible real) o `F` (falso positivo). Con eso se completa esta sección.
-
-| Resultado | Pendiente |
-|---|---|
-| Verdaderos positivos | ⏳ |
-| Falsos positivos | ⏳ |
-| Tasa de falsos positivos | ⏳ (con 9 casos, solo orientativa) |
-
-## 🧭 Recomendación preliminar
-
-1. **Implementar B con umbral HIGH**, tal como está en #184. El coste es despreciable y el ruido medido es bajo.
-2. **Mantener C fuera de alcance.** Con tan pocos casos reales no hay base para pseudonimizar antes de enviar; sería adivinar.
-3. **Antes de dar B por bueno**, completar la revisión manual de la muestra. Si los falsos positivos superan lo asumible, subir a CRITICAL o revisar las reglas de `corporate-domain` y `cloud-project`.
-4. **Volver a medir** con más datos al cabo de unas semanas de uso, porque la muestra actual es muy pequeña.
+1. **Implementar B con umbral MEDIUM**, como pide el autor, porque el coste es despreciable y los avisos HIGH reales confirmados son sensibles.
+2. **Agrupar los avisos por sesión, no avisar uno a uno.** Una sola notificación por sesión con el recuento (por ejemplo, «12 datos nuevos sin regla en esta sesión; revísalos con `klaus-scan`»). Así una sesión con 45 valores no se convierte en 45 notificaciones.
+3. **Revisar una muestra de los `corporate-domain` MEDIUM** antes de dar el ruido por aceptado. Si son mayoritariamente falsos positivos, ajustar sus reglas en vez de bajar el umbral.
+4. **Mantener C fuera de alcance**, por el mismo motivo que antes: no hay base para pseudonimizar antes de enviar.
+5. **Volver a medir** al cabo de unas semanas de uso.
 
 ## ✅ Criterios de aceptación del spike (#185)
 
 - [x] El script no escribe en `captures/`, en el vault ni en `config.json`.
 - [x] La salida sin `--reveal` no contiene valores en claro. Solo identificadores `⟨categoría·hash·longitud⟩`.
 - [x] p50 y p95 del tiempo por petición medidos en esta máquina.
-- [x] Número de avisos por sesión medido.
-- [ ] Tasa de falsos positivos sobre la muestra revisada a mano: **pendiente de la revisión del autor**.
+- [x] Número de avisos por sesión medido, con el umbral decidido.
+- [x] Revisión manual de la muestra HIGH: 9 de 9 sensibles.
+- [ ] Revisión manual de la muestra MEDIUM: **pendiente** (ver ⏳ arriba).
 - [x] Recomendación explícita sobre B y C, con las cifras que la sustentan.
 
 ## 🔗 Referencias

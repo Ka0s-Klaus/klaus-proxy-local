@@ -43,7 +43,7 @@ from Klaus_proxy_local.scan import safe_id  # noqa: E402
 from Klaus_proxy_local.sensitive_data_scanner import SensitiveDataScanner  # noqa: E402
 
 CONTEXT = 30
-# Mismo orden que klaus-scan: el umbral por defecto es HIGH
+# Orden de confianza. Decisión #185: el centinela avisa de todo salvo LOW
 RANK = {"LOW": 0, "MEDIUM": 1, "HIGH": 2, "CRITICAL": 3}
 
 
@@ -96,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
         "--reveal", action="store_true", help="muestra valores (solo terminal)"
     )
     ap.add_argument("--sample", type=int, default=30)
-    ap.add_argument("--min-confidence", default="HIGH", choices=list(RANK))
+    ap.add_argument("--min-confidence", default="MEDIUM", choices=list(RANK))
     ap.add_argument("--seed", type=int, default=185)
     args = ap.parse_args(argv)
 

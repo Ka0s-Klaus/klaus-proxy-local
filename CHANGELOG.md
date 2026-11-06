@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Spike del centinela de fugas** (#185) — `scripts/spike_centinela.py` mide, en solo lectura, el coste (p95 ≈ 2 ms por petición) y el ruido (avisos HIGH sin cubrir: 9 en 30 días) de un centinela que avisaría de datos nuevos tras cada envío (#184). Informe: [docs/reports/spike-centinela.md](docs/reports/spike-centinela.md). Falta la revisión manual de falsos positivos.
+- **Spike del centinela de fugas** (#185) — `scripts/spike_centinela.py` mide, en solo lectura, el coste (p95 ≈ 2 ms por petición) y el ruido de un centinela que avisaría de datos nuevos tras cada envío (#184). Con umbral MEDIUM, 82 avisos sin cubrir en 30 días; los 9 HIGH revisados a mano son datos sensibles reales. Informe: [docs/reports/spike-centinela.md](docs/reports/spike-centinela.md). Pendiente revisar una muestra de los `corporate-domain` MEDIUM.
 
 ### Fixed
 - **`main` vuelve a estar en verde** (#182) — Tras la v0.9.1, el CI fallaba en lint (imports en `launcher.py` y formato black en `scan.py` y `startup_scan.py`) y en los dos tests de versión, que seguían esperando `0.9.0`. Ahora esos tests comparan `__version__` con `pyproject.toml` y no hay que tocarlos en cada release. `requires-python` vuelve a `>=3.10` (#175). `requirements-dev.txt` instala desde `pyproject.toml` en lugar de un `requirements.txt` que ya no existe.
