@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Un host de LLM definido solo en la configuración de un proyecto se bloquea hasta que lo apruebes** (#193) — Los hosts de `ANTHROPIC_BASE_URL` que aparecen en `.claude/settings.json` o `.claude/settings.local.json` de tus repos (`projects_dirs`) ya no se dejan pasar sin auditar: el proxy responde 403 y avisa en el log. Para usarlos, añádelos a `hosts` en `config.json`. Se relee cada 60 s, sin reiniciar. Limitación: solo cubre los repos de `projects_dirs`.
+
 ### Added
 - **`klaus-alerts`, interfaz para revisar los avisos del centinela** (#189) — Comando aparte que muestra en tiempo real los avisos de `alerts.jsonl`, agrupados por sesión, con `a` aprobar, `f` falso positivo, `s` ignorar en la sesión, `v` ver contexto (solo en pantalla) y `c` silenciar categoría. El valor se recupera de la captura local y nunca se guarda. Nueva clave `sentinel_silenced_categories` en `config.json`. Decisiones en [ADR-002](docs/decisions/ADR-002-centinela-klaus-alerts.md).
 - **Centinela de fugas y recarga en caliente de reglas** (#187) — Un dato nuevo sin regla que aparece en una petición genera un aviso tras el envío, agrupado por sesión y sin valores en claro (`~/.klaus-proxy/alerts.jsonl`). Umbral MEDIUM por defecto, configurable con `sentinel_min_confidence`. Las reglas y el vault se recargan cuando cambian en disco: una regla aprobada se aplica en la siguiente petición sin reiniciar `claude-proxy`. `klaus-leak-report --drill` comprueba también el centinela. Decisiones en [ADR-002](docs/decisions/ADR-002-centinela-klaus-alerts.md).
