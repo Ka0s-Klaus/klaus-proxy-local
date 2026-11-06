@@ -1,3 +1,7 @@
+---
+tags: [proyecto/klaus-proxy-local, tipo/guia, seguridad/fugas, proxy/centinela]
+---
+
 # 🧯 Simulacro de fugas: `klaus-leak-report --drill`
 
 ## 📋 Contexto
