@@ -12,7 +12,8 @@ Aquí se documentan las **decisiones técnicas relevantes** del proyecto en form
 
 | ID | Título | Estado | Fecha |
 |---|---|---|---|
-| — | *(primer ADR pendiente)* | — | — |
+| [ADR-001](./ADR-001-persist-pseudo-literals-config.md) | Persistir literales de pseudonimización en `config.json` | ✅ Implementado | — |
+| [ADR-002](./ADR-002-centinela-klaus-alerts.md) | Centinela de fugas y revisión en tiempo real con `klaus-alerts` | ✅ Aceptado | — |
 
 > 📝 **Nota:** los ADRs se crean aquí, en `docs/decisions/`, como parte del flujo estándar Issue → Rama → Documentación → PR. Cada decisión técnica importante que se tome durante el desarrollo debe quedar registrada aquí antes de cerrar la issue correspondiente.
 
