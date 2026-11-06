@@ -1,2 +1,2 @@
--r requirements.txt
-pytest>=8,<10
+# Las dependencias viven en pyproject.toml; requirements.txt se eliminó en #29 (#182)
+-e .[dev]

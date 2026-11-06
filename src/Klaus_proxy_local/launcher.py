@@ -362,7 +362,11 @@ class ProxyLauncher:
         advertencia y se continúa con el resto del arranque.
         """
         try:
-            from Klaus_proxy_local.startup_scan import print_header, print_summary, scan_all
+            from Klaus_proxy_local.startup_scan import (
+                print_header,
+                print_summary,
+                scan_all,
+            )
 
             print_header()
             result = scan_all()

@@ -265,12 +265,11 @@ class TestPackageMetadata:
     """Test package metadata is correct."""
 
     def test_package_version(self):
-        """Package version is 0.9.0."""
+        """__version__ existe y coincide con pyproject.toml (#182)."""
         import Klaus_proxy_local
+        from tests.test_placeholder import pyproject_version
 
-        # Check if __version__ exists
-        if hasattr(Klaus_proxy_local, "__version__"):
-            assert Klaus_proxy_local.__version__ == "0.9.0"
+        assert Klaus_proxy_local.__version__ == pyproject_version()
 
     def test_package_has_docstring(self):
         """Package has a docstring."""

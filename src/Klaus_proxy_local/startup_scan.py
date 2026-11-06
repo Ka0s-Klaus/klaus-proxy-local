@@ -87,9 +87,9 @@ def scan_all(dry_run: bool = False) -> dict:
         return _skip(f"Vault no disponible: {e}")
 
     scanner = SensitiveDataScanner(
-        enable_contextual=True,   # nombres de variable + tipos de archivo
-        enable_heuristic=False,   # demasiado ruido para auto-aprobar
-        enable_business=True,     # nombres de cliente, dominios, cloud IDs
+        enable_contextual=True,  # nombres de variable + tipos de archivo
+        enable_heuristic=False,  # demasiado ruido para auto-aprobar
+        enable_business=True,  # nombres de cliente, dominios, cloud IDs
     )
 
     total_repos = len(repos)
