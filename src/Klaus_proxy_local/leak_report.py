@@ -697,6 +697,64 @@ def _drill_write(base: Path, name: str, original: dict, sent: dict, ts: str) -> 
         write_private(d / name, json.dumps(record, ensure_ascii=False))
 
 
+def _drill_sentinel_checks(
+    canaries: list[tuple[str, str, str]], payload: dict
+) -> list[tuple[bool, str]]:
+    """Centinela (#187): avisa de lo que el proxy no cubre y calla lo que cubre.
+
+    Usa el texto del simulacro y el detector real, con una cobertura falsa:
+    con ``covers=False`` todo cuenta como sin cubrir; con ``covers=True``, como
+    cubierto. No toca el vault ni los ficheros reales de alertas.
+    """
+    from Klaus_proxy_local import sentinel as sn
+    from Klaus_proxy_local.sensitive_data_scanner import SensitiveDataScanner
+
+    class _Sink:
+        def __init__(self) -> None:
+            self.records: list[dict] = []
+
+        def write(self, record: dict) -> None:
+            self.records.append(record)
+
+    # Dominio corporativo ficticio solo para el centinela: el canario .invalid
+    # (que sí usa el proxy) se ignora a propósito como marcador de posición.
+    corp_email = f"drill.{secrets.token_hex(4)}@klaus-drill-corp.io"
+    text = sn.last_message_text(payload) + f" Contacto: {corp_email}"
+    email = corp_email
+    scanner = SensitiveDataScanner(enable_business=False)
+    uncovered, covered = _Sink(), _Sink()
+    s_uncovered = sn.Sentinel(sink=uncovered, notify=False, scanner=scanner)
+    s_covered = sn.Sentinel(sink=covered, notify=False, scanner=scanner)
+    try:
+        s_uncovered.process(
+            text, DRILL_PROJECT + "|drill", lambda v: False, datetime.now()
+        )
+        s_covered.process(
+            text, DRILL_PROJECT + "|drill", lambda v: True, datetime.now()
+        )
+    finally:
+        s_uncovered.stop()
+        s_covered.stop()
+    # klaus-scan identifica el dominio corporativo, no el email completo
+    domain = email.split("@", 1)[1]
+    domain_ids = {
+        safe_id(f.value, f.category)
+        for f in sn.detect(text, scanner)
+        if f.value == domain
+    }
+    saw_domain = any(r["id"] in domain_ids for r in uncovered.records)
+    return [
+        (
+            saw_domain,
+            "🔔 El centinela avisa del dominio corporativo simulado, que el proxy no cubriría",
+        ),
+        (
+            not covered.records,
+            "🔕 El centinela no avisa de lo que el proxy ya cubre",
+        ),
+    ]
+
+
 def run_drill(now: datetime | None = None) -> list[tuple[bool, str]]:
     """Simulacro: siembra fugas falsas y comprueba que el informe las ve.
 
@@ -747,6 +805,7 @@ def run_drill(now: datetime | None = None) -> list[tuple[bool, str]]:
                 "🛡️ La captura de control, seudonimizada por el proxy, sale limpia",
             )
         )
+        checks.extend(_drill_sentinel_checks(canaries, original))
         checks.append(
             (
                 leak.get("project") == DRILL_PROJECT,
