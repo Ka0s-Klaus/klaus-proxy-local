@@ -36,7 +36,8 @@ Otros informes locales:
 
 | Versión | Documento |
 |---|---|
-| **v0.9.0** (última) | [RELEASE_v0.9.0_NOTES.md](../RELEASE_v0.9.0_NOTES.md) |
+| **v0.10.0** (última) | [RELEASE_v0.10.0_NOTES.md](../RELEASE_v0.10.0_NOTES.md) |
+| v0.9.0 | [RELEASE_v0.9.0_NOTES.md](../RELEASE_v0.9.0_NOTES.md) |
 | v0.8.1 | [RELEASE_v0.8.1_NOTES.md](../RELEASE_v0.8.1_NOTES.md) |
 | v0.8.0 | [RELEASE_v0.8.0_NOTES.md](../RELEASE_v0.8.0_NOTES.md) |
 | v0.7.0 | [RELEASE_v0.7.0_NOTES.md](../RELEASE_v0.7.0_NOTES.md) |

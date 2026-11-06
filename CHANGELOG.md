@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [0.10.0] — 2026-11-06
+
 ### Security
 - **Un host de LLM definido solo en la configuración de un proyecto se bloquea hasta que lo apruebes** (#193) — Los hosts de `ANTHROPIC_BASE_URL` que aparecen en `.claude/settings.json` o `.claude/settings.local.json` de tus repos (`projects_dirs`) ya no se dejan pasar sin auditar: el proxy responde 403 y avisa en el log. Para usarlos, añádelos a `hosts` en `config.json`. Se relee cada 60 s, sin reiniciar. Limitación: solo cubre los repos de `projects_dirs`.
 
