@@ -269,6 +269,47 @@ grep TÚNEL ~/.klaus-proxy/logs/proxy.log | tail
 
 ---
 
+## 🧰 Utilidades de instalación
+
+Dos comandos de instalación que puedes ejecutar a mano si algo falla o quieres repetir un paso. `klaus-setup` llama al primero; el segundo es manual (`install.sh` tiene su propia lógica para instalar Python en macOS).
+
+### `klaus-install-wrappers` — scripts `claude-with-proxy`
+
+Copia los wrappers `claude-with-proxy` a la carpeta de comandos del usuario. Según el sistema:
+
+- macOS / Linux: `claude-with-proxy` (bash/zsh) y `claude-with-proxy.fish`.
+- Windows: `claude-with-proxy.ps1` y `claude-with-proxy.bat`.
+
+| Sistema | Destino |
+|---|---|
+| macOS / Linux | `~/.local/bin/` |
+| Windows | `%APPDATA%\Scripts` |
+
+- **Quién lo llama:** `klaus-setup` lo ejecuta al configurar la terminal. Es un paso interno.
+- **Cuándo usarlo a mano:** si borraste los wrappers o quieres reinstalarlos. Es seguro repetirlo: los wrappers ya presentes se reportan como «Already installed».
+- **Salida esperada:** una línea por wrapper, p. ej. `✅ Installed: claude-with-proxy.fish`.
+
+### `klaus-install-python` — comprobar y, si hace falta, instalar Python 3.13
+
+Comprueba la versión de Python y, solo si es inferior a 3.13, intenta instalarla con el gestor del sistema:
+
+| Sistema | Qué ejecuta |
+|---|---|
+| macOS con Homebrew | `brew update` y `brew install python@3.13` |
+| Ubuntu / Debian | `apt install python3.13 python3.13-venv python3.13-dev` (tras `apt update`) |
+| Fedora / RHEL | `dnf install python3.13 python3.13-devel` |
+| Windows | `choco install python313` (si hay Chocolatey) |
+
+- **Si ya tienes Python 3.13+:** no cambia nada y termina con `✅ Python 3.13 is compatible!`.
+- **Si no hay gestor compatible:** muestra las instrucciones para instalarlo a mano y termina con error.
+- **Aviso:** en macOS y Linux instala software del sistema. Si no quieres que lo haga, instala Python 3.13 tú antes.
+
+```bash
+klaus-install-python   # comprueba la versión; instala Python 3.13 si hace falta
+```
+
+---
+
 ## 🔗 Ayuda
 
 - Issues: https://github.com/Ka0s-Klaus/klaus-proxy-local/issues

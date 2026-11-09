@@ -181,9 +181,9 @@ El sistema mantiene un índice automático:
 
 | Fecha | Hora | Reporte | Tipo |
 |-------|------|---------|------|
-| 2026-09-05 | 09:53:13 | [audit_2026-09-05_095313.md](audit_2026-09-05_095313.md) | Auto-generated |
-| 2026-09-05 | 10:00:45 | [audit_2026-09-05_100045.md](audit_2026-09-05_100045.md) | Auto-generated |
-| 2026-09-05 | 15:02:27 | [audit_2026-09-05_150227.md](audit_2026-09-05_150227.md) | Auto-generated |
+| 2026-09-05 | 09:53:13 | `audit_2026-09-05_095313.md` (no versionado) | Auto-generated |
+| 2026-09-05 | 10:00:45 | `audit_2026-09-05_100045.md` (no versionado) | Auto-generated |
+| 2026-09-05 | 15:02:27 | `audit_2026-09-05_150227.md` (no versionado) | Auto-generated |
 ```
 
 - ✅ Se actualiza automáticamente cada vez que generas un reporte

@@ -24,11 +24,21 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc   # o ~/.bashrc
 
 ## ▶️ El proxy no arranca
 
-**`Address already in use` en el puerto 8899**: ya hay otro `claude-proxy` (o un `mitmdump`) escuchando. El puerto es fijo.
+**`Address already in use` en el puerto 8899**: ya hay otro proxy escuchando. El puerto es fijo (`127.0.0.1:8899`).
+
+Desde la versión con #202, `claude-proxy` lo resuelve solo: si el puerto lo ocupa un `mitmdump`, lo para (SIGTERM, y SIGKILL si no responde en 5 s) y relanza el proxy. La terminal muestra cada paso:
+
+```
+⚠️  Puerto 8899 ocupado por un proxy previo (PID 16886)
+🛑 Deteniéndolo para relanzar el proxy...
+✅ Puerto 8899 liberado
+```
+
+Si lo ocupa **otro** programa (no `mitmdump`), `claude-proxy` no lo toca: aborta e indica el PID y el comando. Para ver quién es y liberarlo a mano:
 
 ```bash
-lsof -i :8899          # quién lo usa
-kill <PID>             # páralo (Ctrl+C si es tu otra terminal)
+lsof -nP -iTCP:8899 -sTCP:LISTEN   # quién lo usa
+kill <PID>                         # solo si es algo tuyo que quieres parar
 ```
 
 **Errores al cargar los addons**: `claude-proxy` muestra el commit de los addons cargados («🧩 Addons: …»). Si falta esa línea o sale un error de Python, revisa el log y vuelve a arrancar.

@@ -11,7 +11,7 @@ tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/instalacion]
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![Version](https://img.shields.io/badge/version-0.10.0-green)](./docs/RELEASE_v0.10.0_NOTES.md)
-[![Tests](https://img.shields.io/badge/tests-883%20passed-brightgreen)](./.github/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-886%20passed-brightgreen)](./.github/workflows/ci.yml)
 [![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.10.0_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
@@ -90,6 +90,9 @@ klaus-scan ~/proyectos/mi-repo   # detecta secretos y nombres de negocio; aprueb
 #   (tras aprobar, reinicia claude-proxy para que se apliquen)
 klaus-leak-report --open         # por proyecto: qué no cubre el proxy, qué ha salido y % de cobertura
 klaus-leak-report --drill        # simulacro: comprueba que un «0 fugas» es fiable
+klaus-startup-scan --dry-run     # qué hallazgos añadiría el escaneo de inicio al vault (sin escribir)
+klaus-install-wrappers           # reinstala los wrappers claude-with-proxy (lo hace klaus-setup)
+klaus-install-python             # comprueba Python 3.13 y lo instala si falta (manual)
 
 # Terminal 3 alternativo: auditar payloads (CLI)
 klaus-audit-payloads
