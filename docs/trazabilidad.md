@@ -22,9 +22,10 @@ La trazabilidad sirve para **auditar**, no para **reproducir exactamente** una s
 - Pasos de agentes y su orden.
 - Comprobaciones de verificación y su resultado.
 - Intervención humana (aprobación, rechazo, modificación).
+- **Métricas de rendimiento y conexión** de cada llamada al modelo: duración, tiempo hasta la primera respuesta, código HTTP, reutilización de la conexión y estrategia de conexión (ver §4.4). Son métricas de primera clase: el informe de auditoría las muestra.
 
 **No incluye (por ahora)**
-- Métricas de rendimiento o coste (se tratan en una especificación aparte).
+- Métricas de coste económico (€ por petición o mensual); se tratan en una especificación aparte.
 - Almacenamiento a largo plazo de datos de negocio.
 - Explicabilidad interna del modelo (pesos, atención).
 
@@ -61,13 +62,13 @@ Cada evento es un objeto JSON. Los campos comunes son obligatorios en todos los 
 | `input_received` | Entrada original | `content_hash`, `content_ref` (opcional), `channel` |
 | `retrieval_performed` | Recuperación de fuentes | `query`, `sources: [{source_id, version, content_hash}]`, `index_name` |
 | `prompt_built` | Prompt final enviado | `prompt_version`, `template_id`, `content_hash` |
-| `model_called` | Llamada al modelo | `requested_model`, `returned_model`, `provider`, `temperature`, `top_p`, `max_tokens`, `input_tokens`, `output_tokens`, `output_hash` |
+| `model_called` | Llamada al modelo | `requested_model`, `returned_model`, `provider`, `temperature`, `top_p`, `max_tokens`, `input_tokens`, `output_tokens`, `output_hash`; opcionales de rendimiento (§4.4) |
 | `tool_called` | Llamada a herramienta | `tool_name`, `tool_version`, `input_hash`, `output_hash`, `status` |
 | `agent_step` | Paso de un agente | `step_name`, `plan_ref`, `outcome` |
 | `verification_run` | Comprobación aplicada | `check_name`, `check_version`, `result` (`pass`, `fail`, `warn`), `details_ref` |
 | `human_review` | Intervención humana | `reviewer_id`, `decision` (`approved`, `rejected`, `modified`), `comment_ref` |
 | `output_emitted` | Salida entregada al usuario o a otro sistema | `output_hash`, `destination` |
-| `error` | Fallo en cualquier paso | `error_code`, `error_message`, `recoverable` |
+| `error` | Fallo en cualquier paso | `error_code`, `error_message`, `recoverable`; opcionales de rendimiento (§4.4) |
 
 ### 4.3 Reglas de integridad
 
@@ -76,6 +77,45 @@ Cada evento es un objeto JSON. Los campos comunes son obligatorios en todos los 
 - Todo `parent_event_id` debe referir a un `event_id` existente dentro de la misma traza.
 - Un `output_emitted` no puede existir sin un `model_called` previo en la misma traza.
 - Si existe un `human_review` con `decision: approved`, debe seguir a una `output_emitted` o precederla según el flujo, nunca quedar huérfano.
+
+### 4.4 Métricas de rendimiento y conexión 📈
+
+Se registran en los eventos `model_called` (llamada completada) y `error` (llamada que falló tras enviarse a la API). Son **campos opcionales**: una traza anterior a su introducción sigue siendo válida y se cuenta como «sin dato», nunca como 0.
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `duration_ms` | integer ≥ 0 | Tiempo total desde que se envía la petición hasta que termina la respuesta (en ms). |
+| `ttfb_ms` | integer ≥ 0 | Tiempo hasta la primera respuesta de la API (cabeceras), en ms. |
+| `http_status` | integer | Código HTTP devuelto por la API. Ausente si no hubo respuesta. |
+| `connection_reused` | boolean | `true` si la petición usó una conexión upstream ya abierta; `false` si abrió una nueva. |
+| `connection_strategy` | string | Estrategia de conexión upstream activa (p. ej. `lazy`, valor de `connection_strategy` de mitmproxy). |
+
+**Reglas:**
+
+- Un campo que no se puede medir **se omite** (o vale `null`); nunca se rellena con `0` ni con `false`. En el informe cuenta como «sin dato».
+- Todos los valores de tiempo son **milisegundos enteros**, medidos en el proxy (no se confía en el reloj del cliente).
+- Los campos de rendimiento **nunca** incluyen cabeceras, claves, cuerpos ni contenido: solo números, booleanos y cadenas de configuración.
+- `duration_ms` y `ttfb_ms` son aproximaciones de la capa de proxy: incluyen el tiempo de red hasta la API, no el tiempo de procesamiento interno del cliente.
+- El informe de auditoría calcula percentiles (p50, p95, p99) solo sobre las trazas que tienen `duration_ms`, e indica qué porcentaje de trazas tiene datos de rendimiento (cobertura).
+
+**Ejemplo de `payload` de `model_called` con métricas:**
+
+```json
+{
+  "requested_model": "claude-haiku-5-5",
+  "returned_model": "claude-haiku-5-5",
+  "provider": "anthropic",
+  "max_tokens": 1024,
+  "input_tokens": 812,
+  "output_tokens": 146,
+  "output_hash": "sha256:c07e…",
+  "duration_ms": 1830,
+  "ttfb_ms": 412,
+  "http_status": 200,
+  "connection_reused": true,
+  "connection_strategy": "lazy"
+}
+```
 
 ## 5. Almacenamiento
 
@@ -209,6 +249,7 @@ Lectura de la traza: desde la salida entregada (`seq 6`) se llega a la revisión
 - [ ] Un fallo al escribir la traza no interrumpe la respuesta al usuario.
 - [ ] Existe un validador que comprueba las reglas de la sección 4.3 sobre un fichero de traza.
 - [ ] Solo el rol administrador puede leer trazas y contenido referenciado (verificable con los permisos del sistema de ficheros).
+- [ ] Las llamadas al modelo registran `duration_ms`, `http_status` y `connection_reused` (§4.4) cuando el proxy puede medirlos, y el informe de auditoría muestra p50/p95/p99 y la cobertura de estos datos.
 
 ## 10. Tareas sugeridas para Claude Code
 

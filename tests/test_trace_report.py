@@ -153,3 +153,53 @@ def test_recent_table_respects_limit(tmp_path):
     table = tr.render_recent_table(reports, limit=2)
     rows = [line for line in table.splitlines() if "modelo-x" in line]
     assert len(rows) == 2  # solo las dos trazas más recientes
+
+
+# ── Rendimiento en los informes (docs/trazabilidad.md §4.4) ─────────────────
+
+
+def _trace_with_perf(duration=420, reused=True):
+    events = _trace()
+    for e in events:
+        if e["event_type"] == "model_called":
+            e["payload"].update(
+                {
+                    "duration_ms": duration,
+                    "ttfb_ms": 90,
+                    "http_status": 200,
+                    "connection_reused": reused,
+                    "connection_strategy": "lazy",
+                }
+            )
+    return events
+
+
+def test_summary_exposes_latency_and_connection(tmp_path):
+    s = tr.summarize_trace(
+        _report(tmp_path, _trace_with_perf(duration=420, reused=False))
+    )
+    assert s["duration_ms"] == 420
+    assert s["connection_reused"] is False
+
+
+def test_summary_without_perf_has_no_latency(tmp_path):
+    s = tr.summarize_trace(_report(tmp_path, _trace()))
+    assert s["duration_ms"] is None
+    assert s["connection_reused"] is None
+
+
+def test_markdown_shows_performance_section_and_latency_column(tmp_path):
+    reports = [_report(tmp_path, _trace_with_perf())]
+    md = tr.render_markdown(reports, tmp_path)
+    assert "## ⏱️ Rendimiento y conexión" in md
+    assert "Latencia" in md
+    assert "420 ms" in md
+    assert SECRET not in md
+
+
+def test_event_summary_shows_latency_when_present(tmp_path):
+    events = _trace_with_perf(duration=500)
+    model = next(e for e in events if e["event_type"] == "model_called")
+    text = tr._event_summary(model)
+    assert "latencia=500 ms" in text
+    assert "conexión=reutilizada" in text
