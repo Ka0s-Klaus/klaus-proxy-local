@@ -906,6 +906,18 @@ def audit_efdef(project_root: Path, config_dir: Path) -> dict:
         env_file.exists(),
     )
 
+    # Un escritor del vault usa ANTHROPIC_PSEUDO_VAULT si está definida: no debe redirigirla.
+    env_text = env_file.read_text(encoding="utf-8") if env_file.exists() else ""
+    redirected = (
+        "ANTHROPIC_PSEUDO_VAULT" in env_text or "ANTHROPIC_PSEUDO_VAULT" in os.environ
+    )
+    chk(
+        "ANTHROPIC_PSEUDO_VAULT",
+        "Ninguna variable redirige el vault: los escritores usan solo captures/.pseudonym_vault.json",
+        not redirected,
+        "definida: los escritores podrían usar otra ruta" if redirected else "",
+    )
+
     trace_dir = config_dir / "logs" / "trazas"
     chk(
         "Trazas privadas",
