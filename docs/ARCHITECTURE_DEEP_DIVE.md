@@ -6,7 +6,7 @@ tags: [proyecto/klaus-proxy-local, tipo/referencia, proxy/arquitectura]
 
 > Cómo está construido el proxy y qué garantiza. Para operarlo, ve al [runbook técnico](./anthropic-audit-proxy.md); para usarlo, al [inicio rápido](./QUICK_START.md).
 
-**Versión:** v0.12.1
+**Versión:** v0.12.2
 
 ---
 
