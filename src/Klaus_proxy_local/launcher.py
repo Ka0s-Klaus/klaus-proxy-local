@@ -19,7 +19,7 @@ import sys
 import time
 from pathlib import Path
 
-from Klaus_proxy_local import __version__, capture_retention, scan_repos
+from Klaus_proxy_local import __version__, capture_retention, scan_repos, update_check
 from Klaus_proxy_local.addons_snapshot import ADDON_FILES, snapshot_addons
 from Klaus_proxy_local.certs import (
     ensure_mitmproxy_certs,
@@ -191,6 +191,16 @@ class ProxyLauncher:
             print(f"⚠️  Retención de capturas no aplicada: {e}\n")
             return
         print(capture_retention.describe(summary) + "\n")
+
+    def check_for_updates(self) -> None:
+        """Avisa si hay una versión más reciente. Nunca impide arrancar (#246)."""
+        try:
+            status = update_check.check_for_update(__version__)
+        except Exception:  # defensa extra: el aviso jamás rompe el arranque
+            return
+        text = update_check.describe(status)
+        if text:
+            print(text + "\n")
 
     def show_dashboard(self) -> None:
         """Show startup dashboard."""
@@ -488,6 +498,7 @@ class ProxyLauncher:
             self.ensure_prerequisites()
 
             # Phase 2: Startup vault scan
+            self.check_for_updates()
             self.run_startup_scan()
 
             # Phase 3: Show status
