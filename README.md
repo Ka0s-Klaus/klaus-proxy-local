@@ -61,7 +61,7 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.12.0)
+## 🚀 Inicio rápido (v0.12.1)
 
 > ℹ️ El paquete **no está publicado en PyPI**: se instala desde el repositorio con
 > `install.sh` (macOS y Linux, Python ≥ 3.10; en macOS instala Python 3.13 vía Homebrew si falta; en Debian/Ubuntu hace falta `python3-venv`).
@@ -167,6 +167,11 @@ Lo que conviene saber de `klaus-setup`:
 ---
 
 ## 📦 Releases
+
+### v0.12.1 — Fix de conexión del proxy ✅
+- 🔌 El proxy deja de fallar con `server closed connection` tras un rato sin actividad: mitmproxy abre el upstream con la petición (`connection_strategy=lazy`) (#228, #229)
+
+[📖 Release Notes](./docs/RELEASE_v0.12.1_NOTES.md)
 
 ### v0.12.0 — Trazas del proxy e informe para revisión ✅
 - 🧾 El proxy registra una traza por cada llamada a `/v1/messages`, sin texto de conversación (#214, #215)
