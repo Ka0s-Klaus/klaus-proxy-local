@@ -11,7 +11,7 @@ tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/instalacion]
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![Version](https://img.shields.io/badge/version-0.10.0-green)](./docs/RELEASE_v0.10.0_NOTES.md)
-[![Tests](https://img.shields.io/badge/tests-886%20passed-brightgreen)](./.github/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-929%20passed-brightgreen)](./.github/workflows/ci.yml)
 [![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.10.0_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
@@ -61,7 +61,7 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.10.0)
+## 🚀 Inicio rápido (v0.11.0)
 
 > ℹ️ El paquete **no está publicado en PyPI**: se instala desde el repositorio con
 > `install.sh` (macOS y Linux, Python ≥ 3.10; en macOS instala Python 3.13 vía Homebrew si falta; en Debian/Ubuntu hace falta `python3-venv`).
@@ -167,6 +167,15 @@ Lo que conviene saber de `klaus-setup`:
 ---
 
 ## 📦 Releases
+
+### v0.11.0 — Trazas de IA y arranque robusto ✅
+- 🧾 `klaus-trazas`: estadísticas e integridad de las trazas de ejecuciones con IA, según [la especificación](./docs/trazabilidad.md) (#206, #207)
+- 🧩 Instrumentación de trazas (`start_trace`, `record_event`, `end_trace`), esquema JSON y filtro de redacción (#210, #211)
+- 🔌 `claude-proxy` libera el puerto 8899 si lo ocupa un proxy previo (#202, #203)
+- 🔗 `install.sh` enlaza todos los comandos de `pyproject.toml` (#208, #209)
+- ✅ **929 tests passing** en Python 3.10–3.13
+
+[📖 Release Notes](./docs/RELEASE_v0.11.0_NOTES.md)
 
 ### v0.10.0 — Hosts de proyecto bloqueados y klaus-alerts ✅
 - 🔐 Un host de LLM definido solo en la configuración de un proyecto se bloquea hasta que lo apruebes en `config.json` (#193)
