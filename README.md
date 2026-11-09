@@ -61,7 +61,7 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.12.2)
+## 🚀 Inicio rápido (v0.12.3)
 
 > ℹ️ El paquete **no está publicado en PyPI**: se instala desde el repositorio con
 > `install.sh` (macOS y Linux, Python ≥ 3.10; en macOS instala Python 3.13 vía Homebrew si falta; en Debian/Ubuntu hace falta `python3-venv`).
@@ -167,6 +167,12 @@ Lo que conviene saber de `klaus-setup`:
 ---
 
 ## 📦 Releases
+
+### v0.12.3 — Vault y configuración ✅
+- 🔐 El arranque corrige `vault_path` y `capture_dir` de `config.json` (#240, #241)
+- 🧭 Auditoría EFDEF: vault, CLAUDE.md, enlaces del README y permisos verificados; comprobación de que los escritores usan el vault válido (#238, #239, #242, #243)
+
+[📖 Release Notes](./docs/RELEASE_v0.12.3_NOTES.md)
 
 ### v0.12.2 — Trazas: solo inferencia ✅
 - 🧾 Las trazas registran solo `POST /v1/messages`; `count_tokens` ya no aparece como llamada al modelo (#234, #235)

@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.12.3] — 2026-11-09
+
+### Fixed
+- **`vault_path` y `capture_dir` no se corregían al arrancar** (#240, #241) — la migración solo la llamaba `setup.load_config`, que nadie usa. Ahora `init_config_if_missing` la aplica con una configuración existente. Permisos 600 conservados.
+- **Vault único comprobado** (#242, #243) — los escritores usan `captures/.pseudonym_vault.json`. Nuevo check EFDEF que avisa si `ANTHROPIC_PSEUDO_VAULT` redirige el vault.
+
+### Changed
+- **Sección EFDEF del dashboard revisada** (#238, #239) — valida el vault de `config.json`, los campos de CLAUDE.md, los enlaces del README y los permisos de `config.json` y de la carpeta de trazas. Comprueba que `docs/trazabilidad.md` existe.
+
+---
+
 ## [0.12.2] — 2026-11-09
 
 ### Fixed

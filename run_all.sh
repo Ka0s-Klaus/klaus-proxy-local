@@ -3,7 +3,7 @@
 
 set -e
 
-echo "🚀 Klaus Proxy Local v0.12.2"
+echo "🚀 Klaus Proxy Local v0.12.3"
 echo "============================="
 echo ""
 
