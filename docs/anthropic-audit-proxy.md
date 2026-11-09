@@ -509,6 +509,7 @@ Cinco scripts **versionados** en `src/`, cada uno con su test espejo en
 | [`anthropic_payload_capture.py`](../src/anthropic_payload_capture.py) | Addon de **captura**: graba el par `original/`+`sent/` de cada request. | este documento |
 | [`anthropic_payload_pseudonymize.py`](../src/anthropic_payload_pseudonymize.py) | Addon de **seudonimización** bidireccional (forward/restore). | §"Seudonimización bidireccional" |
 | [`anthropic_capture_verify.py`](../src/anthropic_capture_verify.py) | **Verificador** de una captura (destino, secretos, fugas). | §"Verificación en un comando" |
+| [`klaus_trazas_addon.py`](../src/klaus_trazas_addon.py) | Addon de **trazas** (#214): una traza por llamada a `/v1/messages`, sin texto de conversación. | [ARCHITECTURE_DEEP_DIVE](./ARCHITECTURE_DEEP_DIVE.md) |
 | [`anthropic_pair_verify.py`](../src/anthropic_pair_verify.py) | **Validador diferencial** por pares `original`↔`sent` (fugas independientes del vault + descubrimiento de slugs). | §"Validación diferencial por pares" |
 | [`anthropic_payload_analyze.py`](../src/anthropic_payload_analyze.py) | **Analizador**: vuelca todo lo que sale al modelo (system, tools, historial, ficheros embebidos). | `MANIFIESTO_ficheros_embebidos.md` (retirado) |
 | [`anthropic_artifacts_cleanup.py`](../src/anthropic_artifacts_cleanup.py) | **Limpieza + hardening** del riesgo *data-at-rest* (artefactos en claro que Claude Code deja en disco). | `MANUAL_limpieza_hardening.md` (retirado) |

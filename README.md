@@ -37,11 +37,11 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ### ¿Cómo lo hago?
 - Un proxy `mitmproxy` local (`claude-proxy` → `mitmdump --listen-host 127.0.0.1 -p 8899`, solo loopback)
-  con cinco addons Python de [`src/`](./src), cargados desde un snapshot inmutable:
+  con seis addons Python de [`src/`](./src), cargados desde un snapshot inmutable:
   `klaus_file_log.py` (log en disco), `klaus_tls_passthrough.py` (solo descifra lo que se
   audita; el resto va en túnel), `anthropic_payload_pseudonymize.py` (reescribe/revierte),
-  `anthropic_payload_capture.py` (graba la evidencia) y `klaus_pseudo_guard.py` (bloquea lo
-  que no se haya pseudonimizado).
+  `anthropic_payload_capture.py` (graba la evidencia), `klaus_trazas_addon.py` (una traza por
+  llamada a `/v1/messages`) y `klaus_pseudo_guard.py` (bloquea lo que no se haya pseudonimizado).
 - Claude Code se enruta por el proxy vía `HTTPS_PROXY` + `NODE_EXTRA_CA_CERTS`, de
   forma **fail-closed** (si el proxy no escucha, `claude` aborta y no deja salir
   tráfico sin auditar).
@@ -91,7 +91,7 @@ klaus-scan ~/proyectos/mi-repo   # detecta secretos y nombres de negocio; aprueb
 klaus-leak-report --open         # por proyecto: qué no cubre el proxy, qué ha salido y % de cobertura
 klaus-leak-report --drill        # simulacro: comprueba que un «0 fugas» es fiable
 klaus-startup-scan --dry-run     # qué hallazgos añadiría el escaneo de inicio al vault (sin escribir)
-klaus-trazas                    # estadísticas e integridad de trazas de IA (~/.klaus-proxy/logs/trazas, solo lectura)
+klaus-trazas                    # estadísticas, trazas recientes; --traza ID, --informe (~/.klaus-proxy/logs/trazas)
 klaus-install-wrappers           # reinstala los wrappers claude-with-proxy (lo hace klaus-setup)
 klaus-install-python             # comprueba Python 3.13 y lo instala si falta (manual)
 
@@ -367,7 +367,8 @@ pytest -v
 ruff check .
 black --check .
 
-# Ejecutar el proxy (manual, sin instalación)
+# Ejecutar el proxy a mano, SOLO para pruebas: no incluye el guardián (klaus_pseudo_guard.py).
+# En uso normal, arranca con `claude-proxy`.
 ANTHROPIC_PSEUDO_SALT=your-salt mitmdump \
   -s src/anthropic_payload_pseudonymize.py \
   -s src/anthropic_payload_capture.py --listen-host 127.0.0.1 -p 8899

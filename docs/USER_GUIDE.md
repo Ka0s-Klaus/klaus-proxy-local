@@ -280,10 +280,17 @@ Cada llamada a `POST /v1/messages` que pasa por el proxy genera una traza, segú
 Es la misma ruta desde cualquier directorio, porque el proxy se lanza desde donde lo lances. Para cambiarla, `KLAUS_TRAZAS_DIR`.
 
 ```bash
-klaus-trazas                      # estadísticas de todas las trazas
+klaus-trazas                      # estadísticas y las últimas 10 trazas
+klaus-trazas --ultimas 20         # cuántas trazas recientes mostrar (0 = ninguna)
 klaus-trazas --date 2026-11-09    # solo un día
+klaus-trazas --traza 7d2e9b40     # línea de tiempo de una traza (prefijo único del id)
+klaus-trazas --informe            # informe Markdown para revisar (permisos 0600)
 klaus-trazas --json               # la misma información en JSON
 ```
+
+El informe Markdown se escribe en `~/.klaus-proxy/logs/informes/trazas-<fecha>.md` (o en la ruta que le pases). Tiene un resumen, una sección **Para revisar** con lo que conviene mirar, la tabla de trazas y el detalle de cada una. Solo contiene metadatos y hashes.
+
+> ℹ️ Las trazas solo aparecen desde que `claude-proxy` tiene el addon de trazas (0.11.0 en adelante) y se ha reiniciado. Las anteriores a #216 tienen `no_devuelto` como modelo devuelto.
 
 **Qué contiene una traza:** el hash del último mensaje de usuario (nunca el texto), el modelo pedido y el que devolvió la API, los tokens y el hash de la respuesta. Si la API falla o el guard bloquea la petición, la traza registra el error.
 

@@ -95,6 +95,10 @@ Guarda cada petición a un host auditado como un par con el mismo nombre: `captu
 
 Con `"capture_originals": false` en `config.json` (#132) solo guarda `sent/`: no quedan datos reales en claro en disco, pero sin `original/` no hay verificación por pares ni `klaus-leak-report` de esas capturas.
 
+### 🧾 `klaus_trazas_addon.py` (#214)
+
+Registra una traza por cada `POST /v1/messages` que llega a la respuesta, según [trazabilidad.md](./trazabilidad.md): hash del último mensaje de usuario (nunca el texto), modelo pedido y devuelto, tokens y hash de la respuesta. Si la API falla o el guardián bloquea, registra un evento `error`. Lee el cuerpo decodificado (`.content`), no los bytes comprimidos (#216). Un fallo del addon se registra en el log y no afecta a la petición.
+
 ### 🚧 `klaus_pseudo_guard.py` (#71)
 
 Último. Si una petición no lleva la marca del pseudonimizador (no está cargado o falló al recargarse), responde **502** y la petición no sale. Es lo que hace el proxy *fail-closed*. Además, si el pseudonimizador no consigue reescribir un cuerpo, aborta la petición en lugar de dejarla salir con el original.
