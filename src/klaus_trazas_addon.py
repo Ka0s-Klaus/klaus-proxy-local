@@ -52,7 +52,13 @@ def _sha256(data: bytes | str) -> str:
 
 
 def _text_of(content: Any) -> str:
-    """Texto de un ``content`` de mensaje (cadena o lista de bloques)."""
+    """Representación de un ``content`` de mensaje para calcular su hash.
+
+    Cadena: el texto. Lista de bloques: el texto de los bloques ``text`` si los hay.
+    Si no los hay (p. ej. Claude Code envía ``tool_result``), se usa la forma
+    canónica del contenido: así cada entrada tiene su propio hash y no todas
+    colapsan en el hash de la cadena vacía.
+    """
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -61,8 +67,15 @@ def _text_of(content: Any) -> str:
             for block in content
             if isinstance(block, dict) and block.get("type") == "text"
         ]
-        return "\n".join(p for p in parts if isinstance(p, str))
-    return ""
+        texts = [p for p in parts if isinstance(p, str)]
+        if texts:
+            return "\n".join(texts)
+        return json.dumps(content, sort_keys=True, ensure_ascii=False)
+    return (
+        json.dumps(content, sort_keys=True, ensure_ascii=False)
+        if content is not None
+        else ""
+    )
 
 
 def last_user_text(body: dict[str, Any]) -> str:
