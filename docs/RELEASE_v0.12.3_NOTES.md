@@ -18,6 +18,17 @@ git pull && ./install.sh
 
 `config.json`, la SALT, el vault y las capturas se conservan. Si `vault_path` apuntaba a `captures/.vault.json`, se corrige a `captures/.pseudonym_vault.json` (copia de seguridad antes del cambio).
 
+## ✨ Novedades
+
+### 🔔 Aviso de versión al arrancar (#246, #247)
+
+Al arrancar, el proxy consulta la última release pública del repositorio. Si tu versión es menor, muestra un aviso con la versión nueva y el enlace, y **arranca igual**.
+
+- Si no hay red o la respuesta no se entiende, muestra una línea informativa y también arranca.
+- La consulta tiene un timeout de 2 segundos.
+- Opt-out: `KLAUS_SKIP_UPDATE_CHECK=1`.
+- Solo usa la librería estándar de Python y no envía datos del usuario: solo un User-Agent genérico.
+
 ## 🐛 Correcciones
 
 ### 🔐 Migración de `vault_path` al arrancar (#240, #241)
@@ -49,6 +60,8 @@ El riesgo que queda es la variable `ANTHROPIC_PSEUDO_VAULT`, que redirige todos 
 | CI de las PR #239, #241 y #243 (lint, tests 3.10–3.13, seguridad) | ✅ |
 | Migración automática de `config.json` al reiniciar el proxy | ⏳ pendiente de comprobar (la corrección manual previa se hizo con copia de seguridad) |
 | Auditoría EFDEF tras la corrección | ✅ 19/19 |
+| CI de la PR #247 (aviso de versión) | ✅ tras corregir el orden de imports (Ruff I001) |
+| Aviso real al arrancar con una versión inferior publicada | ⏳ pendiente de comprobar |
 
 ## 🔗 Enlaces
 
