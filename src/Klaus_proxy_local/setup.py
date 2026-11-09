@@ -73,13 +73,16 @@ def init_config_if_missing() -> dict:
     cfg_dir = config_dir()
     cfg_file = config_file()
 
-    # Already initialized
+    # Already initialized: aplicar la migración de rutas (#240) antes de devolverla
     if cfg_file.exists():
         try:
-            return json.loads(cfg_file.read_text(encoding="utf-8"))
+            json.loads(cfg_file.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
             # Config corrupted; regenerate
             pass
+        else:
+            migrate_config_paths()
+            return json.loads(cfg_file.read_text(encoding="utf-8"))
 
     # First run: create everything
     print("🔐 Klaus Proxy Local — First-time setup\n")
