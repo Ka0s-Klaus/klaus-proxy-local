@@ -24,6 +24,8 @@ La trazabilidad sirve para **auditar**, no para **reproducir exactamente** una s
 - Intervención humana (aprobación, rechazo, modificación).
 - **Métricas de rendimiento y conexión** de cada llamada al modelo: duración, tiempo hasta la primera respuesta, código HTTP, reutilización de la conexión y estrategia de conexión (ver §4.4). Son métricas de primera clase: el informe de auditoría las muestra.
 
+**Peticiones que generan traza:** solo `POST /v1/messages` (inferencia), con o sin query string. Otras rutas de la API, como `/v1/messages/count_tokens` o `/v1/messages/batches`, no son llamadas de inferencia y no generan traza (issue #234).
+
 **No incluye (por ahora)**
 - Métricas de coste económico (€ por petición o mensual); se tratan en una especificación aparte.
 - Almacenamiento a largo plazo de datos de negocio.

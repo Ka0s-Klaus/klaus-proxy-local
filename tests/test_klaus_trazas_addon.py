@@ -390,3 +390,39 @@ def test_calls_without_timing_still_write_valid_traces(tmp_path):
     assert report.issues == []
     model = next(e for e in report.events if e["event_type"] == "model_called")
     assert "duration_ms" not in model["payload"]
+
+
+# ── Solo la inferencia genera traza (issue #234) ────────────────────────────
+
+
+def test_is_messages_call_matches_only_post_messages():
+    assert ka.is_messages_call("POST", "/v1/messages")
+    assert ka.is_messages_call("POST", "/v1/messages?beta=true")
+    assert not ka.is_messages_call("POST", "/v1/messages/count_tokens")
+    assert not ka.is_messages_call("POST", "/v1/messages/count_tokens?beta=true")
+    assert not ka.is_messages_call("POST", "/v1/messages/batches")
+    assert not ka.is_messages_call("GET", "/v1/messages")
+    assert not ka.is_messages_call("POST", "/v1/messagesX")
+
+
+def _trace_files(trace_dir: Path) -> list[Path]:
+    return list(trace_dir.glob("*/*.jsonl"))
+
+
+class _FakeFlow:
+    def __init__(self, method, path):
+        from types import SimpleNamespace
+
+        self.request = SimpleNamespace(method=method, path=path, content=_request())
+        self.response = SimpleNamespace(status_code=200, content=_json_response())
+        self.metadata = {}
+
+
+def test_hook_skips_count_tokens_and_traces_messages(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(ka, "record_exchange", lambda **kw: calls.append(kw))
+    addon = ka.KlausTrazasAddon()
+    addon.response(_FakeFlow("POST", "/v1/messages/count_tokens?beta=true"))
+    addon.response(_FakeFlow("POST", "/v1/messages?beta=true"))
+    assert len(calls) == 1
+    assert calls[0]["status"] == 200

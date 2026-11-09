@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import re
 from typing import Any
+from urllib.parse import urlsplit
 
 try:  # el paquete debe estar instalado en el venv del proxy
     import hashlib as _hashlib
@@ -47,6 +48,15 @@ RECOVERABLE_STATUS = frozenset({408, 409, 429, 500, 502, 503, 504, 529})
 _RE_MODEL = re.compile(r'"model"\s*:\s*"([^"]+)"')
 _RE_INPUT_TOKENS = re.compile(r'"input_tokens"\s*:\s*(\d+)')
 _RE_OUTPUT_TOKENS = re.compile(r'"output_tokens"\s*:\s*(\d+)')
+
+
+def is_messages_call(method: str, raw_path: str) -> bool:
+    """True solo para ``POST /v1/messages`` (con o sin query string).
+
+    Comparación exacta del path: ``/v1/messages/count_tokens`` y otras rutas que
+    empiezan igual no son llamadas de inferencia y no generan traza.
+    """
+    return method == "POST" and urlsplit(raw_path).path == MESSAGES_PATH
 
 
 def _sha256(data: bytes | str) -> str:
@@ -331,7 +341,7 @@ class KlausTrazasAddon:
             _log(f"[klaus-trazas] módulo no disponible: {_IMPORT_ERROR}")
             return
         req = flow.request
-        if req.method != "POST" or not req.path.startswith(MESSAGES_PATH):
+        if not is_messages_call(req.method, req.path):
             return
         try:
             meta = getattr(flow, "metadata", {}) or {}
