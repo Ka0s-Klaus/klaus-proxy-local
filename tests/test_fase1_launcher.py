@@ -349,6 +349,22 @@ class TestLaunchMitmdump:
                 host_idx = call_args.index("--listen-host")
                 assert call_args[host_idx + 1] == "127.0.0.1"
 
+    def test_launch_mitmdump_uses_lazy_connection_strategy(self):
+        """launch_mitmdump() abre el upstream con la petición, no al hacer CONNECT (#228)."""
+        launcher = ProxyLauncher()
+        with patch("subprocess.Popen") as mock_popen:
+            with patch("pathlib.Path.exists", return_value=True):
+                mock_process = MagicMock()
+                mock_process.poll.return_value = None
+                mock_popen.return_value = mock_process
+
+                with patch("time.sleep"):
+                    launcher.launch_mitmdump()
+
+                call_args = mock_popen.call_args[0][0]
+                set_idx = call_args.index("--set")
+                assert call_args[set_idx + 1] == "connection_strategy=lazy"
+
     def test_launch_mitmdump_includes_file_log_addon_first(self):
         """launch_mitmdump() loads the file log addon before the others (#55)."""
         launcher = ProxyLauncher()

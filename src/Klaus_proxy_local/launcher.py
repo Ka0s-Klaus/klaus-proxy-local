@@ -355,6 +355,12 @@ class ProxyLauncher:
             self.HOST,
             "-p",
             str(self.PORT),
+            # Lazy: mitmproxy abre la conexión upstream con la primera petición.
+            # Con "eager" (por defecto en mitmproxy 12) la abría al hacer CONNECT
+            # y la dejaba ociosa; si el servidor la cerraba, la POST /v1/messages
+            # que llegaba después fallaba con "server closed connection" (#228).
+            "--set",
+            "connection_strategy=lazy",
         ]
 
         try:
