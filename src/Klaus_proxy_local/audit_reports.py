@@ -59,6 +59,9 @@ _SKIP_FIELDS = {
     "checks",
     "host_distribution",
     "model_distribution",
+    "details",
+    "review_items",
+    "trace_dir",
 }
 
 # Direction that means improvement. Fields not listed are shown neutral.
@@ -70,6 +73,9 @@ _HIGHER_IS_BETTER = {
     "pass_rate",
 }
 _LOWER_IS_BETTER = {
+    "with_issues",
+    "outputs_without_review",
+    "model_unknown",
     "unexpected_count",
     "injection_count",
     "pseudo_no",
@@ -104,6 +110,11 @@ _FIELD_LABEL = {
     "failed": "Fallidos",
     "errors": "Errores",
     "pass_rate": "% superados",
+    "with_issues": "Trazas con incidencias",
+    "outputs_without_review": "Salidas sin revisión humana",
+    "model_unknown": "Llamadas sin modelo devuelto",
+    "model_calls": "Llamadas al modelo",
+    "outputs": "Salidas emitidas",
 }
 
 
