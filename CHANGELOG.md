@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **El proxy registra una traza por cada llamada a `/v1/messages`** (#214, #215) — Addon `klaus_trazas_addon.py`: hash del último mensaje de usuario (nunca el texto), modelo pedido y devuelto, tokens y hash de la respuesta; error si la API falla o el guardián bloquea. Ruta `~/.klaus-proxy/logs/trazas` (o `KLAUS_TRAZAS_DIR`), igual para el proxy y `klaus-trazas`.
+- **`klaus-trazas` muestra el detalle** (#220, #221) — Tabla de trazas recientes (`--ultimas N`), línea de tiempo de una traza (`--traza ID`, prefijo único) e informe Markdown para revisión humana (`--informe`, permisos `0600`).
+
+### Fixed
+- **Respuestas comprimidas: el modelo devuelto y los tokens se perdían** (#216, #217) — Claude Code pide gzip y el addon leía los bytes comprimidos. Además, un modelo no devuelto ya no cuenta como cambio de versión (`Versión no devuelta por la API`).
+- **Turnos `tool_result` con el mismo hash de entrada** (#220, #221) — Ahora cada entrada tiene su propio hash.
+- **La suite detenía el proxy real del puerto 8899** (#218, #219) — Un test llamaba a `run()` sin aislar el puerto. Ahora `conftest.py` lo aísla para toda la suite.
+
+### Documentation
+- Guía de usuario, solución de problemas y arquitectura: trazas, informe, reemplazo del proxy al arrancar otro, y cadena de addons (#222).
+
+> Las notas de la 0.11.0 dicen que «el proxy todavía no escribe trazas». Eso era cierto en esa versión; desde esta sección ya las escribe.
+
 ---
 
 ## [0.11.0] — 2026-11-09

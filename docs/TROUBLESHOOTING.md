@@ -22,7 +22,21 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc   # o ~/.bashrc
 
 ---
 
+## 🧾 Las trazas no aparecen o están vacías
+
+- **`klaus-trazas` dice «No existe el directorio»:** no hay trazas todavía. Las trazas se escriben en `~/.klaus-proxy/logs/trazas` (o en `KLAUS_TRAZAS_DIR`) y solo con el addon de la 0.11.0 o posterior, cargado al reiniciar `claude-proxy`.
+- **Hay trazas, pero el modelo devuelto es `no_devuelto`:** son anteriores a #216, cuando el addon leía el cuerpo comprimido. Las trazas nuevas tienen el modelo real.
+- **`klaus-trazas --traza ID` no encuentra la traza:** el prefijo es ambiguo o no existe. Usa más caracteres del id, que aparece en `klaus-trazas --ultimas 20`.
+- **Permisos:** `klaus-trazas` avisa si el directorio de trazas es legible por otros usuarios. La especificación exige acceso solo para el administrador.
+
 ## ▶️ El proxy no arranca
+
+**Arrancar `claude-proxy` en otra terminal para el proxy que ya está en marcha.** Es el comportamiento esperado: el nuevo lanzador termina el `mitmdump` activo y lo sustituye (#203). Por eso, si la terminal donde corre el proxy se cierra o pulsas Ctrl+C, el proxy se detiene. Para comprobar qué está en marcha:
+
+```bash
+lsof -nP -t -iTCP:8899 -sTCP:LISTEN        # PID del proxy; vacío = no hay proxy
+grep "Proxy detenido" ~/.klaus-proxy/logs/proxy.log | tail -3   # última parada ordenada
+```
 
 **`Address already in use` en el puerto 8899**: ya hay otro proxy escuchando. El puerto es fijo (`127.0.0.1:8899`).
 
