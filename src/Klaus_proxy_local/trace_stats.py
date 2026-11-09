@@ -445,6 +445,28 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--date", help="filtrar por fecha AAAA-MM-DD")
     parser.add_argument("--json", action="store_true", help="salida en JSON")
     parser.add_argument(
+        "--traza",
+        metavar="ID",
+        help="detalle de una traza: id completo o prefijo único",
+    )
+    parser.add_argument(
+        "--informe",
+        nargs="?",
+        const="",
+        metavar="RUTA",
+        help=(
+            "exporta un informe Markdown para revisión humana "
+            "(por defecto: ~/.klaus-proxy/logs/informes/trazas-<fecha>.md)"
+        ),
+    )
+    parser.add_argument(
+        "--ultimas",
+        type=int,
+        default=10,
+        metavar="N",
+        help="trazas recientes en la tabla del informe de terminal (0 = ninguna)",
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="devolver código 1 si alguna traza tiene incidencias",
@@ -453,10 +475,30 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from Klaus_proxy_local import trace_report as tr  # import tardío: evita ciclo
+
     args = build_parser().parse_args(argv)
     reports = scan_traces(args.dir, args.date)
     stats = compute_stats(reports)
     warning = permissions_warning(args.dir)
+
+    if args.traza:
+        found, error = tr.find_trace(reports, args.traza)
+        if found is None:
+            print(error, file=sys.stderr)
+            return 1
+        print(tr.render_detail(found), end="")
+        return 1 if args.strict and found.issues else 0
+
+    if args.informe is not None:
+        path = (
+            Path(args.informe).expanduser()
+            if args.informe
+            else tr.default_report_path()
+        )
+        tr.write_private(path, tr.render_markdown(reports, args.dir))
+        print(f"Informe escrito en {path} (permisos 0600)")
+        return 1 if args.strict and stats["traces_with_issues"] else 0
 
     if args.json:
         payload = dict(stats)
@@ -469,6 +511,10 @@ def main(argv: list[str] | None = None) -> int:
             print("Usa --dir para indicar otro.", file=sys.stderr)
             return 1 if args.strict else 0
         print(render_text(stats, warning), end="")
+        if args.ultimas > 0:
+            print("🗂️  Trazas recientes")
+            print(tr.render_recent_table(reports, args.ultimas), end="")
+            print()
 
     if args.strict and stats["traces_with_issues"]:
         return 1

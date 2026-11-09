@@ -232,3 +232,37 @@ def test_hook_reads_decoded_body_not_compressed_bytes(tmp_path, monkeypatch):
     model = next(e for e in events if e["event_type"] == "model_called")
     assert model["payload"]["returned_model"] == "modelo-ejemplo-x-2026-09"
     assert model["payload"]["input_tokens"] == 812
+
+
+def test_tool_result_turn_gets_its_own_input_hash():
+    """Regresión: un turno tool_result no debe colapsar en el hash de la cadena vacía."""
+    empty_hash = ka._sha256("")
+    body_a = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "t1",
+                        "content": "denegado A",
+                    }
+                ],
+            }
+        ]
+    }
+    body_b = {
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "tool_result", "tool_use_id": "t2", "content": "ok B"}
+                ],
+            }
+        ]
+    }
+    text_a, text_b = ka.last_user_text(body_a), ka.last_user_text(body_b)
+    assert ka._sha256(text_a) != empty_hash
+    assert ka._sha256(text_a) != ka._sha256(text_b)
+    # La representación no contiene el texto como cadena suelta de la traza
+    assert "denegado A" in text_a  # se hashea, nunca se guarda en la traza
