@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from Klaus_proxy_local.trace_stats import TraceReport, compute_stats
+from Klaus_proxy_local.trace_stats import MAX_ISSUES_SHOWN, TraceReport, compute_stats
 
 UNKNOWN_MODEL = "no_devuelto"
 HASH_SHOWN = 12  # caracteres hexadecimales de un hash en los informes
@@ -310,3 +310,113 @@ def write_private(path: Path, content: str) -> None:
 def default_report_path() -> Path:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     return Path.home() / ".klaus-proxy" / "logs" / "informes" / f"trazas-{stamp}.md"
+
+
+# ── Plan de auditoría para el dashboard (issue #226) ───────────────────────
+
+MAX_DETAIL_TRACES = 200  # trazas con línea de tiempo en el dashboard
+RECENT_TRACES = 10  # filas en la tabla de recientes
+
+
+def _timeline(report: TraceReport) -> list[dict[str, Any]]:
+    """Línea de tiempo de una traza: solo metadatos y resúmenes sin contenido."""
+    rows = []
+    for e in sorted(
+        (x for x in report.events if isinstance(x.get("seq"), int)),
+        key=lambda x: x["seq"],
+    ):
+        rows.append(
+            {
+                "seq": e["seq"],
+                "time": _time(e.get("timestamp")),
+                "type": str(e.get("event_type")),
+                "actor": str(e.get("actor")),
+                "summary": _event_summary(e),
+            }
+        )
+    return rows
+
+
+def audit_traces(trace_dir: Path) -> dict[str, Any]:
+    """Plan ``traces`` del dashboard: estado, cifras, puntos a revisar y detalle."""
+    from Klaus_proxy_local.trace_stats import scan_traces
+
+    reports = scan_traces(trace_dir)
+    if not reports:
+        return {
+            "status": "no_data",
+            "trace_dir": str(trace_dir),
+            "total": 0,
+            "valid": 0,
+            "with_issues": 0,
+            "model_calls": 0,
+            "model_unknown": 0,
+            "model_drift": 0,
+            "outputs": 0,
+            "outputs_without_review": 0,
+            "errors": 0,
+            "review_items": [],
+            "recent": [],
+            "details": [],
+        }
+
+    stats = compute_stats(reports)
+    items = review_items(reports)
+    if stats["traces_with_issues"]:
+        status = "critical"
+    elif stats["outputs_without_review"] or stats["model_version_unknown"]:
+        status = "warning"
+    else:
+        status = "good"
+
+    ordered = sorted(reports, key=lambda r: (r.date, r.trace_id), reverse=True)
+    recent = [summarize_trace(r) for r in ordered[:RECENT_TRACES]]
+    details = []
+    for r in ordered[:MAX_DETAIL_TRACES]:
+        s = summarize_trace(r)
+        details.append(
+            {
+                "trace_id": r.trace_id,
+                "date": r.date,
+                "time": s["time"],
+                "status": s["status"],
+                "channel": s["channel"],
+                "requested_model": s["requested_model"],
+                "returned_model": s["returned_model"],
+                "input_tokens": s["input_tokens"],
+                "output_tokens": s["output_tokens"],
+                "issues": r.issues[:MAX_ISSUES_SHOWN],
+                "issue_count": len(r.issues),
+                "timeline": _timeline(r),
+            }
+        )
+
+    return {
+        "status": status,
+        "trace_dir": str(trace_dir),
+        "total": stats["traces_total"],
+        "valid": stats["traces_valid"],
+        "with_issues": stats["traces_with_issues"],
+        "model_calls": stats["model_calls"],
+        "model_unknown": stats["model_version_unknown"],
+        "model_drift": stats["model_version_drift"],
+        "outputs": stats["outputs_emitted"],
+        "outputs_without_review": stats["outputs_without_review"],
+        "errors": sum(stats["errors_by_code"].values()),
+        "review_items": items,
+        "recent": [
+            {
+                "trace_id": s["trace_id"],
+                "date": s["date"],
+                "time": s["time"],
+                "requested_model": s["requested_model"],
+                "returned_model": s["returned_model"],
+                "input_tokens": s["input_tokens"],
+                "output_tokens": s["output_tokens"],
+                "status": s["status"],
+                "issues": len(s["issues"]),
+            }
+            for s in recent
+        ],
+        "details": details,
+    }

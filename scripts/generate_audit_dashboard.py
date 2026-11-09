@@ -30,7 +30,9 @@ from Klaus_proxy_local import (  # noqa: E402
     capture_retention,
     leak_report,
     scan_repos,
+    trace_report,
 )
+from Klaus_proxy_local.trazas import DEFAULT_TRACE_DIR  # noqa: E402
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -1098,6 +1100,7 @@ HTML_TEMPLATE = """\
   <button class="tab-btn" data-tab="pseudo">📊 Pseudonimización</button>
   <button class="tab-btn" data-tab="perf">⚡ Actividad</button>
   <button class="tab-btn" data-tab="tests">🧪 Tests</button>
+  <button class="tab-btn" data-tab="traces">🧾 Trazas</button>
   <button class="tab-btn" data-tab="efdef">📋 EFDEF</button>
 </nav>
 
@@ -1290,6 +1293,45 @@ HTML_TEMPLATE = """\
   <div class="card">
     <h3>Salida de pytest</h3>
     <pre id="pytest-output" style="font-size:.78rem;color:var(--text-secondary);background:var(--surface-page);border-radius:6px;padding:12px;margin-top:8px;overflow-x:auto;white-space:pre-wrap"></pre>
+  </div>
+</div>
+
+<!-- ── Trazas del proxy (#226) ── -->
+<div id="panel-traces" class="panel">
+  <div class="section-header">
+    <h2>🧾 Trazas de llamadas al API</h2>
+    <span class="status-badge" style="background:#TRACES_COLOR#">#TRACES_EMOJI# #TRACES_LABEL#</span>
+  </div>
+  <div class="grid-3 mb12">
+    <div class="stat-tile">
+      <div class="stat-label">Trazas</div>
+      <div class="stat-value">#TRACES_TOTAL#</div>
+      <div class="stat-sub">#TRACES_VALID# válidas · <span style="color:#TRACES_ISSUES_COLOR#">#TRACES_ISSUES# con incidencias</span></div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Llamadas al modelo</div>
+      <div class="stat-value">#TRACES_MODEL_CALLS#</div>
+      <div class="stat-sub">#TRACES_MODEL_UNKNOWN# sin modelo devuelto</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Salidas sin revisión humana</div>
+      <div class="stat-value">#TRACES_UNREVIEWED#</div>
+      <div class="stat-sub">de #TRACES_OUTPUTS# salidas · #TRACES_ERRORS# errores</div>
+    </div>
+  </div>
+  <div class="card mb12">
+    <h3>Para revisar</h3>
+    #TRACES_REVIEW_HTML#
+  </div>
+  <div class="card mb12">
+    <h3>Trazas recientes</h3>
+    #TRACES_RECENT_HTML#
+  </div>
+  <div class="card mb12">
+    <h3>Detalle por traza</h3>
+    <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px">Directorio: <code>#TRACES_DIR#</code></div>
+    #TRACES_STATUS_HTML#
+    #TRACES_DETAILS_HTML#
   </div>
 </div>
 
@@ -1817,6 +1859,108 @@ def _injection_reviewed_html(security: dict) -> str:
     )
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Trazas del proxy (issue #226)
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def _traces_review_html(traces: dict) -> str:
+    if traces.get("status") == "no_data":
+        return (
+            '<div style="font-size:.85rem;color:var(--text-muted)">'
+            "No hay trazas todavía. Se generan al hacer llamadas con el proxy "
+            "reiniciado (0.11.0 o posterior).</div>"
+        )
+    items = traces.get("review_items") or []
+    if not items:
+        return '<div style="font-size:.85rem;color:#0ca30c">✅ Nada pendiente de revisar.</div>'
+    lines = "".join(f"<li>{html.escape(item)}</li>" for item in items)
+    return (
+        f'<ul style="font-size:.85rem;padding-left:18px;line-height:1.6">{lines}</ul>'
+    )
+
+
+def _traces_recent_html(traces: dict) -> str:
+    rows = []
+    for r in traces.get("recent") or []:
+        tokens = f"{r.get('input_tokens') or '—'}/{r.get('output_tokens') or '—'}"
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(r.get('date', '')))}</td>"
+            f"<td>{html.escape(str(r.get('time', '')))}</td>"
+            f"<td><code>{html.escape(str(r.get('trace_id', ''))[:8])}</code></td>"
+            f"<td>{html.escape(str(r.get('requested_model') or '—'))}</td>"
+            f"<td>{html.escape(str(r.get('returned_model') or '—'))}</td>"
+            f"<td>{html.escape(tokens)}</td>"
+            f"<td>{html.escape(str(r.get('status', '')))}</td>"
+            f"<td>{r.get('issues', 0)}</td>"
+            "</tr>"
+        )
+    if not rows:
+        return ""
+    return (
+        '<table class="data-table mt8"><thead><tr>'
+        "<th>Fecha</th><th>Hora</th><th>Traza</th><th>Modelo pedido</th>"
+        "<th>Devuelto</th><th>Tokens in/out</th><th>Estado</th><th>Incid.</th>"
+        f"</tr></thead><tbody>{''.join(rows)}</tbody></table>"
+    )
+
+
+def _traces_details_html(traces: dict) -> str:
+    details = traces.get("details") or []
+    if not details:
+        return ""
+    blocks = []
+    for d in details:
+        head = (
+            f"{html.escape(str(d.get('date', '')))} {html.escape(str(d.get('time', '')))} · "
+            f"<code>{html.escape(str(d.get('trace_id', '')))}</code> · "
+            f"estado <b>{html.escape(str(d.get('status', '')))}</b>"
+        )
+        issues = ""
+        if d.get("issues"):
+            items = "".join(f"<li>{html.escape(i)}</li>" for i in d["issues"])
+            more = d.get("issue_count", 0) - len(d["issues"])
+            extra = f"<li>… {more} más</li>" if more > 0 else ""
+            issues = (
+                f'<div style="color:#d03b3b;font-size:.8rem;margin:6px 0">'
+                f"Incidencias:<ul style='padding-left:16px'>{items}{extra}</ul></div>"
+            )
+        rows = "".join(
+            "<tr>"
+            f"<td>{html.escape(str(e.get('seq', '')))}</td>"
+            f"<td>{html.escape(str(e.get('time', '')))}</td>"
+            f"<td>{html.escape(str(e.get('type', '')))}</td>"
+            f"<td>{html.escape(str(e.get('actor', '')))}</td>"
+            f"<td>{html.escape(str(e.get('summary', '')))}</td>"
+            "</tr>"
+            for e in d.get("timeline") or []
+        )
+        table = (
+            '<table class="data-table mt8"><thead><tr>'
+            "<th>#</th><th>Hora</th><th>Tipo</th><th>Actor</th><th>Resumen</th>"
+            f"</tr></thead><tbody>{rows}</tbody></table>"
+        )
+        blocks.append(
+            f'<details class="card mb8" style="font-size:.85rem"><summary>{head}</summary>'
+            f"{issues}{table}</details>"
+        )
+    return "".join(blocks)
+
+
+def _traces_status_html(traces: dict) -> str:
+    total = traces.get("total", 0)
+    shown = len(traces.get("details") or [])
+    if not total:
+        return ""
+    note = (
+        f"Mostrando las {shown} más recientes de {total}."
+        if total > shown
+        else f"Mostrando las {total} trazas."
+    )
+    return f'<div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px">{note}</div>'
+
+
 def render_html(
     security: dict,
     pseudo: dict,
@@ -1829,12 +1973,15 @@ def render_html(
     generated_at: str | None = None,
     history_html: str = "",
     changes_html: str = "",
+    traces: dict | None = None,
 ) -> str:
+    traces = traces or {"status": "no_data"}
     plans = [
         ("security", security, "🔐 Seguridad"),
         ("pseudo", pseudo, "📊 Pseudonimización"),
         ("perf", perf, "⚡ Actividad"),
         ("tests", tests, "🧪 Tests"),
+        ("traces", traces, "🧾 Trazas"),
         ("efdef", efdef, "📋 EFDEF"),
     ]
 
@@ -1877,6 +2024,7 @@ def render_html(
         "performance": perf,
         "tests": tests,
         "efdef": efdef,
+        "traces": traces,
     }
 
     literals_total = pseudo.get("literals_count", 0) + pseudo.get(
@@ -1958,6 +2106,24 @@ def render_html(
         "EFDEF_PASSED": str(efdef.get("passed", 0)),
         "EFDEF_TOTAL": str(efdef.get("total", 0)),
         "EFDEF_PCT": str(efdef.get("pct", 0)),
+        # Trazas del proxy (#226)
+        "TRACES_COLOR": _status_color(traces.get("status", "no_data")),
+        "TRACES_EMOJI": _status_emoji(traces.get("status", "no_data")),
+        "TRACES_LABEL": _status_label(traces.get("status", "no_data")),
+        "TRACES_TOTAL": f"{traces.get('total', 0):,}",
+        "TRACES_VALID": f"{traces.get('valid', 0):,}",
+        "TRACES_ISSUES": f"{traces.get('with_issues', 0):,}",
+        "TRACES_ISSUES_COLOR": "#d03b3b" if traces.get("with_issues", 0) else "#0ca30c",
+        "TRACES_MODEL_CALLS": f"{traces.get('model_calls', 0):,}",
+        "TRACES_MODEL_UNKNOWN": f"{traces.get('model_unknown', 0):,}",
+        "TRACES_OUTPUTS": f"{traces.get('outputs', 0):,}",
+        "TRACES_UNREVIEWED": f"{traces.get('outputs_without_review', 0):,}",
+        "TRACES_ERRORS": f"{traces.get('errors', 0):,}",
+        "TRACES_DIR": html.escape(str(traces.get("trace_dir", ""))),
+        "TRACES_STATUS_HTML": _traces_status_html(traces),
+        "TRACES_REVIEW_HTML": _traces_review_html(traces),
+        "TRACES_RECENT_HTML": _traces_recent_html(traces),
+        "TRACES_DETAILS_HTML": _traces_details_html(traces),
     }
 
     return _build_html(replacements, HTML_TEMPLATE)
@@ -1986,6 +2152,11 @@ def main(argv: list[str] | None = None) -> None:
         "--reports-dir",
         default=str(Path(__file__).parent.parent / "informes"),
         help="Directorio del histórico de informes (default: informes/ del repo)",
+    )
+    parser.add_argument(
+        "--traces-dir",
+        default=os.environ.get("KLAUS_TRAZAS_DIR") or str(DEFAULT_TRACE_DIR),
+        help="Directorio de trazas del proxy (default: ~/.klaus-proxy/logs/trazas)",
     )
     parser.add_argument(
         "--output",
@@ -2056,6 +2227,13 @@ def main(argv: list[str] | None = None) -> None:
     print("🧪 Auditoría de tests...")
     tests = audit_tests(project_root)
 
+    print("🧾 Auditoría de trazas...")
+    try:
+        traces = trace_report.audit_traces(Path(args.traces_dir))
+    except Exception as e:  # noqa: BLE001 - la pestaña no debe tumbar el informe
+        print(f"   ⚠️  Trazas no disponibles: {type(e).__name__}: {e}")
+        traces = {"status": "no_data"}
+
     print("📋 Auditoría EFDEF...")
     efdef = audit_efdef(project_root, config_dir)
 
@@ -2066,6 +2244,7 @@ def main(argv: list[str] | None = None) -> None:
             "pseudonymization": pseudo,
             "performance": perf,
             "tests": tests,
+            "traces": traces,
             "efdef": efdef,
         },
         total,
@@ -2094,6 +2273,7 @@ def main(argv: list[str] | None = None) -> None:
             generated_at=report["generated_at"].replace("T", " "),
             history_html=audit_reports.render_history_html(report, base),
             changes_html=audit_reports.render_changes_html(changes, previous),
+            traces=traces,
         )
 
     html = _render("")
@@ -2132,6 +2312,7 @@ def main(argv: list[str] | None = None) -> None:
         (pseudo, "📊", "Pseudonimizac. "),
         (perf, "⚡", "Actividad      "),
         (tests, "🧪", "Tests          "),
+        (traces, "🧾", "Trazas         "),
         (efdef, "📋", "EFDEF          "),
     ]:
         st = plan.get("status", "no_data")
