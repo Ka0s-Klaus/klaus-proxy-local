@@ -25,6 +25,7 @@ ADDON_FILES = (
     "klaus_tls_passthrough.py",
     "anthropic_payload_pseudonymize.py",
     "anthropic_payload_capture.py",
+    "klaus_trazas_addon.py",
     "klaus_pseudo_guard.py",
 )
 VERSION_FILE = "VERSION.json"
