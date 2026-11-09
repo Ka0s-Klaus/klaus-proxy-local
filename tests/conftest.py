@@ -23,6 +23,24 @@ import pytest  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
+def _never_probe_real_proxy_port():
+    """Ningún test consulta ni detiene el proxy real en 8899 (#218).
+
+    ``ProxyLauncher.free_proxy_port`` termina el mitmdump que ocupe el puerto.
+    Un test que llame a ``run()`` sin este aislamiento detendría el proxy en marcha.
+    Los tests que necesitan otro comportamiento lo parchean explícitamente.
+    """
+    from unittest.mock import patch
+
+    # El escaneo de inicio recorre los repos reales y escribe en el vault: fuera.
+    with (
+        patch("Klaus_proxy_local.launcher.ProxyLauncher.run_startup_scan"),
+        patch("Klaus_proxy_local.launcher.listening_pids", return_value=[]) as mock,
+    ):
+        yield mock
+
+
+@pytest.fixture(autouse=True)
 def _isolated_captures_dir(tmp_path_factory, monkeypatch):
     """Ningún test toca las capturas reales (#132).
 
