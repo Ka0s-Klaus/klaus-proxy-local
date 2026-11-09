@@ -91,6 +91,7 @@ klaus-scan ~/proyectos/mi-repo   # detecta secretos y nombres de negocio; aprueb
 klaus-leak-report --open         # por proyecto: qué no cubre el proxy, qué ha salido y % de cobertura
 klaus-leak-report --drill        # simulacro: comprueba que un «0 fugas» es fiable
 klaus-startup-scan --dry-run     # qué hallazgos añadiría el escaneo de inicio al vault (sin escribir)
+klaus-trazas                    # estadísticas e integridad de trazas de IA (logs/trazas, solo lectura)
 klaus-install-wrappers           # reinstala los wrappers claude-with-proxy (lo hace klaus-setup)
 klaus-install-python             # comprueba Python 3.13 y lo instala si falta (manual)
 
@@ -333,6 +334,7 @@ Release notes no conservadas en `docs/`.
 | [🛠️ Troubleshooting](./docs/TROUBLESHOOTING.md) | Solución de problemas comunes |
 | [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
 | [🧯 Simulacro de fugas](./docs/guides/LEAK_DRILL.md) | `klaus-leak-report --drill`: ¿el detector ve una fuga? |
+| [🧾 Trazabilidad IA](./docs/trazabilidad.md) | Especificación de trazas de ejecuciones con IA y el comando `klaus-trazas` |
 | [🚀 Release v0.10.0](./docs/RELEASE_v0.10.0_NOTES.md) | Notas de la última release |
 
 ---
