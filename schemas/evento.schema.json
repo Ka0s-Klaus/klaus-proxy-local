@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Ka0s-Klaus/klaus-proxy-local/schemas/evento.schema.json",
+  "title": "Evento de traza de ejecución con IA",
+  "description": "Un evento por línea en logs/trazas/AAAA-MM-DD/<trace_id>.jsonl. Especificación: docs/trazabilidad.md (v0.1), §4.",
+  "type": "object",
+  "required": [
+    "event_id",
+    "trace_id",
+    "parent_event_id",
+    "seq",
+    "timestamp",
+    "event_type",
+    "schema_version",
+    "actor",
+    "payload"
+  ],
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "trace_id": { "type": "string", "format": "uuid" },
+    "parent_event_id": { "type": ["string", "null"], "format": "uuid" },
+    "seq": { "type": "integer", "minimum": 1 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "input_received",
+        "retrieval_performed",
+        "prompt_built",
+        "model_called",
+        "tool_called",
+        "agent_step",
+        "verification_run",
+        "human_review",
+        "output_emitted",
+        "error"
+      ]
+    },
+    "schema_version": { "type": "string", "const": "0.1" },
+    "actor": {
+      "type": "string",
+      "enum": ["user", "system", "model", "tool", "agent", "human_reviewer"]
+    },
+    "payload": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "event_type": { "const": "input_received" } } },
+      "then": { "properties": { "payload": { "required": ["content_hash", "channel"] } } }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "retrieval_performed" } } },
+      "then": { "properties": { "payload": { "required": ["query", "sources", "index_name"] } } }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "prompt_built" } } },
+      "then": { "properties": { "payload": { "required": ["prompt_version", "template_id", "content_hash"] } } }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "model_called" } } },
+      "then": { "properties": { "payload": { "required": ["requested_model", "returned_model", "provider", "output_hash"] } } }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "tool_called" } } },
+      "then": { "properties": { "payload": { "required": ["tool_name", "tool_version", "input_hash", "output_hash", "status"] } } }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "agent_step" } } },
+      "then": { "properties": { "payload": { "required": ["step_name", "plan_ref", "outcome"] } } }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "verification_run" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": ["check_name", "check_version", "result"],
+            "properties": { "result": { "enum": ["pass", "fail", "warn"] } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "human_review" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": ["reviewer_id", "decision"],
+            "properties": { "decision": { "enum": ["approved", "rejected", "modified"] } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "output_emitted" } } },
+      "then": { "properties": { "payload": { "required": ["output_hash", "destination"] } } }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "error" } } },
+      "then": { "properties": { "payload": { "required": ["error_code", "error_message", "recoverable"] } } }
+    }
+  ],
+  "additionalProperties": false
+}
