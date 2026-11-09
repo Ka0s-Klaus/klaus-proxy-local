@@ -15,6 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.11.0] — 2026-11-09
+
+### Added
+- **`klaus-trazas`: estadísticas e integridad de las trazas de ejecuciones con IA** (#206, #207) — Comando de solo lectura que lee `logs/trazas/AAAA-MM-DD/*.jsonl` según [docs/trazabilidad.md](docs/trazabilidad.md) (v0.1). Muestra trazas válidas e incidencias, eventos por tipo, versión devuelta frente a pedida, verificaciones, revisión humana, errores y salidas sin revisión. Opciones `--dir`, `--date`, `--json` y `--strict`. No imprime valores de `payload`.
+- **Instrumentación de trazas** (#210, #211) — Módulo `Klaus_proxy_local.trazas` con `start_trace`, `record_event` y `end_trace`. Escritura JSONL solo en adición, permisos `0700`/`0600`, y un fallo de escritura no interrumpe la ejecución. Incluye el filtro de redacción (correos, DNI/NIE, tarjetas validadas con Luhn y secretos conocidos), el esquema `schemas/evento.schema.json` y un ejemplo de integración sin modelos en `scripts/ejemplo_trazas.py`.
+
+### Fixed
+- **`claude-proxy` libera el puerto 8899 si lo ocupa un proxy previo** (#202, #203) — Si el puerto lo ocupa un `mitmdump`, lo detiene y relanza el proxy, mostrando cada paso en la terminal. Si lo ocupa otro programa, aborta sin tocarlo.
+- **Todos los comandos de `pyproject.toml` quedan enlazados en `~/.local/bin`** (#208, #209) — `install.sh` no enlazaba `klaus-trazas`, `klaus-alerts`, `klaus-startup-scan`, `klaus-install-python` ni `klaus-install-wrappers`.
+
+### Documentation
+- Revisión completa de la documentación frente al código y el uso (#204, #205): comandos, rutas, enlaces, badge de tests y utilidades de instalación documentadas.
+
 ## [0.10.0] — 2026-11-06
 
 ### Security
