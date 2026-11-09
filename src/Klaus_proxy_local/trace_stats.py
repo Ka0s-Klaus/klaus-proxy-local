@@ -397,7 +397,10 @@ class _Performance:
             model = str(payload.get("returned_model") or UNKNOWN_MODEL)
             bucket = self.tokens_by_model.setdefault(model, Counter())
             bucket["calls"] += 1
-            for key, attr in (("input_tokens", "input_tokens"), ("output_tokens", "output_tokens")):
+            for key, attr in (
+                ("input_tokens", "input_tokens"),
+                ("output_tokens", "output_tokens"),
+            ):
                 value = payload.get(key)
                 if _is_count(value):
                     setattr(self, attr, getattr(self, attr) + value)
@@ -427,7 +430,8 @@ class _Performance:
                 "input": self.input_tokens,
                 "output": self.output_tokens,
                 "by_model": {
-                    model: dict(counts) for model, counts in sorted(self.tokens_by_model.items())
+                    model: dict(counts)
+                    for model, counts in sorted(self.tokens_by_model.items())
                 },
             },
         }
@@ -534,7 +538,9 @@ def render_performance_lines(perf: dict[str, Any]) -> str:
     ttfb = perf.get("ttfb_ms") or {}
     lines.append(
         "   Latencia total   p50 {}  p95 {}  p99 {}".format(
-            _fmt_ms(duration.get("p50")), _fmt_ms(duration.get("p95")), _fmt_ms(duration.get("p99"))
+            _fmt_ms(duration.get("p50")),
+            _fmt_ms(duration.get("p95")),
+            _fmt_ms(duration.get("p99")),
         )
     )
     lines.append(

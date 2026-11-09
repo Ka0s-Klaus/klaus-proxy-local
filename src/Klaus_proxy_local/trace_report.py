@@ -112,7 +112,9 @@ def summarize_trace(report: TraceReport) -> dict[str, Any]:
     summary["connection_reused"] = None
     for e in events:
         payload = e.get("payload") if isinstance(e.get("payload"), dict) else {}
-        if e.get("event_type") in EXCHANGE_TYPES and _is_count(payload.get("duration_ms")):
+        if e.get("event_type") in EXCHANGE_TYPES and _is_count(
+            payload.get("duration_ms")
+        ):
             summary["duration_ms"] = payload["duration_ms"]
             reused = payload.get("connection_reused")
             summary["connection_reused"] = reused if isinstance(reused, bool) else None
@@ -146,7 +148,9 @@ def _perf_suffix(payload: dict[str, Any]) -> str:
     if not _is_count(payload.get("duration_ms")):
         return ""
     reused = payload.get("connection_reused")
-    conn = "—" if not isinstance(reused, bool) else ("reutilizada" if reused else "nueva")
+    conn = (
+        "—" if not isinstance(reused, bool) else ("reutilizada" if reused else "nueva")
+    )
     http = payload.get("http_status", "—")
     return f" latencia={payload['duration_ms']} ms ttfb={payload.get('ttfb_ms', '—')} ms http={http} conexión={conn}"
 
@@ -292,7 +296,10 @@ def render_markdown(
     )
 
     out += ["", "## ⏱️ Rendimiento y conexión", ""]
-    out.extend(f"- {line.strip()}" for line in render_performance_lines(stats["performance"]).splitlines())
+    out.extend(
+        f"- {line.strip()}"
+        for line in render_performance_lines(stats["performance"]).splitlines()
+    )
     out.append("")
     out.append(
         "_Cobertura = llamadas con `duration_ms` / llamadas a la API. "

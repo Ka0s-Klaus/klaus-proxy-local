@@ -356,12 +356,19 @@ def _perf_trace(tmp_path, name, payload_extra, status=200):
     events = example_trace()
     events[2]["payload"].update(payload_extra)
     if status >= 400:
-        events[2] = _event(E3, E2, 3, "error", "system", {
-            "error_code": f"HTTP_{status}",
-            "error_message": "la API respondió con error",
-            "recoverable": True,
-            **payload_extra,
-        })
+        events[2] = _event(
+            E3,
+            E2,
+            3,
+            "error",
+            "system",
+            {
+                "error_code": f"HTTP_{status}",
+                "error_message": "la API respondió con error",
+                "recoverable": True,
+                **payload_extra,
+            },
+        )
         events = events[:3]
     return write_trace(tmp_path / "2026-11-09" / f"{name}.jsonl", events)
 
@@ -377,13 +384,17 @@ def test_percentile_nearest_rank():
 
 def test_performance_aggregates_latency_and_connection(tmp_path):
     paths = [
-        _perf_trace(tmp_path, f"t{i}", {
-            "duration_ms": 100 * (i + 1),
-            "ttfb_ms": 10 * (i + 1),
-            "http_status": 200,
-            "connection_reused": i % 2 == 0,
-            "connection_strategy": "lazy",
-        })
+        _perf_trace(
+            tmp_path,
+            f"t{i}",
+            {
+                "duration_ms": 100 * (i + 1),
+                "ttfb_ms": 10 * (i + 1),
+                "http_status": 200,
+                "connection_reused": i % 2 == 0,
+                "connection_strategy": "lazy",
+            },
+        )
         for i in range(4)
     ]
     reports = [ts.read_trace_file(p) for p in paths]
@@ -405,7 +416,9 @@ def test_performance_aggregates_latency_and_connection(tmp_path):
 def test_old_traces_count_as_no_data_not_zero(tmp_path):
     old = _perf_trace(tmp_path, "old", {})  # sin métricas: traza anterior
     new = _perf_trace(tmp_path, "new", {"duration_ms": 300, "connection_reused": False})
-    perf = ts.compute_stats([ts.read_trace_file(old), ts.read_trace_file(new)])["performance"]
+    perf = ts.compute_stats([ts.read_trace_file(old), ts.read_trace_file(new)])[
+        "performance"
+    ]
     assert perf["exchanges"] == 2
     assert perf["with_data"] == 1
     assert perf["coverage_pct"] == 50.0
@@ -415,13 +428,24 @@ def test_old_traces_count_as_no_data_not_zero(tmp_path):
 
 def test_error_rate_and_blocked_calls(tmp_path):
     ok = _perf_trace(tmp_path, "ok", {"duration_ms": 120})
-    err = _perf_trace(tmp_path, "err", {"duration_ms": 80, "http_status": 529}, status=529)
+    err = _perf_trace(
+        tmp_path, "err", {"duration_ms": 80, "http_status": 529}, status=529
+    )
     blocked_events = example_trace()
-    blocked_events = blocked_events[:2] + [_event(E3, E2, 3, "error", "system", {
-        "error_code": "BLOCKED_BY_GUARD",
-        "error_message": "petición bloqueada",
-        "recoverable": True,
-    })]
+    blocked_events = blocked_events[:2] + [
+        _event(
+            E3,
+            E2,
+            3,
+            "error",
+            "system",
+            {
+                "error_code": "BLOCKED_BY_GUARD",
+                "error_message": "petición bloqueada",
+                "recoverable": True,
+            },
+        )
+    ]
     blocked = write_trace(tmp_path / "2026-11-09" / "blocked.jsonl", blocked_events)
     reports = [ts.read_trace_file(p) for p in (ok, err, blocked)]
     perf = ts.compute_stats(reports)["performance"]
@@ -431,7 +455,9 @@ def test_error_rate_and_blocked_calls(tmp_path):
 
 
 def test_performance_text_report_shows_section(tmp_path):
-    path = _perf_trace(tmp_path, "txt", {"duration_ms": 250, "ttfb_ms": 40, "connection_reused": True})
+    path = _perf_trace(
+        tmp_path, "txt", {"duration_ms": 250, "ttfb_ms": 40, "connection_reused": True}
+    )
     text = ts.render_text(ts.compute_stats([ts.read_trace_file(path)]))
     assert "Rendimiento y conexión" in text
     assert "250 ms" in text

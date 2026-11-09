@@ -1904,9 +1904,13 @@ def _traces_perf_html(traces: dict) -> str:
     error_rate = perf.get("error_rate_pct")
     known = (reused.get("true", 0) or 0) + (reused.get("false", 0) or 0)
     reuse_pct = f"{reused.get('true', 0) * 100 / known:.1f}%" if known else "—"
-    strategies = ", ".join(
-        f"{html.escape(str(k))} ×{v}" for k, v in (perf.get("connection_strategy") or {}).items()
-    ) or "—"
+    strategies = (
+        ", ".join(
+            f"{html.escape(str(k))} ×{v}"
+            for k, v in (perf.get("connection_strategy") or {}).items()
+        )
+        or "—"
+    )
     model_rows = "".join(
         "<tr>"
         f"<td>{html.escape(str(model))}</td>"

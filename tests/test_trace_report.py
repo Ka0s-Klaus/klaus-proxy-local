@@ -163,14 +163,21 @@ def _trace_with_perf(duration=420, reused=True):
     for e in events:
         if e["event_type"] == "model_called":
             e["payload"].update(
-                {"duration_ms": duration, "ttfb_ms": 90, "http_status": 200,
-                 "connection_reused": reused, "connection_strategy": "lazy"}
+                {
+                    "duration_ms": duration,
+                    "ttfb_ms": 90,
+                    "http_status": 200,
+                    "connection_reused": reused,
+                    "connection_strategy": "lazy",
+                }
             )
     return events
 
 
 def test_summary_exposes_latency_and_connection(tmp_path):
-    s = tr.summarize_trace(_report(tmp_path, _trace_with_perf(duration=420, reused=False)))
+    s = tr.summarize_trace(
+        _report(tmp_path, _trace_with_perf(duration=420, reused=False))
+    )
     assert s["duration_ms"] == 420
     assert s["connection_reused"] is False
 

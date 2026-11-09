@@ -314,7 +314,9 @@ def test_timing_of_tolerates_objects_without_mitmproxy_fields():
     assert ka.timing_of(SimpleNamespace()) == {}
     flow = SimpleNamespace(
         request=SimpleNamespace(timestamp_start=10.0),
-        response=SimpleNamespace(timestamp_start=10.2, timestamp_end=10.9, status_code=200),
+        response=SimpleNamespace(
+            timestamp_start=10.2, timestamp_end=10.9, status_code=200
+        ),
         server_conn=SimpleNamespace(timestamp_tcp_setup=9.0),
     )
     fields = ka.timing_of(flow)
@@ -325,9 +327,19 @@ def test_timing_of_tolerates_objects_without_mitmproxy_fields():
 
 
 def test_successful_call_records_performance_fields(tmp_path):
-    timing = {"duration_ms": 1830, "ttfb_ms": 412, "http_status": 200, "connection_reused": True}
+    timing = {
+        "duration_ms": 1830,
+        "ttfb_ms": 412,
+        "http_status": 200,
+        "connection_reused": True,
+    }
     ka.record_exchange(
-        _request(), 200, _json_response(), blocked=False, trace_dir=tmp_path, timing=timing
+        _request(),
+        200,
+        _json_response(),
+        blocked=False,
+        trace_dir=tmp_path,
+        timing=timing,
     )
     path = _trace_file(tmp_path)
     report = ts.read_trace_file(path)
@@ -341,7 +353,12 @@ def test_successful_call_records_performance_fields(tmp_path):
 def test_error_event_records_performance_fields(tmp_path):
     timing = {"duration_ms": 95, "http_status": 529}
     ka.record_exchange(
-        _request(), 529, b'{"type":"error"}', blocked=False, trace_dir=tmp_path, timing=timing
+        _request(),
+        529,
+        b'{"type":"error"}',
+        blocked=False,
+        trace_dir=tmp_path,
+        timing=timing,
     )
     report = ts.read_trace_file(_trace_file(tmp_path))
     err = report.events[-1]
@@ -352,7 +369,12 @@ def test_error_event_records_performance_fields(tmp_path):
 
 def test_blocked_call_has_no_performance_fields(tmp_path):
     ka.record_exchange(
-        _request(), None, b"", blocked=True, trace_dir=tmp_path, timing={"duration_ms": 5}
+        _request(),
+        None,
+        b"",
+        blocked=True,
+        trace_dir=tmp_path,
+        timing={"duration_ms": 5},
     )
     err = ts.read_trace_file(_trace_file(tmp_path)).events[-1]
     assert err["payload"]["error_code"] == "BLOCKED_BY_GUARD"
@@ -361,7 +383,9 @@ def test_blocked_call_has_no_performance_fields(tmp_path):
 
 def test_calls_without_timing_still_write_valid_traces(tmp_path):
     # Compatibilidad: sin timing, la traza es igual que antes (campos opcionales).
-    ka.record_exchange(_request(), 200, _json_response(), blocked=False, trace_dir=tmp_path)
+    ka.record_exchange(
+        _request(), 200, _json_response(), blocked=False, trace_dir=tmp_path
+    )
     report = ts.read_trace_file(_trace_file(tmp_path))
     assert report.issues == []
     model = next(e for e in report.events if e["event_type"] == "model_called")
