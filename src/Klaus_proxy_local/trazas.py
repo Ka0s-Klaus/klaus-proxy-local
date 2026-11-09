@@ -34,7 +34,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from Klaus_proxy_local.trace_stats import ACTORS, EVENT_TYPES, SCHEMA_VERSION
+from Klaus_proxy_local.trace_stats import EVENT_TYPES, SCHEMA_VERSION
 
 log = logging.getLogger("klaus.trazas")
 
