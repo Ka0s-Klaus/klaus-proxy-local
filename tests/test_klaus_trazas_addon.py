@@ -266,3 +266,103 @@ def test_tool_result_turn_gets_its_own_input_hash():
     assert ka._sha256(text_a) != ka._sha256(text_b)
     # La representación no contiene el texto como cadena suelta de la traza
     assert "denegado A" in text_a  # se hashea, nunca se guarda en la traza
+
+
+# ── Métricas de rendimiento y conexión (docs/trazabilidad.md §4.4) ──────────
+
+
+def test_performance_fields_from_timestamps():
+    fields = ka.performance_fields(
+        request_start=100.0,
+        response_start=100.412,
+        response_end=101.830,
+        tcp_setup=99.5,  # conexión abierta antes de la petición: reutilizada
+        strategy="lazy",
+    )
+    assert fields == {
+        "duration_ms": 1830,
+        "ttfb_ms": 412,
+        "connection_reused": True,
+        "connection_strategy": "lazy",
+    }
+
+
+def test_new_connection_is_not_reused():
+    fields = ka.performance_fields(100.0, 100.2, 100.5, tcp_setup=100.01, strategy=None)
+    assert fields["connection_reused"] is False
+    assert "connection_strategy" not in fields
+
+
+def test_unknown_timestamps_are_omitted_not_zeroed():
+    # Sin instante de apertura no se sabe si la conexión se reutilizó: se omite.
+    fields = ka.performance_fields(100.0, None, 100.5, tcp_setup=None, strategy=None)
+    assert fields == {"duration_ms": 500}
+    assert "connection_reused" not in fields
+    assert "ttfb_ms" not in fields
+
+
+def test_negative_durations_are_clamped_to_zero():
+    fields = ka.performance_fields(100.0, 99.0, 99.0, tcp_setup=None, strategy=None)
+    assert fields["duration_ms"] == 0
+    assert fields["ttfb_ms"] == 0
+
+
+def test_timing_of_tolerates_objects_without_mitmproxy_fields():
+    from types import SimpleNamespace
+
+    # Sin mitmproxy instalado ni campos de tiempo: no lanza y no inventa datos.
+    assert ka.timing_of(SimpleNamespace()) == {}
+    flow = SimpleNamespace(
+        request=SimpleNamespace(timestamp_start=10.0),
+        response=SimpleNamespace(timestamp_start=10.2, timestamp_end=10.9, status_code=200),
+        server_conn=SimpleNamespace(timestamp_tcp_setup=9.0),
+    )
+    fields = ka.timing_of(flow)
+    assert fields["duration_ms"] == 900
+    assert fields["ttfb_ms"] == 200
+    assert fields["connection_reused"] is True
+    assert fields["http_status"] == 200
+
+
+def test_successful_call_records_performance_fields(tmp_path):
+    timing = {"duration_ms": 1830, "ttfb_ms": 412, "http_status": 200, "connection_reused": True}
+    ka.record_exchange(
+        _request(), 200, _json_response(), blocked=False, trace_dir=tmp_path, timing=timing
+    )
+    path = _trace_file(tmp_path)
+    report = ts.read_trace_file(path)
+    assert report.issues == []
+    model = next(e for e in report.events if e["event_type"] == "model_called")
+    assert model["payload"]["duration_ms"] == 1830
+    assert model["payload"]["connection_reused"] is True
+    assert SECRET_TEXT not in path.read_text(encoding="utf-8")
+
+
+def test_error_event_records_performance_fields(tmp_path):
+    timing = {"duration_ms": 95, "http_status": 529}
+    ka.record_exchange(
+        _request(), 529, b'{"type":"error"}', blocked=False, trace_dir=tmp_path, timing=timing
+    )
+    report = ts.read_trace_file(_trace_file(tmp_path))
+    err = report.events[-1]
+    assert err["payload"]["duration_ms"] == 95
+    assert err["payload"]["http_status"] == 529
+    assert err["payload"]["error_code"] == "HTTP_529"
+
+
+def test_blocked_call_has_no_performance_fields(tmp_path):
+    ka.record_exchange(
+        _request(), None, b"", blocked=True, trace_dir=tmp_path, timing={"duration_ms": 5}
+    )
+    err = ts.read_trace_file(_trace_file(tmp_path)).events[-1]
+    assert err["payload"]["error_code"] == "BLOCKED_BY_GUARD"
+    assert "duration_ms" not in err["payload"]
+
+
+def test_calls_without_timing_still_write_valid_traces(tmp_path):
+    # Compatibilidad: sin timing, la traza es igual que antes (campos opcionales).
+    ka.record_exchange(_request(), 200, _json_response(), blocked=False, trace_dir=tmp_path)
+    report = ts.read_trace_file(_trace_file(tmp_path))
+    assert report.issues == []
+    model = next(e for e in report.events if e["event_type"] == "model_called")
+    assert "duration_ms" not in model["payload"]

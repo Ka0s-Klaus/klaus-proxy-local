@@ -346,3 +346,100 @@ def test_unknown_returned_model_is_not_counted_as_drift(tmp_path):
     stats = ts.compute_stats([ts.read_trace_file(path)])
     assert stats["model_version_drift"] == 0
     assert stats["model_version_unknown"] == 1
+
+
+# ── Rendimiento y conexión (docs/trazabilidad.md §4.4) ──────────────────────
+
+
+def _perf_trace(tmp_path, name, payload_extra, status=200):
+    """Traza de una llamada completa con métricas opcionales en model_called."""
+    events = example_trace()
+    events[2]["payload"].update(payload_extra)
+    if status >= 400:
+        events[2] = _event(E3, E2, 3, "error", "system", {
+            "error_code": f"HTTP_{status}",
+            "error_message": "la API respondió con error",
+            "recoverable": True,
+            **payload_extra,
+        })
+        events = events[:3]
+    return write_trace(tmp_path / "2026-11-09" / f"{name}.jsonl", events)
+
+
+def test_percentile_nearest_rank():
+    values = list(range(1, 101))  # 1..100
+    assert ts.percentile(values, 50) == 50
+    assert ts.percentile(values, 95) == 95
+    assert ts.percentile(values, 99) == 99
+    assert ts.percentile([], 50) is None
+    assert ts.percentile([7], 99) == 7
+
+
+def test_performance_aggregates_latency_and_connection(tmp_path):
+    paths = [
+        _perf_trace(tmp_path, f"t{i}", {
+            "duration_ms": 100 * (i + 1),
+            "ttfb_ms": 10 * (i + 1),
+            "http_status": 200,
+            "connection_reused": i % 2 == 0,
+            "connection_strategy": "lazy",
+        })
+        for i in range(4)
+    ]
+    reports = [ts.read_trace_file(p) for p in paths]
+    perf = ts.compute_stats(reports)["performance"]
+    assert perf["exchanges"] == 4
+    assert perf["with_data"] == 4
+    assert perf["coverage_pct"] == 100.0
+    assert perf["duration_ms"] == {"p50": 200, "p95": 400, "p99": 400}
+    assert perf["connection_reused"] == {"true": 2, "false": 2, "unknown": 0}
+    assert perf["connection_strategy"] == {"lazy": 4}
+    assert perf["error_rate_pct"] == 0.0
+    assert perf["tokens"]["input"] == 812 * 4
+    assert perf["tokens"]["output"] == 146 * 4
+    by_model = perf["tokens"]["by_model"]["modelo-ejemplo-x-2026-09"]
+    assert by_model["calls"] == 4
+    assert by_model["input_tokens"] == 812 * 4
+
+
+def test_old_traces_count_as_no_data_not_zero(tmp_path):
+    old = _perf_trace(tmp_path, "old", {})  # sin métricas: traza anterior
+    new = _perf_trace(tmp_path, "new", {"duration_ms": 300, "connection_reused": False})
+    perf = ts.compute_stats([ts.read_trace_file(old), ts.read_trace_file(new)])["performance"]
+    assert perf["exchanges"] == 2
+    assert perf["with_data"] == 1
+    assert perf["coverage_pct"] == 50.0
+    assert perf["duration_ms"] == {"p50": 300, "p95": 300, "p99": 300}
+    assert perf["connection_reused"] == {"true": 0, "false": 1, "unknown": 1}
+
+
+def test_error_rate_and_blocked_calls(tmp_path):
+    ok = _perf_trace(tmp_path, "ok", {"duration_ms": 120})
+    err = _perf_trace(tmp_path, "err", {"duration_ms": 80, "http_status": 529}, status=529)
+    blocked_events = example_trace()
+    blocked_events = blocked_events[:2] + [_event(E3, E2, 3, "error", "system", {
+        "error_code": "BLOCKED_BY_GUARD",
+        "error_message": "petición bloqueada",
+        "recoverable": True,
+    })]
+    blocked = write_trace(tmp_path / "2026-11-09" / "blocked.jsonl", blocked_events)
+    reports = [ts.read_trace_file(p) for p in (ok, err, blocked)]
+    perf = ts.compute_stats(reports)["performance"]
+    # La bloqueada no llegó a la API: no cuenta ni como llamada ni como error.
+    assert perf["exchanges"] == 2
+    assert perf["error_rate_pct"] == 50.0
+
+
+def test_performance_text_report_shows_section(tmp_path):
+    path = _perf_trace(tmp_path, "txt", {"duration_ms": 250, "ttfb_ms": 40, "connection_reused": True})
+    text = ts.render_text(ts.compute_stats([ts.read_trace_file(path)]))
+    assert "Rendimiento y conexión" in text
+    assert "250 ms" in text
+    assert "sí=1" in text
+
+
+def test_empty_performance_is_reported_without_crash(tmp_path):
+    perf = ts.compute_stats([])["performance"]
+    assert perf["exchanges"] == 0
+    assert perf["coverage_pct"] is None
+    assert "sin llamadas" in ts.render_performance_lines(perf)

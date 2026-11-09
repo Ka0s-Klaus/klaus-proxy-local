@@ -1319,6 +1319,7 @@ HTML_TEMPLATE = """\
       <div class="stat-sub">de #TRACES_OUTPUTS# salidas · #TRACES_ERRORS# errores</div>
     </div>
   </div>
+  #TRACES_PERF_HTML#
   <div class="card mb12">
     <h3>Para revisar</h3>
     #TRACES_REVIEW_HTML#
@@ -1880,6 +1881,83 @@ def _traces_review_html(traces: dict) -> str:
     )
 
 
+def _ms_fmt(value: object) -> str:
+    return "—" if value is None else f"{value:,} ms"
+
+
+def _traces_perf_html(traces: dict) -> str:
+    """Tarjeta «Rendimiento y conexión» (docs/trazabilidad.md §4.4)."""
+    if traces.get("status") == "no_data":
+        return ""
+    perf = traces.get("performance") or {}
+    if not perf.get("exchanges"):
+        return (
+            '<div class="card mb12"><h3>Rendimiento y conexión</h3>'
+            '<div style="font-size:.85rem;color:var(--text-muted)">'
+            "Sin llamadas a la API con métricas todavía.</div></div>"
+        )
+    duration = perf.get("duration_ms") or {}
+    ttfb = perf.get("ttfb_ms") or {}
+    reused = perf.get("connection_reused") or {}
+    tokens = perf.get("tokens") or {}
+    coverage = perf.get("coverage_pct")
+    error_rate = perf.get("error_rate_pct")
+    known = (reused.get("true", 0) or 0) + (reused.get("false", 0) or 0)
+    reuse_pct = f"{reused.get('true', 0) * 100 / known:.1f}%" if known else "—"
+    strategies = ", ".join(
+        f"{html.escape(str(k))} ×{v}" for k, v in (perf.get("connection_strategy") or {}).items()
+    ) or "—"
+    model_rows = "".join(
+        "<tr>"
+        f"<td>{html.escape(str(model))}</td>"
+        f"<td>{c.get('calls', 0):,}</td>"
+        f"<td>{c.get('input_tokens', 0):,}</td>"
+        f"<td>{c.get('output_tokens', 0):,}</td>"
+        "</tr>"
+        for model, c in (tokens.get("by_model") or {}).items()
+    )
+    model_table = (
+        '<table class="data-table mt8"><thead><tr>'
+        "<th>Modelo devuelto</th><th>Llamadas</th><th>Tokens in</th><th>Tokens out</th>"
+        f"</tr></thead><tbody>{model_rows}</tbody></table>"
+        if model_rows
+        else ""
+    )
+    return (
+        '<div class="card mb12"><h3>⏱️ Rendimiento y conexión</h3>'
+        '<div class="grid-3 mb12">'
+        '<div class="stat-tile"><div class="stat-label">Latencia total</div>'
+        f'<div class="stat-value">{_ms_fmt(duration.get("p95"))}</div>'
+        f'<div class="stat-sub">p50 {_ms_fmt(duration.get("p50"))} · '
+        f'p99 {_ms_fmt(duration.get("p99"))}</div></div>'
+        '<div class="stat-tile"><div class="stat-label">Primera respuesta</div>'
+        f'<div class="stat-value">{_ms_fmt(ttfb.get("p95"))}</div>'
+        f'<div class="stat-sub">p50 {_ms_fmt(ttfb.get("p50"))} · '
+        f'p99 {_ms_fmt(ttfb.get("p99"))}</div></div>'
+        '<div class="stat-tile"><div class="stat-label">Conexión reutilizada</div>'
+        f'<div class="stat-value">{reuse_pct}</div>'
+        f'<div class="stat-sub">sin dato: {reused.get("unknown", 0):,} de '
+        f'{perf.get("exchanges", 0):,} llamadas</div></div>'
+        "</div>"
+        '<div class="grid-3 mb12">'
+        '<div class="stat-tile"><div class="stat-label">Tasa de error</div>'
+        f'<div class="stat-value">{"—" if error_rate is None else f"{error_rate}%"}</div>'
+        f'<div class="stat-sub">{perf.get("exchanges", 0):,} llamadas a la API</div></div>'
+        '<div class="stat-tile"><div class="stat-label">Cobertura</div>'
+        f'<div class="stat-value">{"—" if coverage is None else f"{coverage}%"}</div>'
+        f'<div class="stat-sub">{perf.get("with_data", 0):,} con métricas de rendimiento</div></div>'
+        '<div class="stat-tile"><div class="stat-label">Tokens in / out</div>'
+        f'<div class="stat-value">{tokens.get("input", 0):,} / {tokens.get("output", 0):,}</div>'
+        f'<div class="stat-sub">estrategia de conexión: {strategies}</div></div>'
+        "</div>"
+        f"{model_table}"
+        '<div style="font-size:.78rem;color:var(--text-muted);margin-top:8px">'
+        "Percentiles sobre las trazas que tienen métricas. Las trazas anteriores a la "
+        "métrica cuentan como «sin dato», nunca como 0.</div>"
+        "</div>"
+    )
+
+
 def _traces_recent_html(traces: dict) -> str:
     rows = []
     for r in traces.get("recent") or []:
@@ -1892,6 +1970,7 @@ def _traces_recent_html(traces: dict) -> str:
             f"<td>{html.escape(str(r.get('requested_model') or '—'))}</td>"
             f"<td>{html.escape(str(r.get('returned_model') or '—'))}</td>"
             f"<td>{html.escape(tokens)}</td>"
+            f"<td>{html.escape(_ms_fmt(r.get('duration_ms')))}</td>"
             f"<td>{html.escape(str(r.get('status', '')))}</td>"
             f"<td>{r.get('issues', 0)}</td>"
             "</tr>"
@@ -1901,7 +1980,7 @@ def _traces_recent_html(traces: dict) -> str:
     return (
         '<table class="data-table mt8"><thead><tr>'
         "<th>Fecha</th><th>Hora</th><th>Traza</th><th>Modelo pedido</th>"
-        "<th>Devuelto</th><th>Tokens in/out</th><th>Estado</th><th>Incid.</th>"
+        "<th>Devuelto</th><th>Tokens in/out</th><th>Latencia</th><th>Estado</th><th>Incid.</th>"
         f"</tr></thead><tbody>{''.join(rows)}</tbody></table>"
     )
 
@@ -2123,6 +2202,7 @@ def render_html(
         "TRACES_STATUS_HTML": _traces_status_html(traces),
         "TRACES_REVIEW_HTML": _traces_review_html(traces),
         "TRACES_RECENT_HTML": _traces_recent_html(traces),
+        "TRACES_PERF_HTML": _traces_perf_html(traces),
         "TRACES_DETAILS_HTML": _traces_details_html(traces),
     }
 

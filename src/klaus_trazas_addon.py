@@ -9,6 +9,10 @@ a la respuesta se escribe una traza con:
 - ``output_emitted``: hash de la respuesta entregada al cliente.
 - ``error``: si la API devolvió un error o el guard bloqueó la petición.
 
+Métricas de rendimiento y conexión (docs/trazabilidad.md §4.4) en ``model_called``
+y ``error``: ``duration_ms``, ``ttfb_ms``, ``http_status``, ``connection_reused``
+y ``connection_strategy``, tomadas de los tiempos del flujo de mitmproxy.
+
 El proxy no tiene verificaciones ni revisión humana, así que esos tipos no se
 generan: ``klaus-trazas`` lo muestra tal cual (todas las salidas sin revisión).
 
@@ -136,23 +140,93 @@ def _log(msg: str) -> None:
         print(msg)
 
 
+def _ms(start: float | None, end: float | None) -> int | None:
+    """Milisegundos entre dos instantes (segundos epoch). ``None`` si no se conocen."""
+    if start is None or end is None:
+        return None
+    return max(0, round((end - start) * 1000))
+
+
+def performance_fields(
+    request_start: float | None,
+    response_start: float | None,
+    response_end: float | None,
+    tcp_setup: float | None,
+    strategy: str | None,
+) -> dict[str, Any]:
+    """Métricas de rendimiento y conexión (§4.4), solo con los datos conocidos.
+
+    ``connection_reused`` es ``True`` si la conexión upstream se abrió antes de
+    que llegara esta petición. Si no se conoce el instante de apertura, el campo
+    se omite: en el informe cuenta como «sin dato», nunca como ``False``.
+    Los campos desconocidos se omiten; no se inventan valores.
+    """
+    fields: dict[str, Any] = {}
+    duration = _ms(request_start, response_end)
+    if duration is not None:
+        fields["duration_ms"] = duration
+    ttfb = _ms(request_start, response_start)
+    if ttfb is not None:
+        fields["ttfb_ms"] = ttfb
+    if request_start is not None and tcp_setup is not None:
+        fields["connection_reused"] = tcp_setup < request_start
+    if strategy:
+        fields["connection_strategy"] = strategy
+    return fields
+
+
+def timing_of(flow: Any) -> dict[str, Any]:
+    """Métricas de un ``HTTPFlow`` de mitmproxy. Tolerante a versiones distintas."""
+    req = getattr(flow, "request", None)
+    resp = getattr(flow, "response", None)
+    server = getattr(flow, "server_conn", None)
+    strategy = None
+    try:
+        from mitmproxy import ctx
+
+        strategy = getattr(ctx.options, "connection_strategy", None)
+    except Exception:
+        strategy = None
+    fields = performance_fields(
+        request_start=getattr(req, "timestamp_start", None),
+        response_start=getattr(resp, "timestamp_start", None),
+        response_end=getattr(resp, "timestamp_end", None),
+        tcp_setup=getattr(server, "timestamp_tcp_setup", None),
+        strategy=strategy if isinstance(strategy, str) else None,
+    )
+    code = getattr(resp, "status_code", None)
+    if isinstance(code, int):
+        fields["http_status"] = code
+    return fields
+
+
 def record_exchange(
     request_body: bytes,
     status: int | None,
     response_body: bytes,
     blocked: bool,
     trace_dir: Any = None,
+    timing: dict[str, Any] | None = None,
 ) -> str | None:
     """Escribe la traza de una llamada. Devuelve el ``trace_id`` o ``None``.
 
+    ``timing`` son las métricas de rendimiento (ver ``performance_fields``); se
+    añaden a ``model_called`` o ``error`` cuando la API llegó a responder.
     Nunca lanza excepciones: cualquier fallo se registra en el log del proxy.
     Función independiente de mitmproxy: se prueba sin proxy.
     """
     try:
-        return _record_exchange(request_body, status, response_body, blocked, trace_dir)
+        return _record_exchange(
+            request_body, status, response_body, blocked, trace_dir, timing or {}
+        )
     except Exception as exc:
         _log(f"[klaus-trazas] no se pudo registrar la llamada: {exc}")
         return None
+
+
+def _with_timing(payload: dict[str, Any], timing: dict[str, Any]) -> dict[str, Any]:
+    """Payload con las métricas de rendimiento añadidas (sin modificar el original)."""
+    return {**payload, **timing}
 
 
 def _record_exchange(
@@ -161,6 +235,7 @@ def _record_exchange(
     response_body: bytes,
     blocked: bool,
     trace_dir: Any,
+    timing: dict[str, Any],
 ) -> str | None:
     try:
         body = json.loads(request_body.decode("utf-8"))
@@ -188,11 +263,14 @@ def _record_exchange(
             trazas.record_event(
                 ctx,
                 "error",
-                {
-                    "error_code": "NO_RESPONSE",
-                    "error_message": "la API no devolvió respuesta",
-                    "recoverable": False,
-                },
+                _with_timing(
+                    {
+                        "error_code": "NO_RESPONSE",
+                        "error_message": "la API no devolvió respuesta",
+                        "recoverable": False,
+                    },
+                    timing,
+                ),
             )
             trazas.end_trace(ctx, status="error")
             return ctx.trace_id
@@ -201,11 +279,14 @@ def _record_exchange(
             trazas.record_event(
                 ctx,
                 "error",
-                {
-                    "error_code": f"HTTP_{status}",
-                    "error_message": f"la API respondió con HTTP {status}",
-                    "recoverable": status in RECOVERABLE_STATUS,
-                },
+                _with_timing(
+                    {
+                        "error_code": f"HTTP_{status}",
+                        "error_message": f"la API respondió con HTTP {status}",
+                        "recoverable": status in RECOVERABLE_STATUS,
+                    },
+                    timing,
+                ),
             )
             trazas.end_trace(ctx, status="error")
             return ctx.trace_id
@@ -223,6 +304,7 @@ def _record_exchange(
             model_payload["input_tokens"] = input_tokens
         if output_tokens is not None:
             model_payload["output_tokens"] = output_tokens
+        model_payload = _with_timing(model_payload, timing)
         model_id = trazas.record_event(ctx, "model_called", model_payload)
         trazas.record_event(
             ctx,
@@ -260,6 +342,7 @@ class KlausTrazasAddon:
                 # .content = cuerpo decodificado (gzip/br). raw_content son bytes comprimidos.
                 response_body=(resp.content or b"") if resp is not None else b"",
                 blocked=bool(meta.get("anthropic_blocked")),
+                timing=timing_of(flow),
             )
         except Exception as exc:
             _log(f"[klaus-trazas] fallo inesperado: {exc}")

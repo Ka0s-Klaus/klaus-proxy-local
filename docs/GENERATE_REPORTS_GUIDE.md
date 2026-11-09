@@ -39,6 +39,17 @@ informes/
 - ❌ `audit_index.md` NO se versiona (referencia a reportes sensibles)
 - 🔒 Reportes protegidos en `.gitignore`
 
+### ⏱️ Rendimiento y conexión en las trazas
+
+El dashboard de auditoría (panel 🧾 Trazas) muestra, a partir de las trazas del proxy:
+
+- **Latencia total** y **primera respuesta** en p50, p95 y p99 (`duration_ms`, `ttfb_ms`).
+- **Conexión reutilizada** (sí / no / sin dato) y estrategia de conexión (`lazy`).
+- **Tasa de error** sobre las llamadas a la API (las bloqueadas por el guard no cuentan).
+- **Cobertura**: qué porcentaje de llamadas tiene métricas. Las trazas anteriores a la métrica se cuentan como «sin dato», nunca como 0.
+
+Campos y reglas: [`docs/trazabilidad.md` §4.4](trazabilidad.md#44-métricas-de-rendimiento-y-conexión-).
+
 ---
 
 ## 🚀 Usos Comunes

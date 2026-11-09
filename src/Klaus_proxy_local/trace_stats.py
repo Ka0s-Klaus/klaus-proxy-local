@@ -269,6 +269,7 @@ def compute_stats(reports: list[TraceReport]) -> dict[str, Any]:
     outputs_unreviewed = 0
     valid = 0
     invalid_traces: list[dict[str, Any]] = []
+    perf = _Performance()
 
     for report in reports:
         by_date[report.date] += 1
@@ -289,6 +290,8 @@ def compute_stats(reports: list[TraceReport]) -> dict[str, Any]:
             etype = e.get("event_type")
             payload = e.get("payload") if isinstance(e.get("payload"), dict) else {}
             event_types[str(etype)] += 1
+            if etype in EXCHANGE_TYPES:
+                perf.add(str(etype), payload)
 
             if etype == "model_called":
                 model_calls += 1
@@ -338,7 +341,101 @@ def compute_stats(reports: list[TraceReport]) -> dict[str, Any]:
         "errors_recoverable": dict(errors_recoverable),
         "outputs_emitted": outputs,
         "outputs_without_review": outputs_unreviewed,
+        "performance": perf.summary(),
     }
+
+
+PERCENTILES = (50, 95, 99)
+EXCHANGE_TYPES = ("model_called", "error")  # eventos que cierran una llamada a la API
+BLOCKED_CODE = "BLOCKED_BY_GUARD"  # bloqueada antes de llegar a la API: sin métricas
+
+
+def percentile(values: list[int], pct: int) -> int | None:
+    """Percentil por rango más próximo. ``None`` si no hay valores."""
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = max(1, -(-pct * len(ordered) // 100))  # ceil(pct/100 * n), mínimo 1
+    return ordered[rank - 1]
+
+
+@dataclass
+class _Performance:
+    """Acumula métricas de rendimiento y conexión (§4.4) de las llamadas a la API."""
+
+    exchanges: int = 0  # llamadas a la API (sin bloqueadas por el guard)
+    errors: int = 0  # llamadas que terminaron en error
+    with_data: int = 0  # llamadas con duration_ms
+    durations: list[int] = field(default_factory=list)
+    ttfb: list[int] = field(default_factory=list)
+    reused: Counter[str] = field(default_factory=Counter)  # "true" / "false"
+    strategies: Counter[str] = field(default_factory=Counter)
+    input_tokens: int = 0
+    output_tokens: int = 0
+    tokens_by_model: dict[str, Counter[str]] = field(default_factory=dict)
+
+    def add(self, etype: str, payload: dict[str, Any]) -> None:
+        if etype == "error" and payload.get("error_code") == BLOCKED_CODE:
+            return
+        self.exchanges += 1
+        if etype == "error":
+            self.errors += 1
+        duration = payload.get("duration_ms")
+        if _is_count(duration):
+            self.with_data += 1
+            self.durations.append(duration)
+        ttfb = payload.get("ttfb_ms")
+        if _is_count(ttfb):
+            self.ttfb.append(ttfb)
+        reused = payload.get("connection_reused")
+        if isinstance(reused, bool):
+            self.reused["true" if reused else "false"] += 1
+        strategy = payload.get("connection_strategy")
+        if isinstance(strategy, str) and strategy:
+            self.strategies[strategy] += 1
+        if etype == "model_called":
+            model = str(payload.get("returned_model") or UNKNOWN_MODEL)
+            bucket = self.tokens_by_model.setdefault(model, Counter())
+            bucket["calls"] += 1
+            for key, attr in (("input_tokens", "input_tokens"), ("output_tokens", "output_tokens")):
+                value = payload.get(key)
+                if _is_count(value):
+                    setattr(self, attr, getattr(self, attr) + value)
+                    bucket[key] += value
+
+    def summary(self) -> dict[str, Any]:
+        def dist(values: list[int]) -> dict[str, int] | None:
+            if not values:
+                return None
+            return {f"p{p}": percentile(values, p) for p in PERCENTILES}
+
+        n = self.exchanges
+        return {
+            "exchanges": n,
+            "with_data": self.with_data,
+            "coverage_pct": round(self.with_data * 100 / n, 1) if n else None,
+            "duration_ms": dist(self.durations),
+            "ttfb_ms": dist(self.ttfb),
+            "error_rate_pct": round(self.errors * 100 / n, 1) if n else None,
+            "connection_reused": {
+                "true": self.reused.get("true", 0),
+                "false": self.reused.get("false", 0),
+                "unknown": n - self.reused.get("true", 0) - self.reused.get("false", 0),
+            },
+            "connection_strategy": dict(self.strategies.most_common()),
+            "tokens": {
+                "input": self.input_tokens,
+                "output": self.output_tokens,
+                "by_model": {
+                    model: dict(counts) for model, counts in sorted(self.tokens_by_model.items())
+                },
+            },
+        }
+
+
+def _is_count(value: Any) -> bool:
+    """Entero no negativo, sin contar booleanos."""
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 
 
 # ── Presentación ────────────────────────────────────────────────────────────
@@ -411,10 +508,60 @@ def render_text(stats: dict[str, Any], warning: str | None = None) -> str:
         add(f"   {code:<24}{count}  (recuperables: {recov})")
     add("")
 
+    add("⏱️  Rendimiento y conexión")
+    add(render_performance_lines(stats.get("performance") or {}))
+    add("")
+
     add("📤 Salidas")
     add(f"   Emitidas:                    {stats['outputs_emitted']}")
     add(f"   Sin revisión humana previa:  {stats['outputs_without_review']}")
     return "\n".join(out) + "\n"
+
+
+def _fmt_ms(value: int | None) -> str:
+    return "—" if value is None else f"{value} ms"
+
+
+def render_performance_lines(perf: dict[str, Any]) -> str:
+    """Bloque de texto de rendimiento y conexión (sin indentación de sección)."""
+    if not perf or not perf.get("exchanges"):
+        return "   (sin llamadas a la API)"
+    lines = [
+        f"   Llamadas a la API:           {perf['exchanges']}",
+        f"   Con datos de rendimiento:    {perf['with_data']} ({_pct(perf['coverage_pct'])})",
+    ]
+    duration = perf.get("duration_ms") or {}
+    ttfb = perf.get("ttfb_ms") or {}
+    lines.append(
+        "   Latencia total   p50 {}  p95 {}  p99 {}".format(
+            _fmt_ms(duration.get("p50")), _fmt_ms(duration.get("p95")), _fmt_ms(duration.get("p99"))
+        )
+    )
+    lines.append(
+        "   Primera respuesta p50 {}  p95 {}  p99 {}".format(
+            _fmt_ms(ttfb.get("p50")), _fmt_ms(ttfb.get("p95")), _fmt_ms(ttfb.get("p99"))
+        )
+    )
+    reused = perf.get("connection_reused", {})
+    lines.append(
+        f"   Conexión reutilizada:        sí={reused.get('true', 0)}  "
+        f"no={reused.get('false', 0)}  sin dato={reused.get('unknown', 0)}"
+    )
+    lines.append(f"   Tasa de error:               {_pct(perf.get('error_rate_pct'))}")
+    tokens = perf.get("tokens") or {}
+    lines.append(
+        f"   Tokens in/out:               {tokens.get('input', 0)}/{tokens.get('output', 0)}"
+    )
+    for model, counts in (tokens.get("by_model") or {}).items():
+        lines.append(
+            f"      {model}  llamadas={counts.get('calls', 0)} "
+            f"in={counts.get('input_tokens', 0)} out={counts.get('output_tokens', 0)}"
+        )
+    return "\n".join(lines)
+
+
+def _pct(value: float | None) -> str:
+    return "—" if value is None else f"{value}%"
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────────

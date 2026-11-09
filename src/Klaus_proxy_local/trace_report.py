@@ -16,7 +16,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from Klaus_proxy_local.trace_stats import MAX_ISSUES_SHOWN, TraceReport, compute_stats
+from Klaus_proxy_local.trace_stats import (
+    EXCHANGE_TYPES,
+    MAX_ISSUES_SHOWN,
+    TraceReport,
+    _is_count,
+    compute_stats,
+    render_performance_lines,
+)
 
 UNKNOWN_MODEL = "no_devuelto"
 HASH_SHOWN = 12  # caracteres hexadecimales de un hash en los informes
@@ -34,6 +41,19 @@ def _cell(value: Any) -> str:
     """Valor seguro para una celda de tabla Markdown."""
     text = "—" if value is None or value == "" else str(value)
     return text.replace("|", "\\|").replace("\n", " ")
+
+
+def _ms_text(value: Any) -> str | None:
+    return None if value is None else f"{value} ms"
+
+
+def _ms_cell(dist: Any, key: str) -> str | None:
+    value = (dist or {}).get(key) if isinstance(dist, dict) else None
+    return _ms_text(value)
+
+
+def _pct_cell(value: Any) -> str | None:
+    return None if value is None else f"{value}%"
 
 
 def _time(timestamp: Any) -> str:
@@ -87,6 +107,17 @@ def summarize_trace(report: TraceReport) -> dict[str, Any]:
         elif etype == "human_review":
             summary["reviews"] += 1
 
+    # Rendimiento (§4.4): la primera llamada a la API de la traza que lo registre
+    summary["duration_ms"] = None
+    summary["connection_reused"] = None
+    for e in events:
+        payload = e.get("payload") if isinstance(e.get("payload"), dict) else {}
+        if e.get("event_type") in EXCHANGE_TYPES and _is_count(payload.get("duration_ms")):
+            summary["duration_ms"] = payload["duration_ms"]
+            reused = payload.get("connection_reused")
+            summary["connection_reused"] = reused if isinstance(reused, bool) else None
+            break
+
     if summary["errors"]:
         codes = {err["code"] for err in summary["errors"]}
         summary["status"] = "bloqueada" if "BLOCKED_BY_GUARD" in codes else "error"
@@ -110,6 +141,16 @@ def find_trace(
     return matches[0], ""
 
 
+def _perf_suffix(payload: dict[str, Any]) -> str:
+    """Métricas de rendimiento de un evento (§4.4), solo si existen."""
+    if not _is_count(payload.get("duration_ms")):
+        return ""
+    reused = payload.get("connection_reused")
+    conn = "—" if not isinstance(reused, bool) else ("reutilizada" if reused else "nueva")
+    http = payload.get("http_status", "—")
+    return f" latencia={payload['duration_ms']} ms ttfb={payload.get('ttfb_ms', '—')} ms http={http} conexión={conn}"
+
+
 def _event_summary(event: dict[str, Any]) -> str:
     payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
     etype = event.get("event_type")
@@ -123,6 +164,7 @@ def _event_summary(event: dict[str, Any]) -> str:
             f"pedido={payload.get('requested_model', '—')} "
             f"devuelto={payload.get('returned_model', '—')} "
             f"tokens(in/out)={tokens} respuesta={_short_hash(payload.get('output_hash'))}"
+            f"{_perf_suffix(payload)}"
         )
     if etype == "output_emitted":
         return f"destino={payload.get('destination', '—')} hash={_short_hash(payload.get('output_hash'))}"
@@ -130,6 +172,7 @@ def _event_summary(event: dict[str, Any]) -> str:
         return (
             f"código={payload.get('error_code', '—')} "
             f"recuperable={payload.get('recoverable', '—')}"
+            f"{_perf_suffix(payload)}"
         )
     if etype == "verification_run":
         return f"{payload.get('check_name', '—')}={payload.get('result', '—')}"
@@ -235,6 +278,8 @@ def render_markdown(
         f"| Salidas emitidas | {stats['outputs_emitted']} |",
         f"| Salidas sin revisión humana | {stats['outputs_without_review']} |",
         f"| Errores | {sum(stats['errors_by_code'].values())} |",
+        f"| Latencia p95 | {_cell(_ms_cell(stats['performance'].get('duration_ms'), 'p95'))} |",
+        f"| Cobertura de rendimiento | {_cell(_pct_cell(stats['performance'].get('coverage_pct')))} |",
         "",
         "## 🔍 Para revisar",
         "",
@@ -246,13 +291,21 @@ def render_markdown(
         else out.append("- ✅ Nada pendiente de revisar.")
     )
 
+    out += ["", "## ⏱️ Rendimiento y conexión", ""]
+    out.extend(f"- {line.strip()}" for line in render_performance_lines(stats["performance"]).splitlines())
+    out.append("")
+    out.append(
+        "_Cobertura = llamadas con `duration_ms` / llamadas a la API. "
+        "Las trazas anteriores a la métrica cuentan como «sin dato»._"
+    )
+
     out += ["", "## 🗂️ Trazas", ""]
     if not reports:
         out.append("_No hay trazas en el periodo._")
     else:
         out += [
-            "| Fecha | Hora | Traza | Canal | Modelo pedido | Modelo devuelto | Tokens in/out | Estado | Incidencias |",
-            "|---|---|---|---|---|---|---|---|---|",
+            "| Fecha | Hora | Traza | Canal | Modelo pedido | Modelo devuelto | Tokens in/out | Latencia | Estado | Incidencias |",
+            "|---|---|---|---|---|---|---|---|---|---|",
         ]
         for r in sorted(reports, key=lambda r: (r.date, r.trace_id)):
             s = summarize_trace(r)
@@ -261,6 +314,7 @@ def render_markdown(
                 f"{_cell(s['channel'])} | {_cell(s['requested_model'])} | "
                 f"{_cell(s['returned_model'])} | "
                 f"{_cell(s['input_tokens'])}/{_cell(s['output_tokens'])} | "
+                f"{_cell(_ms_text(s['duration_ms']))} | "
                 f"{_cell(s['status'])} | {len(s['issues'])} |"
             )
 
@@ -355,6 +409,7 @@ def audit_traces(trace_dir: Path) -> dict[str, Any]:
             "outputs": 0,
             "outputs_without_review": 0,
             "errors": 0,
+            "performance": {},
             "review_items": [],
             "recent": [],
             "details": [],
@@ -385,6 +440,8 @@ def audit_traces(trace_dir: Path) -> dict[str, Any]:
                 "returned_model": s["returned_model"],
                 "input_tokens": s["input_tokens"],
                 "output_tokens": s["output_tokens"],
+                "duration_ms": s["duration_ms"],
+                "connection_reused": s["connection_reused"],
                 "issues": r.issues[:MAX_ISSUES_SHOWN],
                 "issue_count": len(r.issues),
                 "timeline": _timeline(r),
@@ -403,6 +460,7 @@ def audit_traces(trace_dir: Path) -> dict[str, Any]:
         "outputs": stats["outputs_emitted"],
         "outputs_without_review": stats["outputs_without_review"],
         "errors": sum(stats["errors_by_code"].values()),
+        "performance": stats["performance"],
         "review_items": items,
         "recent": [
             {
@@ -413,6 +471,7 @@ def audit_traces(trace_dir: Path) -> dict[str, Any]:
                 "returned_model": s["returned_model"],
                 "input_tokens": s["input_tokens"],
                 "output_tokens": s["output_tokens"],
+                "duration_ms": s["duration_ms"],
                 "status": s["status"],
                 "issues": len(s["issues"]),
             }
