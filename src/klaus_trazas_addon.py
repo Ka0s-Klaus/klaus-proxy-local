@@ -242,9 +242,10 @@ class KlausTrazasAddon:
             meta = getattr(flow, "metadata", {}) or {}
             resp = flow.response
             record_exchange(
-                request_body=req.raw_content or b"",
+                request_body=req.content or b"",
                 status=resp.status_code if resp is not None else None,
-                response_body=(resp.raw_content or b"") if resp is not None else b"",
+                # .content = cuerpo decodificado (gzip/br). raw_content son bytes comprimidos.
+                response_body=(resp.content or b"") if resp is not None else b"",
                 blocked=bool(meta.get("anthropic_blocked")),
             )
         except Exception as exc:

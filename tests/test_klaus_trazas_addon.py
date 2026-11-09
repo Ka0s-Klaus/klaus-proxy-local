@@ -206,3 +206,29 @@ def test_addon_is_registered_before_guard():
         "klaus_pseudo_guard.py"
     )
     assert (SRC / "klaus_trazas_addon.py").exists()
+
+
+def test_hook_reads_decoded_body_not_compressed_bytes(tmp_path, monkeypatch):
+    """Regresión: con gzip, raw_content son bytes comprimidos; hay que leer .content."""
+    import gzip
+    from types import SimpleNamespace
+
+    monkeypatch.setenv("KLAUS_TRAZAS_DIR", str(tmp_path))
+    plain = _json_response()
+    flow = SimpleNamespace(
+        request=SimpleNamespace(
+            method="POST",
+            path="/v1/messages",
+            content=_request(),
+            raw_content=_request(),
+        ),
+        response=SimpleNamespace(
+            status_code=200, content=plain, raw_content=gzip.compress(plain)
+        ),
+        metadata={},
+    )
+    ka.KlausTrazasAddon().response(flow)
+    events = ts.read_trace_file(_trace_file(tmp_path)).events
+    model = next(e for e in events if e["event_type"] == "model_called")
+    assert model["payload"]["returned_model"] == "modelo-ejemplo-x-2026-09"
+    assert model["payload"]["input_tokens"] == 812
