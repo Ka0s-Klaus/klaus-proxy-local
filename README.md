@@ -11,7 +11,7 @@ tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/instalacion]
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
 [![Version](https://img.shields.io/badge/version-0.10.0-green)](./docs/RELEASE_v0.10.0_NOTES.md)
-[![Tests](https://img.shields.io/badge/tests-929%20passed-brightgreen)](./.github/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-956%20passed-brightgreen)](./.github/workflows/ci.yml)
 [![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.10.0_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
@@ -61,7 +61,7 @@ Code (u otro cliente de la API de Anthropic) e intercepta cada petición HTTPS h
 
 ---
 
-## 🚀 Inicio rápido (v0.11.0)
+## 🚀 Inicio rápido (v0.12.0)
 
 > ℹ️ El paquete **no está publicado en PyPI**: se instala desde el repositorio con
 > `install.sh` (macOS y Linux, Python ≥ 3.10; en macOS instala Python 3.13 vía Homebrew si falta; en Debian/Ubuntu hace falta `python3-venv`).
@@ -167,6 +167,15 @@ Lo que conviene saber de `klaus-setup`:
 ---
 
 ## 📦 Releases
+
+### v0.12.0 — Trazas del proxy e informe para revisión ✅
+- 🧾 El proxy registra una traza por cada llamada a `/v1/messages`, sin texto de conversación (#214, #215)
+- 🔍 `klaus-trazas --traza ID`: línea de tiempo de una traza; `--informe`: Markdown para revisión humana (#220, #221)
+- 🐛 Respuestas comprimidas: modelo devuelto y tokens ya se leen bien (#216, #217)
+- 🧪 La suite no detiene el proxy en marcha (#218, #219)
+- ✅ **956 tests passing** en Python 3.10–3.13
+
+[📖 Release Notes](./docs/RELEASE_v0.12.0_NOTES.md)
 
 ### v0.11.0 — Trazas de IA y arranque robusto ✅
 - 🧾 `klaus-trazas`: estadísticas e integridad de las trazas de ejecuciones con IA, según [la especificación](./docs/trazabilidad.md) (#206, #207)
