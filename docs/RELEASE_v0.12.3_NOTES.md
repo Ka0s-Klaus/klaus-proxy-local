@@ -47,7 +47,7 @@ El riesgo que queda es la variable `ANTHROPIC_PSEUDO_VAULT`, que redirige todos 
 | Comprobación | Resultado |
 | --- | --- |
 | CI de las PR #239, #241 y #243 (lint, tests 3.10–3.13, seguridad) | ✅ |
-| Migración real de `config.json` tras reiniciar el proxy | ✅ (corrección manual previa, con copia de seguridad; la migración automática se comprobará al reiniciar) |
+| Migración automática de `config.json` al reiniciar el proxy | ⏳ pendiente de comprobar (la corrección manual previa se hizo con copia de seguridad) |
 | Auditoría EFDEF tras la corrección | ✅ 19/19 |
 
 ## 🔗 Enlaces
