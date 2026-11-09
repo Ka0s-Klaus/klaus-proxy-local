@@ -13,7 +13,12 @@ Uso (desde la raíz del repo, con el paquete instalado o con PYTHONPATH=src):
 import argparse
 from pathlib import Path
 
-from Klaus_proxy_local.trazas import end_trace, record_event, start_trace
+from Klaus_proxy_local.trazas import (
+    DEFAULT_TRACE_DIR,
+    end_trace,
+    record_event,
+    start_trace,
+)
 
 
 def run_demo(trace_dir: Path) -> str:
@@ -87,10 +92,10 @@ def main() -> None:
         "--dir",
         type=Path,
         default=None,
-        help="directorio de trazas (por defecto: logs/trazas)",
+        help="directorio de trazas (por defecto: ~/.klaus-proxy/logs/trazas)",
     )
     args = parser.parse_args()
-    trace_id = run_demo(args.dir or Path("logs") / "trazas")
+    trace_id = run_demo(args.dir or DEFAULT_TRACE_DIR)
     print(f"Traza de ejemplo generada: {trace_id}")
 
 

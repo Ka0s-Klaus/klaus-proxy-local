@@ -269,6 +269,28 @@ grep TÚNEL ~/.klaus-proxy/logs/proxy.log | tail
 
 ---
 
+## 🧾 Trazas de las llamadas al API
+
+Cada llamada a `POST /v1/messages` que pasa por el proxy genera una traza, según la [especificación de trazabilidad](./trazabilidad.md) (v0.1). Están en:
+
+```
+~/.klaus-proxy/logs/trazas/AAAA-MM-DD/<trace_id>.jsonl
+```
+
+Es la misma ruta desde cualquier directorio, porque el proxy se lanza desde donde lo lances. Para cambiarla, `KLAUS_TRAZAS_DIR`.
+
+```bash
+klaus-trazas                      # estadísticas de todas las trazas
+klaus-trazas --date 2026-11-09    # solo un día
+klaus-trazas --json               # la misma información en JSON
+```
+
+**Qué contiene una traza:** el hash del último mensaje de usuario (nunca el texto), el modelo pedido y el que devolvió la API, los tokens y el hash de la respuesta. Si la API falla o el guard bloquea la petición, la traza registra el error.
+
+**Qué no contiene:** el texto de la conversación ni de la respuesta, y no hay revisión humana ni verificaciones: el proxy no las hace. Por eso `klaus-trazas` marca todas las salidas como «sin revisión humana previa».
+
+---
+
 ## 🧰 Utilidades de instalación
 
 Dos comandos de instalación que puedes ejecutar a mano si algo falla o quieres repetir un paso. `klaus-setup` llama al primero; el segundo es manual (`install.sh` tiene su propia lógica para instalar Python en macOS).

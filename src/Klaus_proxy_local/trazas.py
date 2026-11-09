@@ -17,8 +17,8 @@ Reglas de la especificación que este módulo cumple:
 - Directorio ``0700`` y ficheros ``0600`` (§5).
 
 El directorio se elige con ``trace_dir``, o con la variable de entorno
-``KLAUS_TRAZAS_DIR``, o por defecto ``logs/trazas`` relativo al directorio actual
-(el mismo que usa ``klaus-trazas``).
+``KLAUS_TRAZAS_DIR``, o por defecto ``~/.klaus-proxy/logs/trazas`` (el mismo que
+usa ``klaus-trazas`` y el addon del proxy, sea cual sea el directorio de arranque).
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ from Klaus_proxy_local.trace_stats import EVENT_TYPES, SCHEMA_VERSION
 
 log = logging.getLogger("klaus.trazas")
 
-DEFAULT_TRACE_DIR = Path("logs") / "trazas"
+DEFAULT_TRACE_DIR = Path.home() / ".klaus-proxy" / "logs" / "trazas"
 ENV_TRACE_DIR = "KLAUS_TRAZAS_DIR"
 
 # Actor por tipo de evento, según los ejemplos de §8.

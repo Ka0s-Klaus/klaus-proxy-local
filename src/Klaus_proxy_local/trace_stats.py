@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-DEFAULT_TRACE_DIR = Path("logs") / "trazas"
+DEFAULT_TRACE_DIR = Path.home() / ".klaus-proxy" / "logs" / "trazas"
 SCHEMA_VERSION = "0.1"
 
 EVENT_TYPES = frozenset(
@@ -422,7 +422,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         epilog=(
             "Ejemplos:\n"
-            "  klaus-trazas                       # todas las trazas de logs/trazas\n"
+            "  klaus-trazas                       # todas las trazas (~/.klaus-proxy/logs/trazas)\n"
             "  klaus-trazas --date 2026-11-06    # solo un día\n"
             "  klaus-trazas --json               # salida JSON\n"
             "  klaus-trazas --strict             # código de salida 1 si hay incidencias"
@@ -433,7 +433,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--dir",
         type=Path,
         default=DEFAULT_TRACE_DIR,
-        help="directorio de trazas (por defecto: logs/trazas)",
+        help="directorio de trazas (por defecto: ~/.klaus-proxy/logs/trazas)",
     )
     parser.add_argument("--date", help="filtrar por fecha AAAA-MM-DD")
     parser.add_argument("--json", action="store_true", help="salida en JSON")
