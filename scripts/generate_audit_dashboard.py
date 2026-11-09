@@ -795,6 +795,49 @@ def audit_tests(project_root: Path) -> dict:
 # ──────────────────────────────────────────────────────────────────────────────
 
 
+# Único vault válido (docs/trazabilidad.md y pseudonimizador). No usar otras rutas.
+VALID_VAULT_RELATIVE = Path("captures") / ".pseudonym_vault.json"
+PRIVATE_MODE_MASK = 0o077  # ningún permiso para grupo ni otros
+CLAUDE_REPO_FIELDS = (
+    "Organización:",
+    "Repositorio:",
+    "Usuario GitHub:",
+    "GitHub Project (Kanban):",
+)
+CLAUDE_WORKFLOW_STEPS = ("Issue", "Rama", "Desarrollo", "Documentación", "Pull Request")
+_MD_LINK = re.compile(r"\]\(([^)\s]+)\)")
+
+
+def _mode_private(path: Path) -> bool:
+    """True si el fichero/directorio no es accesible por grupo ni otros."""
+    try:
+        return (path.stat().st_mode & PRIVATE_MODE_MASK) == 0
+    except OSError:
+        return False
+
+
+def _section(text: str, heading: str) -> str:
+    """Texto de una sección ``## heading`` hasta el siguiente ``## `` o fin."""
+    match = re.search(rf"^## {re.escape(heading)}\s*$", text, flags=re.M)
+    if not match:
+        return ""
+    rest = text[match.end() :]
+    nxt = re.search(r"^## ", rest, flags=re.M)
+    return rest[: nxt.start()] if nxt else rest
+
+
+def _broken_local_links(markdown: str, base: Path) -> list[str]:
+    """Enlaces relativos de un Markdown que no apuntan a un fichero existente."""
+    broken = []
+    for target in _MD_LINK.findall(markdown):
+        if target.startswith(("http://", "https://", "mailto:", "#")):
+            continue
+        path_part = target.split("#", 1)[0]
+        if path_part and not (base / path_part).exists():
+            broken.append(target)
+    return broken
+
+
 def audit_efdef(project_root: Path, config_dir: Path) -> dict:
     checks: list[dict] = []
 
@@ -808,17 +851,30 @@ def audit_efdef(project_root: Path, config_dir: Path) -> dict:
             }
         )
 
+    valid_vault = config_dir / VALID_VAULT_RELATIVE
     cfg_file = config_dir / "config.json"
     cfg = _load_json(cfg_file) or {}
     chk("config.json", "Archivo de configuración existe", cfg_file.exists())
+    chk(
+        "config.json privado",
+        "config.json sin permisos para grupo ni otros (600)",
+        cfg_file.exists() and _mode_private(cfg_file),
+    )
 
-    vault_file = config_dir / "captures" / ".pseudonym_vault.json"
-    v = _load_json(vault_file) if vault_file.exists() else None
+    v = _load_json(valid_vault) if valid_vault.exists() else None
     chk(
         "Vault existe",
-        "Vault de pseudonimización creado y accesible",
-        vault_file.exists(),
+        "Vault de pseudonimización creado y accesible (captures/.pseudonym_vault.json)",
+        valid_vault.exists(),
         f"{len(v)} entradas" if isinstance(v, dict) else "",
+    )
+
+    configured = cfg.get("vault_path")
+    chk(
+        "vault_path en config",
+        "config.json apunta al único vault válido (captures/.pseudonym_vault.json)",
+        isinstance(configured, str) and Path(configured) == valid_vault,
+        f"configurado: {configured}" if configured else "ausente",
     )
 
     salt = cfg.get("salt", "")
@@ -850,6 +906,20 @@ def audit_efdef(project_root: Path, config_dir: Path) -> dict:
         env_file.exists(),
     )
 
+    trace_dir = config_dir / "logs" / "trazas"
+    chk(
+        "Trazas privadas",
+        "Carpeta de trazas solo para el propietario (docs/trazabilidad.md §5)",
+        trace_dir.is_dir() and _mode_private(trace_dir),
+        "" if trace_dir.is_dir() else "carpeta ausente",
+    )
+
+    chk(
+        "Especificación de trazas",
+        "docs/trazabilidad.md existe (Trazabilidad)",
+        (project_root / "docs" / "trazabilidad.md").is_file(),
+    )
+
     for subdir in ["architecture", "guides", "reports", "decisions"]:
         p = project_root / "docs" / subdir
         chk(
@@ -859,26 +929,37 @@ def audit_efdef(project_root: Path, config_dir: Path) -> dict:
         )
 
     readme = project_root / "README.md"
-    readme_has_docs = "📚 Documentación" in (
-        readme.read_text(encoding="utf-8") if readme.exists() else ""
-    )
+    readme_text = readme.read_text(encoding="utf-8") if readme.exists() else ""
     chk(
         "README docs section",
         "README.md tiene sección Documentación como mapa del proyecto",
-        readme_has_docs,
+        "📚 Documentación" in readme_text,
+    )
+    broken = _broken_local_links(readme_text, project_root)
+    chk(
+        "Enlaces del README",
+        "Todos los enlaces relativos del README existen (sección 23.4)",
+        readme.exists() and not broken,
+        f"{len(broken)} roto(s): {', '.join(broken[:3])}" if broken else "",
     )
 
     claude_md = project_root / "CLAUDE.md"
-    has_workflow = False
-    if claude_md.exists():
-        content = claude_md.read_text(encoding="utf-8")
-        has_workflow = (
-            "Issue" in content and "Rama" in content and "Pull Request" in content
-        )
+    content = claude_md.read_text(encoding="utf-8") if claude_md.exists() else ""
+    repo_section = _section(content, "Repositorio & GitHub")
+    missing_fields = [f for f in CLAUDE_REPO_FIELDS if f not in repo_section]
     chk(
-        "Workflow CLAUDE.md",
-        "CLAUDE.md documenta flujo Issue→Rama→PR (Sección 22)",
-        has_workflow,
+        "CLAUDE.md: datos del repositorio",
+        "CLAUDE.md declara organización, repositorio, usuario y Proyecto Kanban (Sección 22)",
+        bool(repo_section) and not missing_fields,
+        f"faltan: {', '.join(missing_fields)}" if missing_fields else "",
+    )
+    workflow_section = _section(content, "Flujo de trabajo obligatorio")
+    missing_steps = [w for w in CLAUDE_WORKFLOW_STEPS if w not in workflow_section]
+    chk(
+        "CLAUDE.md: flujo obligatorio",
+        "CLAUDE.md documenta el flujo Issue → Rama → Desarrollo → Documentación → PR (Sección 22)",
+        bool(workflow_section) and not missing_steps,
+        f"faltan: {', '.join(missing_steps)}" if missing_steps else "",
     )
 
     passed_count = sum(1 for c in checks if c["passed"])
