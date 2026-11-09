@@ -19,8 +19,7 @@ import sys
 import time
 from pathlib import Path
 
-from Klaus_proxy_local import __version__, capture_retention, scan_repos
-from Klaus_proxy_local import update_check
+from Klaus_proxy_local import __version__, capture_retention, scan_repos, update_check
 from Klaus_proxy_local.addons_snapshot import ADDON_FILES, snapshot_addons
 from Klaus_proxy_local.certs import (
     ensure_mitmproxy_certs,

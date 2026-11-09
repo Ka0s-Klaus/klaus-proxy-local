@@ -5,8 +5,8 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-from Klaus_proxy_local import update_check as uc  # noqa: E402
 from Klaus_proxy_local import launcher  # noqa: E402
+from Klaus_proxy_local import update_check as uc  # noqa: E402
 
 
 def _release(tag: str, url: str = "https://github.com/org/repo/releases/tag/x") -> str:
