@@ -337,3 +337,12 @@ def test_issue_message_does_not_echo_payload_value():
     event["payload"]["result"] = "secreto-123"
     issues = ts.validate_event(event)
     assert issues and all("secreto-123" not in i for i in issues)
+
+
+def test_unknown_returned_model_is_not_counted_as_drift(tmp_path):
+    events = example_trace()
+    events[2]["payload"]["returned_model"] = "no_devuelto"
+    path = write_trace(tmp_path / "2026-11-06" / f"{TRACE_ID}.jsonl", events)
+    stats = ts.compute_stats([ts.read_trace_file(path)])
+    assert stats["model_version_drift"] == 0
+    assert stats["model_version_unknown"] == 1

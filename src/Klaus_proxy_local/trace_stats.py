@@ -53,6 +53,7 @@ EVENT_TYPES = frozenset(
 )
 ACTORS = frozenset({"user", "system", "model", "tool", "agent", "human_reviewer"})
 CHECK_RESULTS = ("pass", "warn", "fail")
+UNKNOWN_MODEL = "no_devuelto"  # valor de trazas cuando la API no devuelve modelo
 MAX_ISSUES_SHOWN = 3  # incidencias guardadas por traza en el informe
 MAX_TRACES_SHOWN = 10  # trazas con incidencias listadas en texto
 REVIEW_DECISIONS = ("approved", "rejected", "modified")
@@ -263,6 +264,7 @@ def compute_stats(reports: list[TraceReport]) -> dict[str, Any]:
     model_pairs: Counter[str] = Counter()
     model_calls = 0
     model_drift = 0
+    model_unknown = 0
     outputs = 0
     outputs_unreviewed = 0
     valid = 0
@@ -292,7 +294,10 @@ def compute_stats(reports: list[TraceReport]) -> dict[str, Any]:
                 model_calls += 1
                 requested = payload.get("requested_model")
                 returned = payload.get("returned_model")
-                if requested != returned:
+                if returned in (None, "", UNKNOWN_MODEL):
+                    # La API no devolvió modelo: no es una versión distinta
+                    model_unknown += 1
+                elif requested != returned:
                     model_drift += 1
                     model_pairs[f"{requested} → {returned}"] += 1
             elif etype == "verification_run":
@@ -325,6 +330,7 @@ def compute_stats(reports: list[TraceReport]) -> dict[str, Any]:
         "events_by_type": dict(event_types.most_common()),
         "model_calls": model_calls,
         "model_version_drift": model_drift,
+        "model_version_unknown": model_unknown,
         "model_version_pairs": dict(model_pairs.most_common()),
         "verifications": {k: dict(v) for k, v in sorted(checks.items())},
         "human_reviews": dict(decisions),
@@ -376,6 +382,7 @@ def render_text(stats: dict[str, Any], warning: str | None = None) -> str:
     add("🤖 Modelo")
     add(f"   Llamadas:                    {stats['model_calls']}")
     add(f"   Versión devuelta ≠ pedida:   {stats['model_version_drift']}")
+    add(f"   Versión no devuelta por la API: {stats.get('model_version_unknown', 0)}")
     for pair, count in stats["model_version_pairs"].items():
         add(f"      {pair}  ×{count}")
     add("")
