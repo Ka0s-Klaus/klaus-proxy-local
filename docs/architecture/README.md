@@ -17,6 +17,7 @@ Aquí vive todo lo que explica **cómo está construido** Klaus Proxy Local. Com
 | [🔬 Arquitectura](../ARCHITECTURE_DEEP_DIVE.md) | Arranque, los 4 addons, reglas de pseudonimización, garantías y límites |
 | [🔌 Anthropic Audit Proxy](../anthropic-audit-proxy.md) | Runbook técnico completo del proxy: flags, modos y operación |
 | [⚙️ Entorno de desarrollo](../setup.md) | Tests, lint y cómo probar cambios en el proxy |
+| [🧭 Evaluación: versión servidor](./evaluacion-version-servidor.md) | Qué funcionalidades del proxy local sirven en un gateway con dashboard (#131) |
 
 ---
 
