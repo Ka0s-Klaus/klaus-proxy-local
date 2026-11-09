@@ -52,6 +52,13 @@ def _no_real_repo_tokens():
 
 
 @pytest.fixture(autouse=True)
+def _no_real_port_probe():
+    """Never probe or kill the real port 8899 of a running proxy."""
+    with patch("Klaus_proxy_local.launcher.listening_pids", return_value=[]) as mock:
+        yield mock
+
+
+@pytest.fixture(autouse=True)
 def _no_real_repo_scan():
     """Never walk the user's real projects folder (#134)."""
     with patch(
@@ -525,6 +532,108 @@ class TestHandleSignal:
                 launcher.run()
         assert exc.value.code == 0
         mock_shutdown.assert_called_once()
+
+
+class TestFreeProxyPort:
+    """free_proxy_port(): liberar 8899 de un mitmdump previo, sin matar otros procesos."""
+
+    def test_no_listener_does_nothing(self, _no_real_port_probe):
+        launcher = ProxyLauncher()
+        with patch("os.kill") as mock_kill:
+            launcher.free_proxy_port()
+        mock_kill.assert_not_called()
+
+    def test_stale_mitmdump_is_terminated(self, _no_real_port_probe, capsys):
+        launcher = ProxyLauncher()
+        cmd = "python mitmdump -s addon.py -p 8899"
+        # Ocupado al consultar, libre tras el SIGTERM
+        _no_real_port_probe.side_effect = [[4242], []]
+        with (
+            patch("Klaus_proxy_local.launcher.process_command", return_value=cmd),
+            patch("os.kill") as mock_kill,
+        ):
+            launcher.free_proxy_port()
+        mock_kill.assert_called_once_with(4242, signal.SIGTERM)
+        out = capsys.readouterr().out
+        assert "PID 4242" in out
+        assert "mitmdump" in out
+        assert "liberado" in out
+
+    def test_stuck_mitmdump_is_killed(self, _no_real_port_probe):
+        launcher = ProxyLauncher()
+        sent = []  # señales enviadas al proceso previo
+
+        def fake_kill(pid, sig):
+            sent.append((pid, sig))
+
+        # Ignora SIGTERM: el puerto solo se libera tras SIGKILL
+        def fake_listening(port):
+            return [] if any(s == signal.SIGKILL for _, s in sent) else [4242]
+
+        # Reloj simulado: cada sleep avanza el tiempo sin esperar de verdad
+        clock = {"t": 0.0}
+
+        def fake_sleep(seconds):
+            clock["t"] += seconds
+
+        _no_real_port_probe.side_effect = fake_listening
+        with (
+            patch(
+                "Klaus_proxy_local.launcher.process_command", return_value="mitmdump"
+            ),
+            patch("os.kill", side_effect=fake_kill),
+            patch(
+                "Klaus_proxy_local.launcher.time.monotonic",
+                side_effect=lambda: clock["t"],
+            ),
+            patch("Klaus_proxy_local.launcher.time.sleep", side_effect=fake_sleep),
+        ):
+            launcher.free_proxy_port()
+        assert sent == [(4242, signal.SIGTERM), (4242, signal.SIGKILL)]
+
+    def test_foreign_process_aborts_without_killing(self, _no_real_port_probe):
+        launcher = ProxyLauncher()
+        _no_real_port_probe.side_effect = None
+        _no_real_port_probe.return_value = [999]
+        with (
+            patch(
+                "Klaus_proxy_local.launcher.process_command",
+                return_value="/usr/bin/nginx -g daemon off",
+            ),
+            patch("os.kill") as mock_kill,
+        ):
+            with pytest.raises(RuntimeError, match="lo usa otro proceso"):
+                launcher.free_proxy_port()
+        mock_kill.assert_not_called()
+
+    def test_run_frees_port_before_launching(self):
+        launcher = ProxyLauncher()
+        mock_process = MagicMock()
+        mock_process.wait.side_effect = lambda *a, **kw: launcher.handle_signal(
+            signal.SIGTERM, None
+        )
+        calls = []
+        with (
+            patch.object(launcher, "ensure_prerequisites"),
+            patch.object(launcher, "run_startup_scan"),
+            patch.object(launcher, "show_dashboard"),
+            patch.object(
+                launcher, "free_proxy_port", side_effect=lambda: calls.append("free")
+            ),
+            patch.object(
+                launcher,
+                "launch_mitmdump",
+                side_effect=lambda: (
+                    calls.append("launch"),
+                    setattr(launcher, "mitmdump_process", mock_process),
+                ),
+            ),
+            patch.object(launcher, "shutdown"),
+            patch("signal.signal"),
+        ):
+            with pytest.raises(SystemExit):
+                launcher.run()
+        assert calls == ["free", "launch"]
 
 
 class TestMainFunction:

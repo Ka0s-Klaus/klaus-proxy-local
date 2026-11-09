@@ -16,6 +16,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from Klaus_proxy_local import __version__, capture_retention, scan_repos
@@ -33,6 +34,36 @@ from Klaus_proxy_local.setup import (
     remember_projects_root,
     remember_repo_tokens,
 )
+
+PORT_FREE_TIMEOUT = 5.0  # s de espera tras SIGTERM antes de SIGKILL
+
+
+def listening_pids(port: int) -> list[int]:
+    """PIDs que escuchan en TCP `port`. Vacío si nadie lo usa o falta lsof."""
+    try:
+        out = subprocess.run(
+            ["lsof", "-nP", "-t", f"-iTCP:{port}", "-sTCP:LISTEN"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        ).stdout
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return []
+    return sorted({int(p) for p in out.split() if p.isdigit()})
+
+
+def process_command(pid: int) -> str:
+    """Línea de comando de un proceso, para mostrarla al usuario."""
+    try:
+        out = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "command="],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return "?"
+    return out.strip() or "?"
 
 
 class ProxyLauncher:
@@ -210,6 +241,60 @@ class ProxyLauncher:
         print("╚" + "═" * 68 + "╝")
         print("")
 
+    def _wait_port_free(self, timeout: float) -> bool:
+        """Espera hasta `timeout` s a que el puerto quede libre."""
+        deadline = time.monotonic() + timeout
+        while listening_pids(self.PORT):
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.2)
+        return True
+
+    def free_proxy_port(self) -> None:
+        """Si un proxy previo ocupa el puerto, lo detiene para relanzar.
+
+        Solo se termina un proceso mitmdump. Si el puerto lo usa cualquier
+        otro proceso, el arranque se aborta: no se mata algo que no es nuestro.
+
+        Raises:
+          RuntimeError: Si el puerto lo usa otro proceso o no se libera.
+        """
+        pids = listening_pids(self.PORT)
+        if not pids:
+            return
+
+        commands = {pid: process_command(pid) for pid in pids}
+        for pid, cmd in commands.items():
+            if "mitmdump" not in cmd:
+                raise RuntimeError(
+                    f"❌ El puerto {self.PORT} lo usa otro proceso (PID {pid}):\n"
+                    f"   {cmd}\n"
+                    "   No lo elimino automáticamente. Ciérralo o cambia el puerto."
+                )
+
+        for pid, cmd in commands.items():
+            print(f"⚠️  Puerto {self.PORT} ocupado por un proxy previo (PID {pid})")
+            print(f"   {cmd}")
+            print("   🛑 Deteniéndolo para relanzar el proxy...")
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+
+        if not self._wait_port_free(PORT_FREE_TIMEOUT):
+            print("   ⚠️  No respondió a SIGTERM; forzando parada (SIGKILL)...")
+            for pid in pids:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            if not self._wait_port_free(2.0):
+                raise RuntimeError(
+                    f"❌ El puerto {self.PORT} sigue ocupado tras forzar la parada."
+                )
+
+        print(f"✅ Puerto {self.PORT} liberado\n")
+
     def launch_mitmdump(self) -> None:
         """Launch mitmdump with pseudonymization and capture addons.
 
@@ -303,15 +388,15 @@ class ProxyLauncher:
             )
 
             # Small delay to let mitmdump start
-            import time
-
             time.sleep(1)
 
             # Check if process is still alive
             if self.mitmdump_process.poll() is not None:
                 raise RuntimeError(
-                    "❌ mitmdump failed to start.\n"
-                    "   Make sure mitmproxy is installed: pip install mitmproxy"
+                    "❌ mitmdump failed to start (revisa su salida arriba).\n"
+                    "   Si el error es 'address already in use', otro proceso ocupa "
+                    f"el puerto {self.PORT}.\n"
+                    "   Si no, asegúrate de que mitmproxy está instalado: pip install mitmproxy"
                 )
 
         except FileNotFoundError:
@@ -402,7 +487,8 @@ class ProxyLauncher:
             # Phase 3: Show status
             self.show_dashboard()
 
-            # Phase 3: Launch proxy
+            # Phase 3: Launch proxy (liberando antes el puerto de un proxy previo)
+            self.free_proxy_port()
             self.launch_mitmdump()
 
             # Phase 4: Keep running
