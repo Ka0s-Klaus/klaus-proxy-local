@@ -578,9 +578,14 @@ class TestFreeProxyPort:
 
         _no_real_port_probe.side_effect = fake_listening
         with (
-            patch("Klaus_proxy_local.launcher.process_command", return_value="mitmdump"),
+            patch(
+                "Klaus_proxy_local.launcher.process_command", return_value="mitmdump"
+            ),
             patch("os.kill", side_effect=fake_kill),
-            patch("Klaus_proxy_local.launcher.time.monotonic", side_effect=lambda: clock["t"]),
+            patch(
+                "Klaus_proxy_local.launcher.time.monotonic",
+                side_effect=lambda: clock["t"],
+            ),
             patch("Klaus_proxy_local.launcher.time.sleep", side_effect=fake_sleep),
         ):
             launcher.free_proxy_port()
@@ -618,7 +623,10 @@ class TestFreeProxyPort:
             patch.object(
                 launcher,
                 "launch_mitmdump",
-                side_effect=lambda: (calls.append("launch"), setattr(launcher, "mitmdump_process", mock_process)),
+                side_effect=lambda: (
+                    calls.append("launch"),
+                    setattr(launcher, "mitmdump_process", mock_process),
+                ),
             ),
             patch.object(launcher, "shutdown"),
             patch("signal.signal"),
