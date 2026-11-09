@@ -6,7 +6,7 @@ tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/instalacion, proxy/configura
 
 > Instalar, arrancar el proxy y usar Claude Code a través de él.
 
-**Versión:** v0.12.0 · **Relacionado:** [Guía de uso](./USER_GUIDE.md) · [Runbook técnico](./anthropic-audit-proxy.md) · [Troubleshooting](./TROUBLESHOOTING.md)
+**Versión:** v0.12.1 · **Relacionado:** [Guía de uso](./USER_GUIDE.md) · [Runbook técnico](./anthropic-audit-proxy.md) · [Troubleshooting](./TROUBLESHOOTING.md)
 
 ---
 

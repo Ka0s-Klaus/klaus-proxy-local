@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.12.1] — 2026-11-09
+
+### Fixed
+- **El proxy dejaba de conectar con `server closed connection` tras un rato sin actividad** (#228, #229) — mitmproxy 12 usa `connection_strategy=eager` por defecto: abría la conexión con Anthropic al hacer CONNECT y la dejaba ociosa. El servidor la cerraba y la `POST /v1/messages` siguiente fallaba. `launch_mitmdump` pasa ahora `--set connection_strategy=lazy`.
+
+---
+
 ## [0.12.0] — 2026-11-09
 
 ### Added
