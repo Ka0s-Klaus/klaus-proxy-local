@@ -91,6 +91,8 @@ klaus-scan ~/proyectos/mi-repo   # detecta secretos y nombres de negocio; aprueb
 klaus-leak-report --open         # por proyecto: qué no cubre el proxy, qué ha salido y % de cobertura
 klaus-leak-report --drill        # simulacro: comprueba que un «0 fugas» es fiable
 klaus-startup-scan --dry-run     # qué hallazgos añadiría el escaneo de inicio al vault (sin escribir)
+klaus-install-wrappers           # reinstala los wrappers claude-with-proxy (lo hace klaus-setup)
+klaus-install-python             # comprueba Python 3.13 y lo instala si falta (manual)
 
 # Terminal 3 alternativo: auditar payloads (CLI)
 klaus-audit-payloads
