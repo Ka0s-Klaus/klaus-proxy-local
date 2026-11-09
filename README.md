@@ -169,6 +169,7 @@ Lo que conviene saber de `klaus-setup`:
 ## 📦 Releases
 
 ### v0.12.3 — Vault y configuración ✅
+- 🔔 Aviso al arrancar si hay una versión más reciente del proxy; el arranque continúa (#246, #247). Desactivable con `KLAUS_SKIP_UPDATE_CHECK=1`
 - 🔐 El arranque corrige `vault_path` y `capture_dir` de `config.json` (#240, #241)
 - 🧭 Auditoría EFDEF: vault, CLAUDE.md, enlaces del README y permisos verificados; comprobación de que los escritores usan el vault válido (#238, #239, #242, #243)
 
