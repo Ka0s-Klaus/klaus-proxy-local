@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.12.2] — 2026-11-09
+
+### Fixed
+- **Las trazas registraban `count_tokens` como llamada al modelo** (#234, #235) — el addon comparaba el path por prefijo, así que `POST /v1/messages/count_tokens` (respuesta `{"input_tokens": N}`, sin `model` ni `usage`) generaba trazas con `returned_model: no_devuelto`. Ahora solo se traza `POST /v1/messages` exacto, con o sin query string.
+
+---
+
 ## [0.12.1] — 2026-11-09
 
 ### Fixed
