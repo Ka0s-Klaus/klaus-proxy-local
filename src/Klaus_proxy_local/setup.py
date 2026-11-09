@@ -44,8 +44,8 @@ def sent_dir() -> Path:
 
 
 def vault_path() -> Path:
-    """Path to pseudonym vault."""
-    return capture_dir() / ".vault.json"
+    """Único vault válido: el que usa el pseudonimizador (.pseudonym_vault.json)."""
+    return capture_dir() / ".pseudonym_vault.json"
 
 
 def _generate_salt() -> str:
@@ -131,7 +131,7 @@ def migrate_config_paths() -> None:
 
     Fixes:
       - capture_dir pointing to /Users/.../proyectos/klaus-proxy-local/captures → ~/.klaus-proxy/captures
-      - vault_path pointing outside ~/.klaus-proxy → ~/.klaus-proxy/captures/.vault.json
+      - vault_path distinto del vault válido → ~/.klaus-proxy/captures/.pseudonym_vault.json
     """
     cfg_file = config_file()
     if not cfg_file.exists():
