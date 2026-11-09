@@ -211,7 +211,11 @@ create_venv() {
     if [[ -d "${VENV_DIR}" ]]; then
         # Verificar que el venv existente tiene la versión correcta
         local venv_python="${VENV_DIR}/bin/python"
-        if [[ -x "$venv_python" ]]; then
+        if [[ ! -x "$venv_python" ]]; then
+            # Enlace roto: suele ser un venv creado con una versión de Python ya desinstalada
+            warn "Venv existente roto (${venv_python} no es ejecutable), recreando..."
+            rm -rf "${VENV_DIR}"
+        else
             local venv_ver
             venv_ver=$("$venv_python" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "0.0")
             if version_ge "$venv_ver" "${MIN_VERSION}"; then
