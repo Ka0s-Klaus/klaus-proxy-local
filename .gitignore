@@ -255,3 +255,7 @@ active-project.json
 !docs/*.plist.template
 # Ruido de macOS
 .DS_Store
+
+# Ficheros temporales de editores
+*.swp
+*.swo

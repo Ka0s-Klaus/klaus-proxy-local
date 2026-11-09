@@ -20,6 +20,14 @@ Todo lo que necesitas para **usar, operar y solucionar problemas** de Klaus Prox
 
 ---
 
+## 🛠️ Para mantenedores
+
+| Guía | Descripción |
+|---|---|
+| [✅ Checklist de release](./RELEASE_CHECKLIST.md) | Dónde cambia la versión y cómo se publica una release |
+
+---
+
 ## 🔍 Para auditores
 
 | Guía | Descripción |

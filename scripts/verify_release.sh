@@ -73,11 +73,14 @@ echo ""
 echo "📌 VERSION CHECKS"
 echo "================="
 
-# Check 2.1: pyproject.toml version
-if grep -q 'version = "0.1.0"' pyproject.toml; then
-    pass "pyproject.toml: version 0.1.0"
+# Check 2.1: versión única en pyproject.toml, __init__.py y la insignia del README (#250)
+PYPROJECT_VERSION=$(sed -n 's/^version = "\([^"]*\)"/\1/p' pyproject.toml | head -1)
+INIT_VERSION=$(sed -n 's/^__version__ = "\([^"]*\)"/\1/p' src/Klaus_proxy_local/__init__.py | head -1)
+BADGE_VERSION=$(sed -n 's/.*badge\/version-\([0-9.]*\)-.*/\1/p' README.md | head -1)
+if [ -n "$PYPROJECT_VERSION" ] && [ "$PYPROJECT_VERSION" = "$INIT_VERSION" ] && [ "$PYPROJECT_VERSION" = "$BADGE_VERSION" ]; then
+    pass "versión coherente: $PYPROJECT_VERSION (pyproject, __init__, README)"
 else
-    fail "pyproject.toml: version mismatch"
+    fail "versiones distintas: pyproject=$PYPROJECT_VERSION __init__=$INIT_VERSION README=$BADGE_VERSION"
 fi
 
 echo ""

@@ -10,9 +10,9 @@ tags: [proyecto/klaus-proxy-local, tipo/guia, proxy/instalacion]
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://python.org)
-[![Version](https://img.shields.io/badge/version-0.10.0-green)](./docs/RELEASE_v0.10.0_NOTES.md)
+[![Version](https://img.shields.io/badge/version-0.12.3-green)](./docs/RELEASE_v0.12.3_NOTES.md)
 [![Tests](https://img.shields.io/badge/tests-956%20passed-brightgreen)](./.github/workflows/ci.yml)
-[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.10.0_NOTES.md)
+[![Status](https://img.shields.io/badge/status-Production%20Ready-success)](./docs/RELEASE_v0.12.3_NOTES.md)
 [![mitmproxy](https://img.shields.io/badge/mitmproxy-addon-orange)](https://mitmproxy.org)
 [![K*](https://img.shields.io/badge/K%2A-AI%20Workspace-purple)](https://github.com/Ka0s-Klaus)
 
@@ -370,7 +370,7 @@ Release notes no conservadas en `docs/`.
 | [🔌 Runbook técnico](./docs/anthropic-audit-proxy.md) | Referencia completa del proxy |
 | [🧯 Simulacro de fugas](./docs/guides/LEAK_DRILL.md) | `klaus-leak-report --drill`: ¿el detector ve una fuga? |
 | [🧾 Trazabilidad IA](./docs/trazabilidad.md) | Especificación de trazas de ejecuciones con IA y el comando `klaus-trazas` |
-| [🚀 Release v0.10.0](./docs/RELEASE_v0.10.0_NOTES.md) | Notas de la última release |
+| [🚀 Release v0.12.3](./docs/RELEASE_v0.12.3_NOTES.md) | Notas de la última release |
 
 ---
 
