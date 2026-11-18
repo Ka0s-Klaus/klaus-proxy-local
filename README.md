@@ -355,7 +355,7 @@ Release notes no conservadas en `docs/`.
 |---|---|---|
 | 🏗️ **Arquitectura** | Diseño interno, componentes y flujos | [docs/architecture/](./docs/architecture/README.md) |
 | 📖 **Guías** | Quick start, runbooks, troubleshooting | [docs/guides/](./docs/guides/README.md) |
-| 📊 **Informes** | Audit dashboard, informes locales y notas de releases | [docs/reports/](./docs/reports/README.md) |
+| 📊 **Informes** | Audit dashboard, informes locales, incidencias y notas de releases | [docs/reports/](./docs/reports/README.md) |
 | 🗄️ **Archivo** | Documentos de versiones anteriores (no reflejan el estado actual) | [docs/archive/](./docs/archive/README.md) |
 | 🧭 **Decisiones (ADRs)** | Decisiones técnicas y sus alternativas descartadas | [docs/decisions/](./docs/decisions/README.md) |
 

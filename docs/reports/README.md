@@ -36,6 +36,14 @@ Otros informes locales:
 
 ---
 
+## 🚨 Incidencias
+
+| Incidencia | Descripción |
+|---|---|
+| [🚨 Módulos no importables desde mitmdump](./incidencia-mitmdump-modulos.md) | Trazas y centinela inactivos por resolución del binario `mitmdump` (#252) |
+
+---
+
 ## 🚀 Notas de releases
 
 | Versión | Documento |
